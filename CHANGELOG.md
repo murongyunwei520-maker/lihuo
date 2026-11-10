@@ -107,3 +107,5 @@ odeId 绑定发起节点，卡片会自己按 nodeId 找回任务并把结果写
 + [调整] 豆包视频参数按画布设置下发：时长取视频秒数、比例由尺寸换算（videoAspectRatio），并随任务记录 requestedParams。
 + [修复] 统一生图卡片选豆包模型做图生图/图片编辑时参考图未上传：requestEdit 增加豆包分支，参考图上传后走图像生成任务。
 + [调整] 生成结果按 nodeId 回填发起卡片（视频任务）。
++ [优化] 删除死代码：canvas-size-picker、image-generation-pending、dia-text-reveal、use-user-store、services/api/request（全仓零引用，约 330 行），并清理 doubao-bridge 下的 .bak 备份文件。
++ [优化] 桥接去重：新增 doubao-bridge/lib/doubao-context.mjs 统一加载 playwright、启动/连接账号 profile；ead-thread、probe-login-state、inject-cookies、probe-video-caps、probe-image-caps 改为复用该模块。

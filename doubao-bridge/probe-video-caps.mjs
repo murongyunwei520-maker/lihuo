@@ -1,25 +1,14 @@
-// 读取豆包「视频生成」面板的真实参数：模型下拉、比例/时长下拉的可选值。
-// 用账号自己的 profile（屏幕外窗口），只读不改，不发送任何内容。
+// 读豆包面板真实参数（诊断脚本）。结果写 <state>/<caps>.json。
 import fs from "node:fs";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+
+import { launchProfileContext, loadDbbBrowser } from "./lib/doubao-context.mjs";
 
 const stateDir = path.resolve(process.argv[2]);
 process.env.DBB_STATE_DIR = stateDir;
-const dbbRoot = path.resolve(import.meta.dirname, "..", "vendor", "doubao-brain", "dbb");
-const { depsEntry, findBrowser } = await import(pathToFileURL(path.join(dbbRoot, "src", "browser.mjs")).href);
-const site = await import(pathToFileURL(path.join(dbbRoot, "src", "site.mjs")).href);
-const found = findBrowser();
-const pw = await import(pathToFileURL(depsEntry()).href);
-const chromium = (pw.default ?? pw).chromium;
-
-const ctx = await chromium.launchPersistentContext(path.join(stateDir, "profile"), {
-    executablePath: found?.executablePath,
-    headless: false,
-    viewport: null,
-    locale: "zh-CN",
-    args: ["--window-position=-2400,-2400", "--window-size=1440,960", "--no-first-run", "--no-default-browser-check"],
-});
+const { DBB_ROOT } = await import("./lib/doubao-context.mjs");
+const site = await import(new URL("src/site.mjs", "file:///" + DBB_ROOT.replace(/\\/g, "/") + "/").href);
+const { ctx } = await launchProfileContext(stateDir, { offscreen: true });
 
 const readMenus = async (page) =>
     page.evaluate(() => {
