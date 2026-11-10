@@ -287,17 +287,21 @@ try {
         const isImage = spec.capability === "图像生成";
         const opened = await page.evaluate((imageMode) => {
             const viewportH = window.innerHeight;
-            const el = [...document.querySelectorAll("button, [role='button'], [class*='cursor-pointer']")].find((node) => {
-                const t = (node.innerText || "").trim().replace(/\s+/g, " ");
-                const r = node.getBoundingClientRect();
-                if (r.width < 40 || r.y < viewportH * 0.6) return false;
-                return imageMode ? t.startsWith("比例") : /·/.test(t) && /\d+\s*s|自动/.test(t);
+            const candidates = [...document.querySelectorAll("button, [role='button'], [class*='cursor-pointer']")]
+                .map((node) => ({ text: (node.innerText || "").trim().replace(/\s+/g, " "), rect: node.getBoundingClientRect() }))
+                .filter((item) => item.rect.width >= 40 && item.rect.height >= 16 && item.rect.y > viewportH * 0.45);
+            const hit = candidates.find((item) => {
+                if (imageMode) return item.text.startsWith("比例") || /^\d+:\d+\s*·/.test(item.text);
+                return /·/.test(item.text) || (/^\d+\s*s$/.test(item.text) === false && /\d+\s*s/.test(item.text));
             });
-            if (!el) return null;
-            const r = el.getBoundingClientRect();
-            return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) };
+            if (!hit) {
+                window.__paramCandidates = candidates.slice(0, 12).map((item) => item.text).filter(Boolean);
+                return null;
+            }
+            return { x: Math.round(hit.rect.x + hit.rect.width / 2), y: Math.round(hit.rect.y + hit.rect.height / 2), text: hit.text };
         }, isImage);
         if (opened) {
+            progress(`参数入口：${opened.text}`);
             await page.mouse.click(opened.x, opened.y);
             await page.waitForTimeout(1200);
             if (spec.ratio) {
@@ -314,6 +318,9 @@ try {
             }
             await page.keyboard.press("Escape");
             await page.waitForTimeout(500);
+        } else {
+            const texts = await page.evaluate(() => window.__paramCandidates || []);
+            progress(`找不到参数入口，页面候选：${texts.join(" | ") || "无"}`);
         }
     }
 
@@ -324,22 +331,22 @@ try {
             const pick = (matcher) =>
                 [...document.querySelectorAll("button, [role='button'], [class*='cursor-pointer']")]
                     .map((node) => ({ text: (node.innerText || "").trim().replace(/\s+/g, " "), rect: node.getBoundingClientRect() }))
-                    .filter((item) => item.rect.width > 30 && item.rect.height > 14 && item.rect.y > vh * 0.55 && matcher(item.text))
+                    .filter((item) => item.rect.width > 30 && item.rect.height > 14 && item.rect.y > vh * 0.45 && matcher(item.text))
                     .map((item) => item.text)[0] || null;
             return { model: pick((t) => t.startsWith("模型")), params: pick((t) => /·/.test(t) && /\d+\s*s|自动/.test(t)) };
         });
 
     const applied = await readApplied();
     progress(`参数读回：${applied.model || "—"} | ${applied.params || "—"}`);
-    // 参数校验：读不到就只警告，不报错（生图模式 UI 可能和视频不一样）
+    // 参数校验：读不到就报错，绝不按默认值偷偷生成（「自动」比例允许读不到）
+    const wantRatio = spec.ratio && spec.ratio !== "自动";
     const modelOk = !spec.model || !applied.model || (applied.model || "").includes(spec.model);
-    const ratioOk = !spec.ratio || !applied.params || (applied.params || "").includes(spec.ratio);
-    const durationOk = !spec.duration || !applied.params || (applied.params || "").includes(`${spec.duration}s`);
+    const ratioOk = !wantRatio || (applied.params || "").includes(spec.ratio);
+    const durationOk = !spec.duration || (applied.params || "").includes(`${spec.duration}s`);
     if (!modelOk || !ratioOk || !durationOk) {
-        progress(`参数可能未完全生效：期望 ${spec.model || "-"} / ${spec.ratio || "-"} / ${spec.duration || "-"}s，实际 ${applied.model || "-"} / ${applied.params || "-"}`);
-    } else {
-        progress("参数已按画布选择生效");
+        throw new Error(`参数未按画布生效：期望 ${spec.model || "-"} / ${spec.ratio || "-"} / ${spec.duration || "-"}s，页面实际 ${applied.model || "-"} / ${applied.params || "-"}`);
     }
+    progress("参数已按画布选择生效");
 
     // 素材：画布上连到本节点的图片/视频会以附件形式上传，和提示词一起提交
     if (Array.isArray(spec.attachments) && spec.attachments.length) {

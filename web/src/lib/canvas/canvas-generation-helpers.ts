@@ -103,9 +103,16 @@ export function getInputSummary(inputs: NodeGenerationInput[]) {
 }
 
 export function buildGenerationConfig(config: AiConfig, node: CanvasNodeData | undefined, mode: CanvasNodeGenerationMode): AiConfig {
+    const resolvedModel = resolveModelForCapability(config, node?.metadata?.model, mode);
     return {
         ...config,
-        model: resolveModelForCapability(config, node?.metadata?.model, mode),
+        model: resolvedModel,
+        // 节点上选的模型要同步到对应能力字段：video.ts 读 videoModel、image.ts 读 imageModel，
+        // 不同步就会拿全局旧值去调用（例如视频节点选了豆包却走了 OpenAI 分支）。
+        ...(mode === "video" ? { videoModel: resolvedModel } : {}),
+        ...(mode === "image" ? { imageModel: resolvedModel } : {}),
+        // 豆包账号：节点上选的优先，其次全局配置
+        doubaoAccountId: String(node?.metadata?.doubaoAccountId || config.doubaoAccountId || ""),
         reasoningEffort: node?.metadata?.reasoningEffort || config.reasoningEffort || defaultConfig.reasoningEffort,
         quality: node?.metadata?.quality || config.quality || defaultConfig.quality,
         size: node?.metadata?.size || config.size || defaultConfig.size,

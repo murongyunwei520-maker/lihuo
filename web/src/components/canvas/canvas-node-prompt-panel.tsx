@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
 import { ArrowUp, LoaderCircle, Maximize2, Square } from "lucide-react";
-import { Button, Modal, Tooltip } from "antd";
+import { Button, Modal, Select, Tooltip } from "antd";
 import { useTranslation } from "react-i18next";
 
 import { ModelPicker } from "@/components/model-picker";
+import { isDoubaoBuiltinModel } from "@/constants/doubao-builtin";
+import { listAccounts, type DoubaoAccount } from "@/services/api/doubao-bridge";
 import { defaultConfig, resolveModelForCapability, useConfigStore, useEffectiveConfig, type AiConfig } from "@/stores/use-config-store";
+import { useDoubaoAccountStore } from "@/stores/use-doubao-account-store";
 import { canvasThemes } from "@/lib/canvas-theme";
 import { useThemeStore } from "@/stores/use-theme-store";
 import { CanvasImageSettingsPopover } from "./canvas-image-settings-popover";
@@ -99,6 +102,7 @@ export function CanvasNodePromptPanel({ node, nodes, isRunning, onPromptChange, 
                     {mode === "image" ? (
                         <>
                             <ModelPicker config={config} value={config.model} onChange={(model) => onConfigChange(node.id, { model })} capability="image" onMissingConfig={() => openConfigDialog(true)} className="max-w-[190px]" />
+                            <DoubaoAccountInlinePicker model={config.imageModel || config.model} accountId={config.doubaoAccountId} onChange={(value) => onConfigChange(node.id, { doubaoAccountId: value })} />
                             <CanvasImageSettingsPopover
                                 config={config}
                                 placement="topLeft"
@@ -110,7 +114,8 @@ export function CanvasNodePromptPanel({ node, nodes, isRunning, onPromptChange, 
                         </>
                     ) : mode === "video" ? (
                         <>
-                            <ModelPicker config={config} value={config.model} onChange={(model) => onConfigChange(node.id, { model })} capability="video" onMissingConfig={() => openConfigDialog(true)} className="max-w-[190px]" />
+                            <ModelPicker config={config} value={config.videoModel || config.model} onChange={(model) => onConfigChange(node.id, { videoModel: model, model })} capability="video" onMissingConfig={() => openConfigDialog(true)} className="max-w-[190px]" />
+                            <DoubaoAccountInlinePicker model={config.videoModel || config.model} accountId={config.doubaoAccountId} onChange={(value) => onConfigChange(node.id, { doubaoAccountId: value })} />
                             <CanvasVideoSettingsPopover config={config} buttonClassName="!h-10 !max-w-[220px] !justify-start !rounded-full !px-3" onConfigChange={(key, value) => onConfigChange(node.id, videoConfigPatch(key, value))} />
                         </>
                     ) : mode === "audio" ? (
@@ -168,9 +173,15 @@ function defaultMode(type: CanvasNodeData["type"]): CanvasNodeGenerationMode {
 }
 
 function buildNodeConfig(globalConfig: AiConfig, node: CanvasNodeData, mode: CanvasNodeGenerationMode): AiConfig {
+    const resolvedModel = resolveModelForCapability(globalConfig, node.metadata?.model, mode);
     return {
         ...globalConfig,
-        model: resolveModelForCapability(globalConfig, node.metadata?.model, mode),
+        model: resolvedModel,
+        // 节点面板选中的模型要同时落到对应能力字段，否则 video.ts 读 videoModel 会拿到全局旧值
+        ...(mode === "video" ? { videoModel: resolvedModel } : {}),
+        ...(mode === "image" ? { imageModel: resolvedModel } : {}),
+        // 豆包账号：节点上选的优先，其次全局配置
+        doubaoAccountId: String(node.metadata?.doubaoAccountId || globalConfig.doubaoAccountId || ""),
         reasoningEffort: node.metadata?.reasoningEffort || globalConfig.reasoningEffort || defaultConfig.reasoningEffort,
         quality: node.metadata?.quality || globalConfig.quality || defaultConfig.quality,
         size: node.metadata?.size || globalConfig.size || defaultConfig.size,
@@ -201,4 +212,29 @@ function audioConfigPatch(key: CanvasAudioSettingKey, value: string) {
     if (key === "audioFormat") return { audioFormat: value };
     if (key === "audioSpeed") return { audioSpeed: value };
     return { audioInstructions: value };
+}
+
+/** 选了豆包模型时，节点里直接出现账号下拉（不选则跟随左侧号池当前账号）。 */
+function DoubaoAccountInlinePicker({ model, accountId, onChange }: { model: string; accountId: string; onChange: (value: string) => void }) {
+    const currentAccountId = useDoubaoAccountStore((state) => state.currentAccountId);
+    const [accounts, setAccounts] = useState<DoubaoAccount[]>([]);
+    const doubaoModel = isDoubaoBuiltinModel(model);
+    useEffect(() => {
+        if (doubaoModel) void listAccounts().then(setAccounts).catch(() => undefined);
+    }, [doubaoModel]);
+    if (!doubaoModel) return null;
+    return (
+        <Select
+            size="small"
+            className="max-w-[170px]"
+            value={accountId || undefined}
+            placeholder={currentAccountId ? "跟随号池当前账号" : "选择豆包账号"}
+            allowClear
+            onChange={(value) => onChange(value || "")}
+            options={accounts.map((account) => ({
+                value: account.id,
+                label: `${account.name}${account.state.loggedIn ? "" : "（未登录）"}${account.id === currentAccountId ? " · 当前" : ""}`,
+            }))}
+        />
+    );
 }
