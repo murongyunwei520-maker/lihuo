@@ -109,6 +109,8 @@ export async function createVideoGenerationTask(config: AiConfig, prompt: string
             accountSelectionMode,
             prompt,
             capability: "视频生成",
+            // 桥接强制要求：不传会被 400 拒绝（INVALID_ARTIFACT_KIND）
+            expectedArtifactKind: "video",
             mode: attachments.length ? "image-to-video" : "text-to-video",
             modelName: modelOptionName(selectedModel),
             requestedParams: { model: modelOptionName(selectedModel), ratio, duration },
