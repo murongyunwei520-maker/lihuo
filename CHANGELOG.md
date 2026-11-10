@@ -9,6 +9,7 @@
 + [新增] 非豆包视频模型的面板新增「更多参数」分组，可配置「生成音频」「添加水印」，对应请求体里的 `generate_audio` / `watermark`。
 + [优化] `model-schema.ts` 新增 `configKey` 绑定与 `readVideoRequestParams`，参数值直接读写全局配置，不再另存一份，改一个值就能进提交请求。
 + [优化] 删除三个零引用文件（`doubao-video-node.tsx`、`doubao-image-node.tsx`、`doubao-ref-picker.tsx`，约 72KB），豆包模型统一走通用图片/视频卡片的模型下拉。
++ [修复] 修掉 `pnpm typecheck` 的 8 个类型错误（DynamicParamsPanel 的 Slider 属性与 JSX 渲染、画布视频任务 provider 类型、豆包账号调度模式类型、model-schema 的返回类型与参数收窄、单测导入路径），类型检查恢复通过。
 + [调整] 接入 doubao-brain（dbb）：新增本地桥接服务 `doubao-bridge`，按账号隔离 `DBB_STATE_DIR`，提供账号、登录、模型读取、任务与产物下载接口。
 + [新增] 新增「豆包账号」页面：账号池管理（添加/登录/检测/退出/删除/设为当前），每个账号独立浏览器 profile 与登录态。
 + [新增] 画布新增「豆包视频」节点：文生/参考图/参考视频三种模式、智能推荐账号（需手动确认）、参数核验、额度如实标注「无法确认」、提交前确认弹窗、任务进度与真实 MP4 回传画布。

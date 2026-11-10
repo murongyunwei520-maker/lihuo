@@ -82,11 +82,9 @@
 - **位置**：`web/dist/assets/index-*.js` 约 3.75MB
 - **建议**：后续做代码分割和懒加载
 
-### 7.1 `pnpm typecheck` 基线不干净（8 个类型错误）
-- **现象**：`tsc --noEmit` 有 8 个报错，`pnpm build` 却通过（build 只跑 esbuild，不做类型检查）
-- **影响**：类型检查不能当质量门禁；新人容易误判是自己改坏的
-- **清单**：见 `CURRENT_STATUS.md` 第五节
-- **注意**：`DynamicParamsPanel.tsx` 的 2 个报错属旧代码，本轮接入时未修
+### 7.1 `pnpm typecheck` 基线不干净（已修复）
+- **状态**：✅ 8 个类型错误已修掉，`tsc --noEmit` 现在 exit 0，可以当质量门禁
+- **注意**：`pnpm build` 只跑 esbuild、不做类型检查，以后改完代码记得单独跑 `pnpm typecheck`
 
 ### 8. Windows 子进程终止可能不彻底
 - **现象**：超时 kill 后，子进程的子进程（浏览器）可能还在

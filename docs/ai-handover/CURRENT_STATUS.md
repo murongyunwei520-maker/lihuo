@@ -77,19 +77,21 @@ DynamicParamsPanel    ███████████████████�
 
 ---
 
-## 五、Build 状态
+## 五、Build 与类型检查状态
 
-- `vite build`（`pnpm build`）：✅ 通过，exit code 0，7809 modules，38.4s，产物 `dist/assets/index-*.js` 3.75MB（仍有 chunk 体积警告）
-- `tsc --noEmit`（`pnpm typecheck`）：❌ **基线不干净，改动前就有 8 个类型错误**，不是本轮引入：
-  1. `components/DynamicParamsPanel.tsx:61` — `Slider` 不支持 `size` 属性
-  2. `components/DynamicParamsPanel.tsx:131` — `Number(values[...]) || field.defaultValue` 把 `unknown` 渲染到 JSX
-  3. `pages/canvas/project.tsx:329` — `videoTaskProvider` 允许 `plugin`，但节点元数据类型只允许 `openai`/`gemini`
-  4. `pages/canvas/project.tsx:374` — `provider` 为 `string`，与联合类型不兼容
-  5. `services/api/video.ts:108` — `accountSelectionMode` 为 `string`，与 `"manual" | "auto" | "round-robin"` 不兼容
-  6. `stores/__tests__/model-schema.test.ts:7` — 导入路径写成 `./model-schema`，应为 `../model-schema`
-  7. `stores/model-schema.ts:133` — `getModelSchema()` 返回类型里没有 `schemaVersion`
-  8. `stores/model-schema.ts:290` — `validateParamsAgainstSchema()` 里 `value` 收窄失效
-- 结论：`pnpm build` 只跑 esbuild、不做类型检查，所以"构建通过"不等于类型正确；接手时若 `pnpm typecheck` 报错，先对照上面这份基线，不要误以为是自己改坏的。
+- `vite build`（`pnpm build`）：✅ 通过，exit code 0，7809 modules，约 40–70s，产物 `dist/assets/index-*.js` 3.75MB（仍有 chunk 体积警告）
+- `tsc --noEmit`（`pnpm typecheck`）：✅ 通过，exit code 0
+- 注意：`build` 脚本是 `"vite build"`，只跑 esbuild、**不做类型检查**；改完代码要单独跑 `pnpm typecheck` 才能发现类型错误。
+
+### 本轮修掉的 8 个类型错误（改动前的基线）
+1. `components/DynamicParamsPanel.tsx` — antd `Slider` 不支持 `size`，删除该属性
+2. `components/DynamicParamsPanel.tsx` — slider 当前值从 `unknown` 渲染进 JSX，改成 `String(Number(...))`
+3. `types/canvas.ts` — `videoTaskProvider` 补上 `"doubao"`（代码本来就会写 doubao）
+4. `pages/canvas/project.tsx` — 闭包里 `task.provider` 的类型收窄丢失，先取 `const provider` 再写入
+5. `pages/canvas/project.tsx` — `provider` 局部变量由 `string` 改为 `VideoGenerationTask["provider"]`
+6. `services/api/video.ts` — `accountSelectionMode` 从 `string` 收窄为 `"manual" | "auto" | "round-robin"`
+7. `stores/model-schema.ts` — `getModelSchema()` 返回类型补 `schemaVersion`
+8. `stores/model-schema.ts` + `__tests__` — `validateParamsAgainstSchema` 收窄失效改用局部 `next`；测试导入路径改为 `../model-schema`
 
 ---
 
