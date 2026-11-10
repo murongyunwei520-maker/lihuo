@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ChevronRight, ChevronLeft, Info, ScrollText } from "lucide-react";
 
-import { getJob, type DoubaoJob } from "@/services/api/doubao-bridge";
+import { getJob, findJobForNode, type DoubaoJob } from "@/services/api/doubao-bridge";
 import type { CanvasNodeData } from "@/types/canvas";
 
 type Props = {
@@ -19,20 +19,28 @@ export function CanvasInspectorPanel({ nodes, selectedNodeIds }: Props) {
     }, [nodes, selectedNodeIds]);
 
     const jobId = typeof selected?.metadata?.jobId === "string" ? selected.metadata.jobId : "";
+    const selectedId = selected?.id || "";
 
     useEffect(() => {
         setJob(null);
-        if (!jobId) return;
+        if (!selectedId) return;
         let alive = true;
-        void getJob(jobId)
-            .then((next) => {
+        // 有本地 jobId 就查它；没有就按 nodeId 反查桥接任务（图片任务也带 nodeId）
+        const load = async () => {
+            try {
+                const next = jobId ? await getJob(jobId) : await findJobForNode(selectedId);
                 if (alive) setJob(next);
-            })
-            .catch(() => undefined);
+            } catch {
+                /* 桥接未启动时静默 */
+            }
+        };
+        void load();
+        const timer = setInterval(() => void load(), 4000);
         return () => {
             alive = false;
+            clearInterval(timer);
         };
-    }, [jobId]);
+    }, [jobId, selectedId]);
 
     if (collapsed) {
         return (
@@ -52,6 +60,7 @@ export function CanvasInspectorPanel({ nodes, selectedNodeIds }: Props) {
               { label: "标题", value: selected.title || "—" },
               { label: "尺寸", value: `${Math.round(selected.width)} × ${Math.round(selected.height)}` },
               { label: "状态", value: String(meta.status ?? "—") },
+              ...(meta.errorDetails ? [{ label: "错误", value: String(meta.errorDetails) }] : []),
               ...(meta.videoCaps ? [{ label: "视频模型", value: String((meta.videoCaps as { model?: { current?: string } }).model?.current ?? "—") }] : []),
               ...(tokenRow(meta)),
               ...(meta.progress ? [{ label: "进度", value: String(meta.progress) }] : []),
@@ -99,7 +108,7 @@ export function CanvasInspectorPanel({ nodes, selectedNodeIds }: Props) {
                                     {job.error ? <div className="break-all text-red-500">{job.error.reason}: {job.error.message}</div> : null}
                                 </>
                             ) : (
-                                <span className="text-slate-400 dark:text-white/30">{jobId ? "读取中…" : "该节点暂无任务"}</span>
+                                <span className="text-slate-400 dark:text-white/30">{jobId ? "读取中…" : "该节点暂无豆包任务（点生成后会出现在这里）"}</span>
                             )}
                         </div>
                     </>

@@ -7,7 +7,7 @@ import { nanoid } from "nanoid";
 import { dataUrlToFile } from "@/lib/image-utils";
 import { buildImageReferencePromptText } from "@/lib/image-reference-prompt";
 import { imageToDataUrl } from "@/services/image-storage";
-import { imageSizePresets, inferMediaScale } from "@/lib/media-size";
+import { imageSizePresets, inferMediaRatio, inferMediaScale } from "@/lib/media-size";
 import type { ReferenceImage } from "@/types/image";
 import { isDoubaoBuiltinModel } from "@/constants/doubao-builtin";
 import { generateImageViaDoubao } from "./doubao-bridge-adapter";
@@ -97,7 +97,7 @@ type GeminiPayload = {
     promptFeedback?: { blockReason?: string };
 };
 type GeminiStreamState = { buffer: string; text: string; toolCalls: ResponseToolCall[]; error?: string };
-type RequestOptions = { signal?: AbortSignal };
+type RequestOptions = { signal?: AbortSignal; nodeId?: string };
 
 const IMAGE_QUALITY_VALUES = ["low", "medium", "high", "xhigh", "max"];
 const DEFAULT_IMAGE_SHORT_SIDE = 1024;
@@ -696,9 +696,18 @@ function parseGeminiImagePayload(payload: GeminiPayload) {
 export async function requestGeneration(config: AiConfig, prompt: string, options?: RequestOptions) {
     const selected = config.model || config.imageModel;
     if (isDoubaoBuiltinModel(selected)) {
-        // P1-2: 从 config 读账号 ID，禁止自动选号
+        // 从 config 读账号 ID；画布节点传 nodeId，任务才能绑定回卡片
         const accountId = (config as Record<string, unknown>).doubaoAccountId as string || undefined;
-        return generateImageViaDoubao({ modelValue: selected, prompt, signal: options?.signal, accountId });
+        const ratio = inferMediaRatio(config.size || "auto");
+        const count = Math.max(1, Math.min(8, Math.floor(Math.abs(Number(config.count)) || 1)));
+        return generateImageViaDoubao({
+            modelValue: selected,
+            prompt,
+            signal: options?.signal,
+            accountId,
+            nodeId: options?.nodeId,
+            params: { ratio, quality: config.quality, count },
+        });
     }
     const requestConfig = resolveModelRequestConfig(config, config.model || config.imageModel);
     const n = Math.max(1, Math.min(15, Math.floor(Math.abs(Number(config.count)) || 1)));
@@ -764,11 +773,15 @@ export async function requestEdit(config: AiConfig, prompt: string, references: 
     // 豆包内置模型：走 bridge，参考图会真实上传给豆包（图生图 / 参考图 / 图片编辑）
     if (isDoubaoBuiltinModel(selectedEditModel)) {
         const dataUrls = await Promise.all(references.map((image) => imageToDataUrl(image)));
+        const accountId = (config as Record<string, unknown>).doubaoAccountId as string || undefined;
         return generateImageViaDoubao({
             modelValue: selectedEditModel,
             prompt,
             references: dataUrls.map((dataUrl, index) => ({ dataUrl, name: references[index]?.name })),
             signal: options?.signal,
+            accountId,
+            nodeId: options?.nodeId,
+            params: { ratio: inferMediaRatio(config.size || "auto"), quality: config.quality, count: 1 },
         });
     }
     const requestConfig = resolveModelRequestConfig(config, config.model || config.imageModel);

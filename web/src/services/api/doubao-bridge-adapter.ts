@@ -46,6 +46,8 @@ export async function generateImageViaDoubao(opts: {
     references?: { name?: string; dataUrl: string }[];
     signal?: AbortSignal;
     accountId?: string;
+    nodeId?: string;
+    params?: { ratio?: string; quality?: string; count?: number };
 }): Promise<{ id: string; dataUrl: string }[]> {
     const accountId = await resolveAccountId(opts.accountId);
     const modelName = modelOptionName(opts.modelValue);
@@ -67,9 +69,14 @@ export async function generateImageViaDoubao(opts: {
         expectedArtifactKind: "image",
         mode: attachments.length ? "image-to-image" : "text-to-image",
         modelName,
-        requestedParams: { model: modelName },
+        requestedParams: {
+            model: modelName,
+            ...(opts.params?.ratio ? { ratio: opts.params.ratio } : {}),
+            ...(opts.params?.quality ? { quality: opts.params.quality } : {}),
+            ...(opts.params?.count ? { count: opts.params.count } : {}),
+        },
         attachments,
-        nodeId: undefined,
+        nodeId: opts.nodeId,
     });
     const done = await waitJob(job.id, undefined, 3000, 20 * 60 * 1000);
     if (done.status !== "succeeded") {
