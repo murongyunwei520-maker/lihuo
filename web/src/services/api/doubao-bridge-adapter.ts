@@ -9,21 +9,23 @@ import {
 } from "./doubao-bridge";
 import { modelOptionName } from "@/stores/use-config-store";
 
-// P1-2: 禁止自动选账号——必须显式传入 accountId，并验证账号存在及登录状态
+// 账号优先级：显式传入 > 配置里选的账号 > 左侧号池的「当前账号」。
+// 都不存在时才报错——绝不静默随机分配。
 async function resolveAccountId(preferredAccountId?: string): Promise<string> {
-    if (!preferredAccountId) {
-        throw new Error("请先选择豆包账号（禁止自动分配）");
-    }
-    // 验证账号存在及登录状态
+    const { useDoubaoAccountStore } = await import("@/stores/use-doubao-account-store");
+    const { useConfigStore } = await import("@/stores/use-config-store");
+    const configured = (useConfigStore.getState().config.doubaoAccountId || "").trim();
+    const requested = (preferredAccountId || configured || useDoubaoAccountStore.getState().currentAccountId || "").trim();
     const accounts = await listAccounts();
-    const account = accounts.find((a) => a.id === preferredAccountId);
-    if (!account) {
-        throw new Error(`账号不存在: ${preferredAccountId}`);
+    if (!requested) {
+        const loggedIn = accounts.filter((account) => account.state.loggedIn);
+        if (loggedIn.length === 1) return loggedIn[0].id;
+        throw new Error("请先选择豆包账号：在左侧号池点一个账号设为当前，或在参数里选择账号");
     }
-    if (!account.state.loggedIn) {
-        throw new Error(`账号 ${account.name} 未登录，请先在号池扫码登录`);
-    }
-    return preferredAccountId;
+    const account = accounts.find((item) => item.id === requested);
+    if (!account) throw new Error(`账号不存在: ${requested}`);
+    if (!account.state.loggedIn) throw new Error(`账号 ${account.name} 未登录，请先在号池扫码登录`);
+    return requested;
 }
 
 async function fileToDataUrl(url: string): Promise<string> {

@@ -82,9 +82,11 @@ export async function createVideoGenerationTask(config: AiConfig, prompt: string
         const loggedIn = accounts.filter((a) => a.state.loggedIn);
         if (!loggedIn.length) throw new Error("豆包未登录：请先在左侧号池扫码登录");
 
-        // 账号调度模式：auto（默认）/ manual / round-robin
-        const accountSelectionMode = ((config as Record<string, unknown>).doubaoAccountMode as "manual" | "auto" | "round-robin" | undefined) || "auto";
-        const preferredAccountId = (config as Record<string, unknown>).doubaoAccountId as string || "";
+        // 账号调度模式：显式配置 / 号池当前账号优先，都没有才交给桥接的 auto
+        const { useDoubaoAccountStore } = await import("@/stores/use-doubao-account-store");
+        const configuredAccountId = String((config as Record<string, unknown>).doubaoAccountId || "").trim();
+        const preferredAccountId = configuredAccountId || useDoubaoAccountStore.getState().currentAccountId || "";
+        const accountSelectionMode = preferredAccountId ? "manual" : "auto";
 
         // 先上传素材到账号目录（用第一个账号先传，后端调度会重新分配）
         const accountIdForUpload = accountSelectionMode === "manual" && preferredAccountId

@@ -1,10 +1,13 @@
-import { type ReactNode } from "react";
-import { Slider } from "antd";
+import { type ReactNode, useEffect, useState } from "react";
+import { Select, Slider } from "antd";
 import { useTranslation } from "react-i18next";
 
 import i18n from "@/i18n";
 import { ImageSettingsTheme } from "@/components/image-settings-panel";
 import { DynamicParamsPanel } from "@/components/DynamicParamsPanel";
+import { isDoubaoBuiltinModel } from "@/constants/doubao-builtin";
+import { listAccounts, type DoubaoAccount } from "@/services/api/doubao-bridge";
+import { useDoubaoAccountStore } from "@/stores/use-doubao-account-store";
 import { type CanvasTheme } from "@/lib/canvas-theme";
 import { computeVideoSize, inferVideoRatio, parseVideoResolution, readVideoDimensions, VIDEO_SECONDS_MAX, VIDEO_SECONDS_MIN, videoRatioOptions } from "@/lib/media-size";
 import { readSchemaConfigValues, resolveVideoParamSchema, schemaParamPatch, type ParameterSchema } from "@/stores/model-schema";
@@ -29,7 +32,7 @@ export const videoSecondsRange = { min: VIDEO_SECONDS_MIN, max: VIDEO_SECONDS_MA
 
 type VideoSettingsPanelProps = {
     config: AiConfig;
-    onConfigChange: (key: "vquality" | "size" | "videoSeconds" | "videoGenerateAudio" | "videoWatermark" | "videoMode", value: string) => void;
+    onConfigChange: (key: "vquality" | "size" | "videoSeconds" | "videoGenerateAudio" | "videoWatermark" | "videoMode" | "doubaoAccountId", value: string) => void;
     theme: CanvasTheme;
     showTitle?: boolean;
     className?: string;
@@ -37,6 +40,14 @@ type VideoSettingsPanelProps = {
 
 export function VideoSettingsPanel({ config, onConfigChange, theme, showTitle = true, className = "w-[320px] space-y-4 rounded-2xl px-1 py-0.5" }: VideoSettingsPanelProps) {
     const { t } = useTranslation();
+    // 豆包内置模型需要账号：这里直接给出选择器，避免「登录了却不知道去哪选」
+    const doubaoModel = isDoubaoBuiltinModel(config.videoModel || config.model);
+    const currentAccountId = useDoubaoAccountStore((state) => state.currentAccountId);
+    const [doubaoAccounts, setDoubaoAccounts] = useState<DoubaoAccount[]>([]);
+    useEffect(() => {
+        if (!doubaoModel) return;
+        void listAccounts().then(setDoubaoAccounts).catch(() => undefined);
+    }, [doubaoModel]);
     // 参数范围与可选项由当前模型的 Schema 决定，没有 Schema 的模型沿用旧默认值
     const schema = resolveVideoParamSchema(config.videoModel || config.model);
     const ratioField = schema.find((field) => field.configKey === "size");
@@ -68,6 +79,24 @@ export function VideoSettingsPanel({ config, onConfigChange, theme, showTitle = 
         <ImageSettingsTheme theme={theme}>
             <div className={className} style={{ color: theme.node.text }} onMouseDown={(event) => event.stopPropagation()}>
                 {showTitle ? <div className="text-lg font-semibold">{t("settingsPanels.video.title")}</div> : null}
+                {doubaoModel ? (
+                    <SettingGroup title="豆包账号" color={theme.node.muted}>
+                        <Select
+                            className="w-full"
+                            value={config.doubaoAccountId || undefined}
+                            placeholder="跟随左侧号池的「当前账号」"
+                            allowClear
+                            onChange={(value) => onConfigChange("doubaoAccountId", value || "")}
+                            options={doubaoAccounts.map((account) => ({
+                                value: account.id,
+                                label: `${account.name}${account.state.loggedIn ? "" : "（未登录）"}${account.id === currentAccountId ? " · 当前" : ""}`,
+                            }))}
+                            onDropdownVisibleChange={(open) => {
+                                if (open) void listAccounts().then(setDoubaoAccounts).catch(() => undefined);
+                            }}
+                        />
+                    </SettingGroup>
+                ) : null}
                 <SettingGroup title={t("settingsPanels.video.quality")} color={theme.node.muted}>
                     <div className="grid grid-cols-4 gap-2.5">
                         {resolutionOptions.map((item) => (
