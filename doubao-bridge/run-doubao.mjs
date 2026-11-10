@@ -403,7 +403,52 @@ try {
         }
     }
 
+    // 抓接口响应里的真实产物地址：豆包有些版本只给封面图、不挂 <video>，
+    // 光看 DOM 会一直"等待产物"，这里从生成相关接口的响应里取 mp4 链接。
+    // 必须过滤掉推荐流（feed/aweme），否则会把别人的视频当成产物。
+    const captured = { videos: [], images: [] };
+    const captureUrls = (text, at) => {
+        const patterns = [
+            /https?:\/\/[^"'\s\\]+?\.(?:mp4|mov)(?:\?[^"'\s\\]*)?/gi,
+            /https?:\/\/[^"'\s\\]*(?:video\/tos|mime_type=video)[^"'\s\\]*/gi,
+        ];
+        for (const pattern of patterns) {
+            for (const match of text.matchAll(pattern)) {
+                const url = match[0].replace(/\\u0026/g, "&").replace(/\\\//g, "/");
+                if (!captured.videos.some((item) => item.url === url)) captured.videos.push({ url, at });
+            }
+        }
+        for (const match of text.matchAll(/https?:\/\/[^"'\s\\]+?\.(?:png|jpe?g|webp)(?:\?[^"'\s\\]*)?/gi)) {
+            const url = match[0].replace(/\\u0026/g, "&").replace(/\\\//g, "/");
+            if (!captured.images.some((item) => item.url === url)) captured.images.push({ url, at });
+        }
+    };
+    const isGenerationApi = (url) => /(chat|conversation|message|samantha|video|gen)/i.test(url) && !/(feed|recommend|aweme|material|hot|rank)/i.test(url);
+    page.on("response", (response) => {
+        try {
+            const url = response.url();
+            if (!isGenerationApi(url)) return;
+            const at = Date.now();
+            if (/\.(mp4|mov)(\?|$)/i.test(url)) captured.videos.push({ url, at });
+            const type = (response.headers()["content-type"] || "").toLowerCase();
+            if (!/json|text/.test(type)) return;
+            void response
+                .text()
+                .then((body) => {
+                    if (body.length >= 4_000_000) return;
+                    // 只认带产物字段的响应；推荐流/信息流一律跳过，避免把别人的视频当结果
+                    if (!/"(video_url|download_url|play_url|main_url|vid)"/.test(body)) return;
+                    if (/"(aweme_id|feed|recommend)"/.test(body)) return;
+                    captureUrls(body, at);
+                })
+                .catch(() => undefined);
+        } catch {
+            /* 响应已销毁等情况直接忽略 */
+        }
+    });
+
     progress("发送提示词…");
+    const sentAt = Date.now();
     const injected = await site.injectPrompt(page, spec.prompt);
     if (!injected.ok) throw new Error(`注入提示词失败：${injected.valueLength}/${injected.expected}`);
     const sent = await site.sendPrompt(page);
@@ -424,10 +469,22 @@ try {
     let filtered = { videos: [], images: [] };
     // P0-4: 明确使用 expectedArtifactKind，不靠 capability/mode 字符串猜测
     const expectVideo = spec.expectedArtifactKind === "video";
+    let pollRound = 0;
     while (Date.now() < deadline) {
         await page.waitForTimeout(8000);
+        pollRound += 1;
+        if (pollRound % 4 === 0) progress(`等待中…（接口已捕获 ${captured.videos.filter((item) => item.at > sentAt).length} 个候选视频地址）`);
         const raw = await site.extractArtifacts(page);
         const candidate = site.filterArtifacts(raw);
+        // 接口里抓到的地址兜底：只取「发送提示词之后」抓到的最新一条，避免把推荐流视频当产物
+        const capturedAfter = captured.videos.filter((item) => item.at > sentAt);
+        const latest = capturedAfter[capturedAfter.length - 1];
+        if (latest && !candidate.videos.length) candidate.videos.push({ url: latest.url });
+        if (!expectVideo) {
+            for (const item of captured.images.filter((entry) => entry.at > sentAt)) {
+                if (!candidate.images.some((existing) => existing.url === item.url)) candidate.images.push({ url: item.url });
+            }
+        }
         if (expectVideo) {
             // 视频任务：必须等到真正的视频，不能因为页面上有图片就结束
             if (candidate.videos.length) {
@@ -450,10 +507,19 @@ try {
     if (!targets.length) {
         emit({ type: "result", ok: false, error: { reason: "NO_ARTIFACT", message: "等待产物超时" } });
     } else {
+        // 同一个产物可能被抓到多条等价地址（不同签名/清晰度），按字节数去重只留一份
         progress(`产物就绪：${filtered.videos.length} 视频 / ${filtered.images.length} 图片，开始下载…`);
         const cookieHeader = (await ctx.cookies()).map((cookie) => `${cookie.name}=${cookie.value}`).join("; ");
         const downloaded = await site.downloadArtifactsByUrl(targets, downloadsDir, cookieHeader);
-        const files = downloaded.filter((item) => item.ok).map((item) => ({ file: item.file, bytes: item.bytes, kind: item.kind, contentType: item.contentType }));
+        const seenBytes = new Set();
+        const unique = downloaded.filter((item) => {
+            if (!item.ok) return false;
+            if (seenBytes.has(item.bytes)) return false;
+            seenBytes.add(item.bytes);
+            return true;
+        });
+        const files = unique.map((item) => ({ file: item.file, bytes: item.bytes, kind: item.kind, contentType: item.contentType }));
+        progress(`下载完成：${files.length} 个产物`);
         emit({ type: "result", ok: files.length > 0, files, text: await site.readLastAnswer(page).catch(() => "") });
     }
 
