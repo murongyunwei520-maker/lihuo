@@ -29,7 +29,7 @@ try {
     // 显式指定窗口位置：profile 里可能存着之前「离屏探测」留下的坐标，会把窗口开到屏幕外
     ({ ctx } = await launchProfileContext(stateDir, { position: "60,40", size: "1440,940", debugPort }));
     const page = ctx.pages()[0] || (await ctx.newPage());
-    await page.goto("https://www.doubao.com/chat/", { waitUntil: "domcontentloaded", timeout: 45000 }).catch(() => undefined);
+    await page.goto("https://www.doubao.com/chat/", { waitUntil: "commit", timeout: 30000 }).catch(() => undefined);
     writeStatus({ state: "open", message: "豆包网页端已打开" });
 
     // 一直挂着，直到收到关闭信号（用户点关闭 / 关窗 / 超时 2 小时）
@@ -49,10 +49,8 @@ try {
             writeStatus({ state: "closed", message: "已关闭" });
             break;
         }
-        if (Date.now() - started > 2 * 60 * 60 * 1000) {
-            writeStatus({ state: "closed", message: "已超时关闭" });
-            break;
-        }
+        // 不自动超时关闭：任务要靠这个窗口，关掉会让正在跑的任务失败。
+        // 只有用户关窗、或桥接调 /close 才会结束。
         await page.waitForTimeout(2000);
     }
 } catch (error) {

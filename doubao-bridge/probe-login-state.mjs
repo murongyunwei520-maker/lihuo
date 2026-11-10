@@ -11,7 +11,7 @@ const { ctx } = await launchProfileContext(stateDir, { offscreen: true });
 const result = {};
 try {
     const page = ctx.pages()[0] || (await ctx.newPage());
-    await page.goto("https://www.doubao.com/chat/", { waitUntil: "domcontentloaded", timeout: 45000 });
+    await page.goto("https://www.doubao.com/chat/", { waitUntil: "commit", timeout: 30000 });
     await page.waitForTimeout(5000);
     const cookies = await ctx.cookies();
     const session = cookies.filter((c) => SESSION_RE.test(c.name)).map((c) => c.name);

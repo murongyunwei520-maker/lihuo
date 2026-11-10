@@ -233,6 +233,7 @@ let ctx = null;
 let cdpBrowser = null;
 let manualChild = null;
 let reusedViewer = false;
+let page = null;
 try {
     progress("[DOUBAO_BROWSER] 开始启动浏览器");
     const existing = await connectExistingViewer();
@@ -247,10 +248,23 @@ try {
     }
     progress("[DOUBAO_BROWSER] Page 创建成功");
     // 同一个窗口内开一个新标签页 = 新对话；这样同账号并发任务互不干扰，也不新开窗口
-    const page = await ctx.newPage();
+    page = await ctx.newPage();
     progress("[DOUBAO_BROWSER] 在已有窗口内新开标签页（新对话，不新开窗口）");
     progress("[DOUBAO_BROWSER] 开始导航豆包页面");
-    await page.goto("https://www.doubao.com/chat/", { waitUntil: "domcontentloaded", timeout: 45000 });
+    // 网络偶发超时：重试两次，仍失败才判死
+    let navigated = false;
+    let navError = null;
+    for (let attempt = 1; attempt <= 3 && !navigated; attempt += 1) {
+        try {
+            await page.goto("https://www.doubao.com/chat/", { waitUntil: "commit", timeout: 30000 });
+            navigated = true;
+        } catch (error) {
+            navError = error;
+            progress(`[DOUBAO_BROWSER] 页面加载失败（第 ${attempt} 次）：${String(error.message || error).slice(0, 80)}`);
+            await page.waitForTimeout(4000);
+        }
+    }
+    if (!navigated) throw navError || new Error("豆包页面加载失败");
     progress(`[DOUBAO_BROWSER] 豆包页面加载成功，当前 URL: ${page.url()}`);
     // 等页面完全渲染（输入框和功能按钮出现）
     await page.waitForTimeout(12000);
@@ -271,7 +285,7 @@ try {
         switched = await site.setCapability(page, spec.capability);
         if (!switched?.ok) {
             progress("仍未出现能力栏，重新加载页面…");
-            await page.goto("https://www.doubao.com/chat/", { waitUntil: "domcontentloaded", timeout: 45000 }).catch(() => undefined);
+            await page.goto("https://www.doubao.com/chat/", { waitUntil: "commit", timeout: 30000 }).catch(() => undefined);
             await page.waitForTimeout(8000);
             switched = await site.setCapability(page, spec.capability);
         }
@@ -307,10 +321,12 @@ try {
             const viewportH = window.innerHeight;
             const candidates = [...document.querySelectorAll("button, [role='button'], [class*='cursor-pointer']")]
                 .map((node) => ({ text: (node.innerText || "").trim().replace(/\s+/g, " "), rect: node.getBoundingClientRect() }))
-                .filter((item) => item.rect.width >= 40 && item.rect.height >= 16 && item.rect.y > viewportH * 0.45);
-            const hit = candidates.find((item) => {
-                if (imageMode) return item.text.startsWith("比例") || /^\d+:\d+\s*·/.test(item.text);
-                return /·/.test(item.text) || (/^\d+\s*s$/.test(item.text) === false && /\d+\s*s/.test(item.text));
+                .filter((item) => item.rect.width >= 24 && item.rect.height >= 14 && item.rect.width < 420);
+            // 取「最靠下」的匹配项：输入区在页面底部，侧边栏文本会被排除
+            const byBottom = candidates.sort((a, b) => b.rect.y - a.rect.y);
+            const hit = byBottom.find((item) => {
+                if (imageMode) return item.text.startsWith("比例") || /^(自动|\d+:\d+)\s*·/.test(item.text) || /^\d+:\d+$/.test(item.text);
+                return /·/.test(item.text) && /\d+\s*s|自动/.test(item.text);
             });
             if (!hit) {
                 window.__paramCandidates = candidates.slice(0, 12).map((item) => item.text).filter(Boolean);
@@ -345,10 +361,12 @@ try {
     // —— 读回校验：按整页文本匹配（豆包模型按钮选中后文案会变成模型名，不再带「模型」前缀） ——
     const panelText = await page.evaluate(() => {
         const vh = window.innerHeight;
+        const vw = window.innerWidth;
         return [...document.querySelectorAll("button, [role='button'], [class*='cursor-pointer'], span, div")]
             .filter((node) => {
                 const rect = node.getBoundingClientRect();
-                return rect.width > 0 && rect.height > 0 && rect.y > vh * 0.3;
+                // 只看主内容区（排除左侧号池/会话列表），否则读回全是侧边栏文字
+                return rect.width > 0 && rect.height > 0 && rect.y > vh * 0.3 && rect.x > vw * 0.2;
             })
             .map((node) => (node.innerText || "").trim().replace(/\s+/g, " "))
             .filter((text) => text.length > 0 && text.length < 60)
@@ -481,9 +499,13 @@ try {
         const latest = capturedAfter[capturedAfter.length - 1];
         if (latest && !candidate.videos.length) candidate.videos.push({ url: latest.url });
         if (!expectVideo) {
-            for (const item of captured.images.filter((entry) => entry.at > sentAt)) {
-                if (!candidate.images.some((existing) => existing.url === item.url)) candidate.images.push({ url: item.url });
-            }
+            // 图片任务：只认生成接口抓到的图 + 页面里真正来自图片 CDN 的大图，避免把头像/图标当产物
+            const capturedImages = captured.images.filter((entry) => entry.at > sentAt).map((entry) => ({ url: entry.url }));
+            const domImages = candidate.images.filter((item) => /tos-cn|byteimg|flow-imagex/.test(item.url) && !/(avatar|icon|emoji|static|thumb)/i.test(item.url));
+            const merged = [...capturedImages, ...domImages].filter((item, index, list) => list.findIndex((entry) => entry.url === item.url) === index);
+            // 接口抓到了就用接口的（页面 DOM 里混着推荐流封面和图标）
+            candidate.images = (capturedImages.length ? capturedImages : merged).slice(0, 4);
+            if (candidate.images.length) progress(`图片候选：${candidate.images.map((item) => item.url.split("?")[0].slice(-42)).join(" | ")}`);
         }
         if (expectVideo) {
             // 视频任务：必须等到真正的视频，不能因为页面上有图片就结束
@@ -500,10 +522,10 @@ try {
         }
     }
 
-    const targets = [
-        ...filtered.videos.map((item) => ({ kind: "video", url: item.url, meta: item })),
-        ...filtered.images.map((item) => ({ kind: "image", url: item.url, meta: item })),
-    ];
+    // 视频任务只交视频、图片任务只交图片，避免把推荐流内容混进产物
+    const targets = expectVideo
+        ? filtered.videos.map((item) => ({ kind: "video", url: item.url, meta: item }))
+        : filtered.images.map((item) => ({ kind: "image", url: item.url, meta: item }));
     if (!targets.length) {
         emit({ type: "result", ok: false, error: { reason: "NO_ARTIFACT", message: "等待产物超时" } });
     } else {
@@ -514,6 +536,8 @@ try {
         const seenBytes = new Set();
         const unique = downloaded.filter((item) => {
             if (!item.ok) return false;
+            // 图片任务过滤掉小图标（<100KB 基本是封面/头像）
+            if (!expectVideo && item.bytes < 100_000) return false;
             if (seenBytes.has(item.bytes)) return false;
             seenBytes.add(item.bytes);
             return true;
@@ -530,6 +554,8 @@ try {
     emit({ type: "result", ok: false, error: { reason: "RUNNER_ERROR", message: error instanceof Error ? error.message : String(error) } });
     // 出错时保留标签页便于排查，但不阻塞进程退出
     progress(`[DOUBAO_BROWSER] 出错：${String(error.message || error).slice(0, 200)}`);
+    // 失败的任务把标签页关掉，避免越积越多拖垮窗口
+    if (page) await page.close().catch(() => undefined);
 } finally {
     // 不 close 浏览器：这是用户的 Edge，由用户自己关。CDP 连接由进程退出自然断开。
 }

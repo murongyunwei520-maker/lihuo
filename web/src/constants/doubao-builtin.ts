@@ -5,10 +5,12 @@ import type { ModelChannel, ChannelModel } from "@/stores/use-config-store";
 export const DOUBAO_BUILTIN_CHANNEL_ID = "builtin-doubao";
 
 // 系统维护的豆包模型清单（后续版本只改这里）。
-// 实际可用性仍以 bridge 账号登录态和豆包网页端为准。
+// 名称必须和豆包面板里的文案一致，否则执行器点选不到（以 video-caps/image-caps 实测为准）。
 export const DOUBAO_BUILTIN_MODELS: ChannelModel[] = [
-    { name: "Seedream 5.0", capability: "image" },
-    { name: "Seedream 5.0 Fast", capability: "image" },
+    { name: "Seedream 5.0 Pro", capability: "image" },
+    { name: "Seedream 5.0 Flash", capability: "image" },
+    { name: "Seedream 4.5", capability: "image" },
+    { name: "Seedream 4.0", capability: "image" },
     { name: "Seedance 2.5", capability: "video" },
     { name: "Seedance 2.0", capability: "video" },
     { name: "Seedance 2.0 Fast", capability: "video" },

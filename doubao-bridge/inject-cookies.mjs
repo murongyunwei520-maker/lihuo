@@ -23,7 +23,7 @@ const { exportStorageState } = await loadDbbBrowser();
 try {
     await ctx.addCookies(cookies);
     const page = ctx.pages()[0] || (await ctx.newPage());
-    await page.goto("https://www.doubao.com/chat/", { waitUntil: "domcontentloaded", timeout: 45000 });
+    await page.goto("https://www.doubao.com/chat/", { waitUntil: "commit", timeout: 30000 });
     await page.waitForTimeout(4000);
 
     const session = (await ctx.cookies()).filter((cookie) => SESSION_COOKIE_RE.test(cookie.name)).map((cookie) => cookie.name);
