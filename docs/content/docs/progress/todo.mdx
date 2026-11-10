@@ -1,0 +1,14 @@
+---
+title: TODO
+description: Planned follow-up work
+---
+
+# TODO
+
+- Replace the Claude Code CLI adapter with a Claude Agent SDK adapter and improve the tool queue, following the [Local Agent Integration Plan](/docs/progress/local-agent-integration-plan).
+- Add Skill installation from web search, Skill resource-file management, and controlled local-memory persistence.
+- Doubao account pool: the Doubao web app exposes no readable quota API, so quota must be checked manually; `dbb` cannot set duration/resolution/ratio, which would require extending doubao-brain's parameter-panel handling.
+- Doubao reference-video mode: all three modes currently upload materials through `dbb --attach`; whether Doubao treats a clip as a reference video still needs a real-account check.
+- Doubao job artifacts are referenced by the bridge URL, so reopening a canvas needs the bridge running; downloading them into the local asset library is follow-up work.
+- Model parameter schema follow-up: the video panel now renders from a schema, while the image settings panel and node-level overrides in `buildGenerationConfig` still bypass it. Bind new fields through `ParameterSchema.configKey` instead of adding a second parameter store.
+- Model capability source follow-up: Doubao ratio and duration ranges are currently written into the schema from measured `video-caps.json` values; refreshing them from `/api/accounts/:id/video-caps` would keep them correct after Doubao changes its panel.

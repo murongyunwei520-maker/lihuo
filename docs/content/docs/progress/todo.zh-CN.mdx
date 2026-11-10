@@ -1,0 +1,16 @@
+---
+title: TODO
+description: 当前项目后续值得处理的事项
+---
+
+# TODO
+
+本文档用来记录当前项目后续比较值得处理的事项。
+
+- 本地 Agent 接入后续：按[本地 Agent 接入规划](/zh-CN/docs/progress/local-agent-integration-plan)把 Claude Code CLI Adapter 升级为 Claude Agent SDK Adapter，并完善工具队列体验。
+- Agent Skill 后续：补充网络检索安装、Skill 资源文件管理和可控的本地记忆沉淀。
+- 豆包账号池后续：豆包网页端没有可读的额度接口，需要人工核对额度消耗；`dbb` 不支持指定时长/分辨率/比例，若要精细控制需扩展 doubao-brain 的参数面板操作。
+- 豆包参考视频模式：目前三种模式都通过 `dbb --attach` 上传素材，参考视频是否被豆包页面按「参考视频」处理还需真机验证，必要时改为在页面里显式选择视频参考槽位。
+- 豆包任务产物目前用桥接服务地址回传画布，重开画布需要桥接服务在运行；后续可下载到本地素材库做持久化。
+- 模型参数 Schema 后续：视频面板已按 Schema 渲染，图片设置面板与画布节点级参数（`buildGenerationConfig` 里的节点覆盖值）还没接入同一套 Schema；接入时沿用 `ParameterSchema.configKey` 绑定全局配置字段，不要另起一份参数存储。
+- 模型能力来源后续：豆包比例/时长范围目前按账号态 `video-caps.json` 的实测值写在 Schema 里，后续可改为由 `/api/accounts/:id/video-caps` 实时刷新覆盖，避免豆包改版后写死的值过期。

@@ -1,0 +1,119 @@
+import { useEffect, useMemo, useState } from "react";
+import { ChevronRight, ChevronLeft, Info, ScrollText } from "lucide-react";
+
+import { getJob, type DoubaoJob } from "@/services/api/doubao-bridge";
+import type { CanvasNodeData } from "@/types/canvas";
+
+type Props = {
+    nodes: CanvasNodeData[];
+    selectedNodeIds: Set<string>;
+};
+
+// 右侧检查器：选中节点属性 + 该节点任务的运行日志。
+export function CanvasInspectorPanel({ nodes, selectedNodeIds }: Props) {
+    const [collapsed, setCollapsed] = useState(false);
+    const [job, setJob] = useState<DoubaoJob | null>(null);
+    const selected = useMemo(() => {
+        const id = [...selectedNodeIds][0];
+        return id ? nodes.find((node) => node.id === id) || null : null;
+    }, [nodes, selectedNodeIds]);
+
+    const jobId = typeof selected?.metadata?.jobId === "string" ? selected.metadata.jobId : "";
+
+    useEffect(() => {
+        setJob(null);
+        if (!jobId) return;
+        let alive = true;
+        void getJob(jobId)
+            .then((next) => {
+                if (alive) setJob(next);
+            })
+            .catch(() => undefined);
+        return () => {
+            alive = false;
+        };
+    }, [jobId]);
+
+    if (collapsed) {
+        return (
+            <aside className="flex w-11 shrink-0 flex-col items-center border-l border-black/5 py-3 dark:border-white/10">
+                <button type="button" onClick={() => setCollapsed(false)} className="grid size-8 cursor-pointer place-items-center rounded-lg text-slate-400 hover:bg-black/5 dark:hover:bg-white/10" title="展开检查器">
+                    <ChevronLeft className="size-4" />
+                </button>
+                <Info className="mt-3 size-4 text-slate-400" />
+            </aside>
+        );
+    }
+
+    const meta = (selected?.metadata ?? {}) as Record<string, unknown>;
+    const rows: { label: string; value: string }[] = selected
+        ? [
+              { label: "类型", value: selected.type },
+              { label: "标题", value: selected.title || "—" },
+              { label: "尺寸", value: `${Math.round(selected.width)} × ${Math.round(selected.height)}` },
+              { label: "状态", value: String(meta.status ?? "—") },
+              ...(meta.videoCaps ? [{ label: "视频模型", value: String((meta.videoCaps as { model?: { current?: string } }).model?.current ?? "—") }] : []),
+              ...(tokenRow(meta)),
+              ...(meta.progress ? [{ label: "进度", value: String(meta.progress) }] : []),
+          ]
+        : [];
+
+    return (
+        <aside className="flex w-[268px] shrink-0 flex-col border-l border-black/5 dark:border-white/10">
+            <div className="flex h-9 items-center gap-1.5 px-2.5">
+                <Info className="size-3.5 text-[#6b57a8] dark:text-[#c4b8ef]" />
+                <span className="text-[12px] font-medium">属性 / 日志</span>
+                <button type="button" onClick={() => setCollapsed(true)} className="ml-auto cursor-pointer rounded p-1 text-slate-400 hover:bg-black/5 dark:hover:bg-white/10" title="收起">
+                    <ChevronRight className="size-3" />
+                </button>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto px-2.5 pb-3 text-[11px]">
+                {!selected ? (
+                    <p className="py-6 text-center text-slate-400 dark:text-white/30">选中一个节点查看属性</p>
+                ) : (
+                    <>
+                        <div className="space-y-1">
+                            {rows.map((row) => (
+                                <div key={row.label} className="flex gap-2">
+                                    <span className="w-14 shrink-0 text-slate-400 dark:text-white/30">{row.label}</span>
+                                    <span className="min-w-0 flex-1 break-all">{row.value}</span>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="mt-3 flex items-center gap-1.5 text-[11px] font-medium">
+                            <ScrollText className="size-3.5" /> 运行日志
+                        </div>
+                        <div className="mt-1 rounded-lg bg-black/[0.04] p-2 font-mono text-[10px] leading-4 dark:bg-white/[0.04]">
+                            {job ? (
+                                <>
+                                    <div className="text-slate-400 dark:text-white/35">
+                                        {job.id} · {job.status}
+                                    </div>
+                                    {(job.stderr?.length ? job.stderr : [job.progress || "—"]).slice(-8).map((line, index) => (
+                                        <div key={index} className="break-all text-slate-500 dark:text-white/50">
+                                            {line}
+                                        </div>
+                                    ))}
+                                    {job.error ? <div className="break-all text-red-500">{job.error.reason}: {job.error.message}</div> : null}
+                                </>
+                            ) : (
+                                <span className="text-slate-400 dark:text-white/30">{jobId ? "读取中…" : "该节点暂无任务"}</span>
+                            )}
+                        </div>
+                    </>
+                )}
+            </div>
+        </aside>
+    );
+}
+
+/** 有模型/账号等信息就展示，没有就不显示（不编造）。 */
+function tokenRow(meta: Record<string, unknown>) {
+    const rows: { label: string; value: string }[] = [];
+    if (typeof meta.modelName === "string" && meta.modelName) rows.push({ label: "模型", value: meta.modelName });
+    if (typeof meta.accountName === "string" && meta.accountName) rows.push({ label: "账号", value: meta.accountName });
+    if (typeof meta.submittedParams === "string" && meta.submittedParams) rows.push({ label: "参数", value: meta.submittedParams });
+    return rows;
+}

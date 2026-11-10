@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="720" viewBox="0 0 720 720">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#05080b"/>
+      <stop offset="100%" stop-color="#101822"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.52" cy="0.41" r="0.8">
+      <stop offset="0%" stop-color="#7fc4d8" stop-opacity="0.55"/>
+      <stop offset="65%" stop-color="#7fc4d8" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="grain">
+      <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" stitchTiles="stitch"/>
+      <feColorMatrix type="saturate" values="0"/>
+    </filter>
+  </defs>
+  <rect width="720" height="720" fill="url(#bg)"/>
+  <rect width="720" height="720" fill="url(#glow)"/>
+  <g><g transform="rotate(1.0 360 360)">
+      <rect x="201.6" y="201.6" width="316.8" height="316.8" rx="25.3" fill="#4b3f72" opacity="0.92"/>
+      <rect x="223.8" y="223.8" width="272.4" height="272.4" rx="15.8" fill="none" stroke="#eee9ff" stroke-opacity="0.6" stroke-width="4.4"/>
+      <text x="360" y="436.0" text-anchor="middle" font-family="Songti SC, SimSun, serif" font-size="196.4" fill="#eee9ff" opacity="0.95">离</text>
+    </g></g>
+  <rect width="720" height="720" filter="url(#grain)" opacity="0.1" style="mix-blend-mode:overlay"/>
+  <rect x="0.5" y="0.5" width="719" height="719" fill="none" stroke="#dbe6ee" stroke-opacity="0.16"/>
+</svg>

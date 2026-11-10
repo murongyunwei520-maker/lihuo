@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="1040" viewBox="0 0 720 1040">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f2f5f9"/>
+      <stop offset="100%" stop-color="#dbe4ee"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.48" cy="0.45" r="0.8">
+      <stop offset="0%" stop-color="#2b6f8a" stop-opacity="0.22"/>
+      <stop offset="65%" stop-color="#2b6f8a" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="grain">
+      <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" stitchTiles="stitch"/>
+      <feColorMatrix type="saturate" values="0"/>
+    </filter>
+  </defs>
+  <rect width="720" height="1040" fill="url(#bg)"/>
+  <rect width="720" height="1040" fill="url(#glow)"/>
+  <g><rect x="42.4" y="42.4" width="635.3" height="955.3" rx="8.5" stroke="#2b6f8a" stroke-width="1.4" fill="none" opacity="0.42"/><rect x="84.7" y="84.7" width="550.6" height="870.6" rx="16.9" stroke="#2a3a48" stroke-width="3.4" fill="none" opacity="0.57"/><rect x="127.1" y="127.1" width="465.9" height="785.9" rx="25.4" stroke="#2b6f8a" stroke-width="3.0" fill="none" opacity="0.34"/><rect x="169.4" y="169.4" width="381.2" height="701.2" rx="33.9" stroke="#2a3a48" stroke-width="1.6" fill="none" opacity="0.31"/><rect x="211.8" y="211.8" width="296.5" height="616.5" rx="42.4" stroke="#2b6f8a" stroke-width="1.7" fill="none" opacity="0.64"/><rect x="254.1" y="254.1" width="211.8" height="531.8" rx="50.8" stroke="#2a3a48" stroke-width="2.6" fill="none" opacity="0.39"/><rect x="296.5" y="296.5" width="127.1" height="447.1" rx="59.3" stroke="#2b6f8a" stroke-width="3.3" fill="none" opacity="0.57"/></g>
+  <rect width="720" height="1040" filter="url(#grain)" opacity="0.14" style="mix-blend-mode:overlay"/>
+  <rect x="0.5" y="0.5" width="719" height="1039" fill="none" stroke="#2a3a48" stroke-opacity="0.16"/>
+</svg>

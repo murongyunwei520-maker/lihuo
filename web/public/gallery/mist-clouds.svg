@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="900" viewBox="0 0 720 900">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#100c1c"/>
+      <stop offset="100%" stop-color="#1d1633"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.54" cy="0.47" r="0.8">
+      <stop offset="0%" stop-color="#a79bd6" stop-opacity="0.55"/>
+      <stop offset="65%" stop-color="#a79bd6" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="grain">
+      <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" stitchTiles="stitch"/>
+      <feColorMatrix type="saturate" values="0"/>
+    </filter>
+  </defs>
+  <rect width="720" height="900" fill="url(#bg)"/>
+  <rect width="720" height="900" fill="url(#glow)"/>
+  <g><path d="M0 162.0 Q72.0 113.3 144.0 162.0 Q216.0 75.5 288.0 162.0 Q360.0 96.1 432.0 162.0 Q504.0 106.3 576.0 162.0 Q648.0 101.3 720.0 162.0" stroke="#a79bd6" stroke-width="3.4" fill="none" opacity="0.53"/><path d="M0 258.0 Q72.0 194.2 144.0 258.0 Q216.0 208.3 288.0 258.0 Q360.0 176.8 432.0 258.0 Q504.0 173.8 576.0 258.0 Q648.0 163.7 720.0 258.0" stroke="#d8d2f0" stroke-width="4.2" fill="none" opacity="0.63"/><path d="M0 354.0 Q72.0 278.2 144.0 354.0 Q216.0 284.4 288.0 354.0 Q360.0 260.4 432.0 354.0 Q504.0 281.0 576.0 354.0 Q648.0 275.5 720.0 354.0" stroke="#a79bd6" stroke-width="2.6" fill="none" opacity="0.42"/><path d="M0 450.0 Q72.0 369.0 144.0 450.0 Q216.0 385.9 288.0 450.0 Q360.0 353.3 432.0 450.0 Q504.0 397.5 576.0 450.0 Q648.0 404.3 720.0 450.0" stroke="#d8d2f0" stroke-width="2.5" fill="none" opacity="0.71"/><path d="M0 546.0 Q72.0 468.8 144.0 546.0 Q216.0 453.5 288.0 546.0 Q360.0 492.1 432.0 546.0 Q504.0 471.0 576.0 546.0 Q648.0 491.0 720.0 546.0" stroke="#a79bd6" stroke-width="2.1" fill="none" opacity="0.47"/><path d="M0 642.0 Q72.0 546.8 144.0 642.0 Q216.0 584.6 288.0 642.0 Q360.0 595.0 432.0 642.0 Q504.0 547.3 576.0 642.0 Q648.0 544.0 720.0 642.0" stroke="#d8d2f0" stroke-width="3.7" fill="none" opacity="0.75"/></g>
+  <rect width="720" height="900" filter="url(#grain)" opacity="0.1" style="mix-blend-mode:overlay"/>
+  <rect x="0.5" y="0.5" width="719" height="899" fill="none" stroke="#d8d2f0" stroke-opacity="0.16"/>
+</svg>

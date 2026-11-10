@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="720" viewBox="0 0 720 720">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f2f5f9"/>
+      <stop offset="100%" stop-color="#dbe4ee"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.66" cy="0.43" r="0.8">
+      <stop offset="0%" stop-color="#2b6f8a" stop-opacity="0.22"/>
+      <stop offset="65%" stop-color="#2b6f8a" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="grain">
+      <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" stitchTiles="stitch"/>
+      <feColorMatrix type="saturate" values="0"/>
+    </filter>
+  </defs>
+  <rect width="720" height="720" fill="url(#bg)"/>
+  <rect width="720" height="720" fill="url(#glow)"/>
+  <g><path d="M0 129.6 Q72.0 69.1 144.0 129.6 Q216.0 52.4 288.0 129.6 Q360.0 91.1 432.0 129.6 Q504.0 75.6 576.0 129.6 Q648.0 71.4 720.0 129.6" stroke="#2b6f8a" stroke-width="3.5" fill="none" opacity="0.65"/><path d="M0 244.8 Q72.0 173.8 144.0 244.8 Q216.0 175.6 288.0 244.8 Q360.0 205.6 432.0 244.8 Q504.0 179.8 576.0 244.8 Q648.0 198.3 720.0 244.8" stroke="#2a3a48" stroke-width="3.3" fill="none" opacity="0.69"/><path d="M0 360.0 Q72.0 291.5 144.0 360.0 Q216.0 310.7 288.0 360.0 Q360.0 293.9 432.0 360.0 Q504.0 305.0 576.0 360.0 Q648.0 314.5 720.0 360.0" stroke="#2b6f8a" stroke-width="1.6" fill="none" opacity="0.64"/><path d="M0 475.2 Q72.0 411.4 144.0 475.2 Q216.0 437.7 288.0 475.2 Q360.0 426.7 432.0 475.2 Q504.0 439.1 576.0 475.2 Q648.0 409.2 720.0 475.2" stroke="#2a3a48" stroke-width="1.8" fill="none" opacity="0.39"/></g>
+  <rect width="720" height="720" filter="url(#grain)" opacity="0.14" style="mix-blend-mode:overlay"/>
+  <rect x="0.5" y="0.5" width="719" height="719" fill="none" stroke="#2a3a48" stroke-opacity="0.16"/>
+</svg>

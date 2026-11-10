@@ -1,0 +1,76 @@
+// 每个账号一个常驻豆包窗口：点击号池里的账号时打开（已开则前置），不新开窗口。
+// 由 doubao-bridge 管理生命周期；窗口一直开着，直到用户点关闭或超时。
+import fs from "node:fs";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
+
+const [stateDirArg, accountIdArg, portArg] = process.argv.slice(2);
+if (!stateDirArg) {
+    console.error("usage: open-account.mjs <stateDir> [accountId] [debugPort]");
+    process.exit(2);
+}
+
+const stateDir = path.resolve(stateDirArg);
+const debugPort = Number(portArg || 0);
+const outDir = path.join(stateDir, "viewer");
+fs.mkdirSync(outDir, { recursive: true });
+const statusFile = path.join(outDir, "status.json");
+
+process.env.DBB_STATE_DIR = stateDir;
+
+const dbbRoot = path.resolve(import.meta.dirname, "..", "vendor", "doubao-brain", "dbb");
+const { depsEntry, findBrowser } = await import(pathToFileURL(path.join(dbbRoot, "src", "browser.mjs")).href);
+const found = findBrowser();
+const pw = await import(pathToFileURL(depsEntry()).href);
+const chromium = (pw.default ?? pw).chromium;
+
+function writeStatus(patch) {
+    fs.writeFileSync(statusFile, JSON.stringify({ accountId: accountIdArg || null, pid: process.pid, debugPort, updatedAt: new Date().toISOString(), ...patch }, null, 2));
+}
+
+// 显式指定窗口位置：profile 里可能存着之前「离屏探测」留下的坐标，会把窗口开到屏幕外
+const args = ["--window-position=60,40", "--window-size=1440,940", "--no-first-run", "--no-default-browser-check", "--disable-blink-features=AutomationControlled"];
+if (debugPort) args.push(`--remote-debugging-port=${debugPort}`);
+
+let ctx = null;
+try {
+    writeStatus({ state: "starting", message: "正在打开豆包…" });
+    ctx = await chromium.launchPersistentContext(path.join(stateDir, "profile"), {
+        executablePath: found?.executablePath,
+        headless: false,
+        viewport: null,
+        locale: "zh-CN",
+        args,
+    });
+    const page = ctx.pages()[0] || (await ctx.newPage());
+    await page.goto("https://www.doubao.com/chat/", { waitUntil: "domcontentloaded", timeout: 45000 }).catch(() => undefined);
+    writeStatus({ state: "open", message: "豆包网页端已打开" });
+
+    // 一直挂着，直到收到关闭信号（用户点关闭 / 关窗 / 超时 2 小时）
+    const started = Date.now();
+    for (;;) {
+        if (page.isClosed()) {
+            writeStatus({ state: "closed", message: "窗口被关闭" });
+            break;
+        }
+        let current = {};
+        try {
+            current = JSON.parse(fs.readFileSync(statusFile, "utf8"));
+        } catch {
+            current = {};
+        }
+        if (current.state === "closing") {
+            writeStatus({ state: "closed", message: "已关闭" });
+            break;
+        }
+        if (Date.now() - started > 2 * 60 * 60 * 1000) {
+            writeStatus({ state: "closed", message: "已超时关闭" });
+            break;
+        }
+        await page.waitForTimeout(2000);
+    }
+} catch (error) {
+    writeStatus({ state: "error", message: error instanceof Error ? error.message : String(error) });
+} finally {
+    if (ctx) await ctx.close().catch(() => undefined);
+}
