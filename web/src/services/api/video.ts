@@ -12,7 +12,6 @@ import { runModelPlugin } from "./model-plugin";
 import type { ReferenceImage } from "@/types/image";
 import type { ReferenceAudio, ReferenceVideo } from "@/types/media";
 import { isDoubaoBuiltinModel } from "@/constants/doubao-builtin";
-import { generateVideoViaDoubao } from "./doubao-bridge-adapter";
 import { getJob, DOUBAO_BRIDGE_URL } from "./doubao-bridge";
 
 type VideoResponse = { id: string; status?: string; error?: { message?: string }; url?: string; result_url?: string; video_url?: string; content?: { video_url?: string; url?: string } | null };

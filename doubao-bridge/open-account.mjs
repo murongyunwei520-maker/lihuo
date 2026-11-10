@@ -2,7 +2,8 @@
 // 由 doubao-bridge 管理生命周期；窗口一直开着，直到用户点关闭或超时。
 import fs from "node:fs";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+
+import { launchProfileContext } from "./lib/doubao-context.mjs";
 
 const [stateDirArg, accountIdArg, portArg] = process.argv.slice(2);
 if (!stateDirArg) {
@@ -18,30 +19,15 @@ const statusFile = path.join(outDir, "status.json");
 
 process.env.DBB_STATE_DIR = stateDir;
 
-const dbbRoot = path.resolve(import.meta.dirname, "..", "vendor", "doubao-brain", "dbb");
-const { depsEntry, findBrowser } = await import(pathToFileURL(path.join(dbbRoot, "src", "browser.mjs")).href);
-const found = findBrowser();
-const pw = await import(pathToFileURL(depsEntry()).href);
-const chromium = (pw.default ?? pw).chromium;
-
 function writeStatus(patch) {
     fs.writeFileSync(statusFile, JSON.stringify({ accountId: accountIdArg || null, pid: process.pid, debugPort, updatedAt: new Date().toISOString(), ...patch }, null, 2));
 }
 
-// 显式指定窗口位置：profile 里可能存着之前「离屏探测」留下的坐标，会把窗口开到屏幕外
-const args = ["--window-position=60,40", "--window-size=1440,940", "--no-first-run", "--no-default-browser-check", "--disable-blink-features=AutomationControlled"];
-if (debugPort) args.push(`--remote-debugging-port=${debugPort}`);
-
 let ctx = null;
 try {
     writeStatus({ state: "starting", message: "正在打开豆包…" });
-    ctx = await chromium.launchPersistentContext(path.join(stateDir, "profile"), {
-        executablePath: found?.executablePath,
-        headless: false,
-        viewport: null,
-        locale: "zh-CN",
-        args,
-    });
+    // 显式指定窗口位置：profile 里可能存着之前「离屏探测」留下的坐标，会把窗口开到屏幕外
+    ({ ctx } = await launchProfileContext(stateDir, { position: "60,40", size: "1440,940", debugPort }));
     const page = ctx.pages()[0] || (await ctx.newPage());
     await page.goto("https://www.doubao.com/chat/", { waitUntil: "domcontentloaded", timeout: 45000 }).catch(() => undefined);
     writeStatus({ state: "open", message: "豆包网页端已打开" });
