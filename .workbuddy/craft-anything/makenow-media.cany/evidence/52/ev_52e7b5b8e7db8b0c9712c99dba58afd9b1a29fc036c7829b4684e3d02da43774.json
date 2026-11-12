@@ -1,0 +1,87 @@
+{
+  "id": "ev_52e7b5b8e7db8b0c9712c99dba58afd9b1a29fc036c7829b4684e3d02da43774",
+  "subject": {
+    "kind": "script",
+    "sha256": "81e719d3c51c308975a093bbd620929c4b59e7eefe8c7d37a679afcbbc75eb75",
+    "name": "site-index.html"
+  },
+  "operation": "native_bytes_find",
+  "params": {
+    "encoding": "both",
+    "limit": 5,
+    "offset": 0,
+    "path": "C:\\Users\\qq308\\Desktop\\lihuo\\.workbuddy\\craft-anything\\makenow-media.cany\\sources\\site-index.html",
+    "pattern": null,
+    "text": "ant-design-vue"
+  },
+  "result": {
+    "file_size": 8278,
+    "limit": 5,
+    "match_cap_reached": false,
+    "matches": [
+      {
+        "bytes": "616e742d64657369676e2d767565",
+        "file_offset": 7876,
+        "file_offset_hex": "0x1ec4",
+        "length": 14,
+        "matched": "utf8"
+      },
+      {
+        "bytes": "616e742d64657369676e2d767565",
+        "file_offset": 8112,
+        "file_offset_hex": "0x1fb0",
+        "length": 14,
+        "matched": "utf8"
+      }
+    ],
+    "native_container": null,
+    "offset": 0,
+    "path": "C:\\Users\\qq308\\Desktop\\lihuo\\.workbuddy\\craft-anything\\makenow-media.cany\\sources\\site-index.html",
+    "searched_for": [
+      {
+        "kind": "utf8",
+        "length": 14
+      },
+      {
+        "kind": "utf16le",
+        "length": 28
+      }
+    ],
+    "total_matches": 2
+  },
+  "summary": "2 match(es) for utf8 + utf16le in site-index.html; showing 2 from #0.",
+  "confidence": "observed",
+  "authority": "original-files",
+  "environment": {
+    "clean_room": false,
+    "engine": "builtin",
+    "engine_version": "0.6.0",
+    "host": "windows-x86_64"
+  },
+  "limitations": [
+    {
+      "code": "file_bytes_only",
+      "message": "The file's bytes are searched as stored: compressed, encrypted or packed regions and data built at run time are not seen, so no match is not proof of absence."
+    },
+    {
+      "code": "no_addresses",
+      "message": "This file is not a readable ELF, PE or Mach-O program, so matches carry file offsets only."
+    }
+  ],
+  "coverage": {
+    "status": "complete",
+    "examined": 2,
+    "total": 2
+  },
+  "locations": [
+    {
+      "kind": "file_offset",
+      "value": "0x1ec4"
+    },
+    {
+      "kind": "file_offset",
+      "value": "0x1fb0"
+    }
+  ],
+  "links": []
+}

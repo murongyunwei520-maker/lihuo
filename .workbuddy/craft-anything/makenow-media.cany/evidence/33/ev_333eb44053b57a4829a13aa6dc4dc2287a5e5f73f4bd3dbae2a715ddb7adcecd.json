@@ -1,0 +1,87 @@
+{
+  "id": "ev_333eb44053b57a4829a13aa6dc4dc2287a5e5f73f4bd3dbae2a715ddb7adcecd",
+  "subject": {
+    "kind": "unknown",
+    "sha256": "a135e9f7d3e6cdd5e83069a8c946687adb8cd2ab0d48b9c5f015a17604cc745e",
+    "name": "observations.md"
+  },
+  "operation": "native_bytes_find",
+  "params": {
+    "encoding": "both",
+    "limit": 5,
+    "offset": 0,
+    "path": "C:\\Users\\qq308\\Desktop\\lihuo\\.workbuddy\\craft-anything\\makenow-media.cany\\sources\\observations.md",
+    "pattern": null,
+    "text": "互动剧情世界"
+  },
+  "result": {
+    "file_size": 10938,
+    "limit": 5,
+    "match_cap_reached": false,
+    "matches": [
+      {
+        "bytes": "e4ba92e58aa8e589a7e68385e4b896e7958c",
+        "file_offset": 1682,
+        "file_offset_hex": "0x692",
+        "length": 18,
+        "matched": "utf8"
+      },
+      {
+        "bytes": "e4ba92e58aa8e589a7e68385e4b896e7958c",
+        "file_offset": 5150,
+        "file_offset_hex": "0x141e",
+        "length": 18,
+        "matched": "utf8"
+      }
+    ],
+    "native_container": null,
+    "offset": 0,
+    "path": "C:\\Users\\qq308\\Desktop\\lihuo\\.workbuddy\\craft-anything\\makenow-media.cany\\sources\\observations.md",
+    "searched_for": [
+      {
+        "kind": "utf8",
+        "length": 18
+      },
+      {
+        "kind": "utf16le",
+        "length": 12
+      }
+    ],
+    "total_matches": 2
+  },
+  "summary": "2 match(es) for utf8 + utf16le in observations.md; showing 2 from #0.",
+  "confidence": "observed",
+  "authority": "original-files",
+  "environment": {
+    "clean_room": false,
+    "engine": "builtin",
+    "engine_version": "0.6.0",
+    "host": "windows-x86_64"
+  },
+  "limitations": [
+    {
+      "code": "file_bytes_only",
+      "message": "The file's bytes are searched as stored: compressed, encrypted or packed regions and data built at run time are not seen, so no match is not proof of absence."
+    },
+    {
+      "code": "no_addresses",
+      "message": "This file is not a readable ELF, PE or Mach-O program, so matches carry file offsets only."
+    }
+  ],
+  "coverage": {
+    "status": "complete",
+    "examined": 2,
+    "total": 2
+  },
+  "locations": [
+    {
+      "kind": "file_offset",
+      "value": "0x692"
+    },
+    {
+      "kind": "file_offset",
+      "value": "0x141e"
+    }
+  ],
+  "links": []
+}

@@ -1,0 +1,14 @@
+{
+  "id": "unk_b0a8610f0fbdb80e",
+  "revision": 1,
+  "question": "两家当前可用的模型清单、额度与价格（促销具时效性）是什么？",
+  "severity": "medium",
+  "domain": "pricing",
+  "status": "open",
+  "probes": [
+    "按抓取时点复核官网价格页与会员页",
+    "区分活动价与日常价"
+  ],
+  "evidence_for": [],
+  "evidence_against": []
+}

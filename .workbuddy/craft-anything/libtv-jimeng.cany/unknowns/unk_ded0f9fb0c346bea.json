@@ -1,0 +1,14 @@
+{
+  "id": "unk_ded0f9fb0c346bea",
+  "revision": 1,
+  "question": "LibTV Skill 接口的协议、鉴权方式、输入输出 schema 与调用示例是什么？",
+  "severity": "high",
+  "domain": "agent",
+  "status": "open",
+  "probes": [
+    "寻找官方 Skill 文档或社区公开的 Skill 定义",
+    "核实 OpenClaw 接入方式"
+  ],
+  "evidence_for": [],
+  "evidence_against": []
+}

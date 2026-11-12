@@ -327,6 +327,7 @@ export default {
         canvas: "My Canvases",
         image: "Image Studio",
         video: "Video Studio",
+        drama: "Short drama studio",
         director: "Director Desk",
         doubao: "Doubao Accounts",
         prompts: "Prompt Library",

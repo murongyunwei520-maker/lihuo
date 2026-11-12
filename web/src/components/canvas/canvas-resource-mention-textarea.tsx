@@ -195,6 +195,7 @@ export const CanvasResourceMentionTextarea = forwardRef<HTMLTextAreaElement, Pro
 });
 
 function MentionHighlightText({ value, labels, placeholder }: { value: string; labels: string[]; placeholder: boolean }) {
+    const theme = canvasThemes[useThemeStore((state) => state.theme)];
     if (placeholder) return <span className="opacity-45">{value}</span>;
     if (!labels.length) return <>{value}</>;
     const pattern = new RegExp(`(${labels.map(escapeRegExp).join("|")})`, "g");
@@ -202,7 +203,7 @@ function MentionHighlightText({ value, labels, placeholder }: { value: string; l
         <>
             {value.split(pattern).map((part, index) =>
                 labels.includes(part) ? (
-                    <span key={`${part}-${index}`} className="rounded-md bg-[#2f80ff]/16 px-1 py-0.5 font-medium text-[#2f80ff] ring-1 ring-[#2f80ff]/24">
+                    <span key={`${part}-${index}`} className="rounded-md px-1 py-0.5 font-medium" style={{ background: theme.canvas.relationSoft, color: theme.canvas.relationText, boxShadow: `inset 0 0 0 1px ${theme.canvas.relationStroke}38` }}>
                         {part}
                     </span>
                 ) : (

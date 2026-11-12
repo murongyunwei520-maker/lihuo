@@ -1,0 +1,276 @@
+{
+  "revision": 27,
+  "brief": {
+    "question": "https://www.makenow.tv/media 属于什么产品、/media 页与整站各有哪些功能与页面结构、前端如何实现？对离火无限画布项目有什么可借鉴之处？",
+    "purpose": "用户要求同时用 craft-anything（证据账本）、graphify（知识图谱）、reverse-engineer-anything（shipped artifact 静态分析）学习该网站；本轮不改任何业务代码。",
+    "targets": [
+      "https://www.makenow.tv/media",
+      "https://www.makenow.tv/ 及 /assets/index-*.js 等公开静态资源",
+      "72 个 Vite 懒加载 chunk 对应的功能页面",
+      "REA analyze-javascript-application 证据包",
+      "graphify 知识图谱（如依赖可用）"
+    ],
+    "constraints": [
+      "只读取公开静态 HTML/JS 与页面可见文本，不登录、不提交任何生成任务、不消耗积分",
+      "不运行目标站点脚本；craft-anything 的浏览器工具需要用户明确授权，本轮不绕过",
+      "不记录任何 write key、Cookie、凭据或个人信息（页面含第三方埋点 SDK）",
+      "不把第三方前端代码复制进离火项目，仅做学习",
+      "结论区分观察（shipped artifact 字符串/API 路径）、推导与推断，并标注覆盖边界"
+    ],
+    "done_when": "三种方法各留下可引用的产物；形成带证据的功能清单、实现结构与对离火的借鉴结论；findings、unknowns、handoff 与报告落盘。"
+  },
+  "plan": [
+    {
+      "title": "定位站点身份与 /media 的真实角色",
+      "status": "done",
+      "why": "已确认 /media = 自媒体板块；提取素材是其中工具，另有 /media/templates"
+    },
+    {
+      "title": "采集 shipped artifacts",
+      "status": "done",
+      "why": "index.html + 33 个 JS、72 个 chunk 名、69 个 API、465 条中文字符串、功能词清单"
+    },
+    {
+      "title": "REA 静态分析前端应用",
+      "status": "done",
+      "why": "证据包 140MB；4 文件解析/1 失败、525356 AST、2642 findings、Electron 检测全 0"
+    },
+    {
+      "title": "graphify 构建知识图谱",
+      "status": "blocked",
+      "why": "本机 PyPI 源对 graphifyy/graphify 均返回 no matching distribution；已改用功能关系清单与可视化替代"
+    },
+    {
+      "title": "craft-anything 证据链、假设与 findings",
+      "status": "done",
+      "why": "34 条检索证据、5 条假设、13 条 findings"
+    },
+    {
+      "title": "生成报告、unknowns 与 handoff",
+      "status": "done",
+      "why": "6 个 unknowns、report.md、handoff 已写入"
+    },
+    {
+      "title": "给出对离火的借鉴与仍未验证项",
+      "status": "done",
+      "why": "已沉淀为 findings 与最终答复"
+    }
+  ],
+  "hypotheses": [
+    {
+      "id": "hyp_1",
+      "claim": "H1 /media 是一个独立的素材提取工具站",
+      "prediction": "页面与路由应显示 /media 为全站核心或独立产品",
+      "status": "refuted",
+      "supporting": [],
+      "contradicting": [
+        "ev_bf613b211e4352eb7fba1f700c0b7cf7343ea4e6175bf14ca6c8c28db1dbe148",
+        "ev_d34465b59f97d2f39d74b30d1f1fd172bc041a8e5ca9123cdb90e85fd1a2dfd8",
+        "ev_327e2f446aa38b1b73895d151e6b947739bf054254bdcd047b39f790aedb6e97"
+      ],
+      "notes": [
+        "主包导航数组与路由定义显示 /media 只是五大板块中的『自媒体』，提取素材是该板块里的一个工具，另有 /media/templates"
+      ]
+    },
+    {
+      "id": "hyp_2",
+      "claim": "H2 该站同时提供桌面客户端",
+      "prediction": "HTML 或 chunk 列表应出现 Electron/下载页证据",
+      "status": "supported",
+      "supporting": [
+        "ev_c884d0d5d2577ccdb26a116ed2b48745480cb694df3acbafe00c79a0a3a83700",
+        "ev_2b09da11c1995936d04bbd065124600a1647e0909e6c422750fa91bf84d52a88",
+        "ev_3d9678c696e1fa0eea79758ac43bc15134ee474fdddbbc1226c8e45aaeb1a81a"
+      ],
+      "contradicting": [],
+      "notes": [
+        "index.html 注释明确 transparent+frame:false 的 BrowserWindow 与 ?petOverlay=1；chunk 列表含 DesktopDownloadPage"
+      ]
+    },
+    {
+      "id": "hyp_3",
+      "claim": "H3 网页 bundle 内含 Electron 主进程代码",
+      "prediction": "REA 静态分析应检出 browser_windows/preload/IPC",
+      "status": "refuted",
+      "supporting": [],
+      "contradicting": [
+        "ev_7471603adcb7ec9400bcc8e5b3d89dc9ef5be2931a2d104af2628a8104548571",
+        "ev_4e2042a6ad1b4aa5acdf721fdda49399847eddac3f5ee016bd713be45fcd3ad4"
+      ],
+      "notes": [
+        "REA electron 统计全为 0，桌面壳与网页分开交付；静态分析只覆盖惰性文本"
+      ]
+    },
+    {
+      "id": "hyp_4",
+      "claim": "H4 无限画布是产品的主干能力",
+      "prediction": "SEO meta 与 chunk 体积应同时体现",
+      "status": "supported",
+      "supporting": [
+        "ev_1de8eb682add831a72c6fe76a402528deae46b2f1a46965899172bec44a5cf42",
+        "ev_c49176a5bd5a67e010e3011c4bf7b635ebf37f545a3171b268f7d4304c53ed17",
+        "ev_abd151e668f3d2260445bb5a04cffbd78c5262771a17fdf03ef1abae2f1ef79a",
+        "ev_cde4a461e73145f339a2df1f18e562f36a452a142a4f65068b62793db0caee97"
+      ],
+      "contradicting": [],
+      "notes": [
+        "meta 明确列无限画布；Sora2WorkflowCanvas 是最大业务 chunk，含 1213 条中文字符串与三视图/宫格/垫图模板"
+      ]
+    },
+    {
+      "id": "hyp_5",
+      "claim": "H5 技能(Skill)是可复用、可审核、可变现的资产",
+      "prediction": "应同时出现创建流程、审核状态与积分收入",
+      "status": "supported",
+      "supporting": [
+        "ev_6f61a5760b9080c82ede0e54c1b7b9852944f1a89e648604ee95a9c43d6e6e59",
+        "ev_e80a1ddb854a942e9a07320aa480b86ce4ed03c45d7bfd643089ae33de9b55ef",
+        "ev_26357a129a6e8c3a358f0c0dbb8dac492d28d6627cc26b00b75d8e2983890919"
+      ],
+      "contradicting": [],
+      "notes": [
+        "SkillCreatePage 有拉片→18维证据→方法论→可复用 Skill→审阅保存；SkillMarket 有我的技能/积分收入；AgentSkills 有待审核/已发布/安装数"
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "fnd_1",
+      "statement": "MakeNow AI 是『你的超创平台 / Make anything. Now』，SEO meta 自述为短剧、电商、自媒体、工作、讨论组五大板块的一站式 AI 创作平台，涵盖无限画布、一键成片、视频转绘、AI Agent 智能体与超多实用工具；首页提供视频生成/图片生成/剧本创作三入口，并标出 Seedance 2.0 12积分/秒、16:9·720P·15s·有声。",
+      "evidence_ids": [
+        "ev_f608263a2801ed25e5d378cb5205abc617ba3c9beb22c58e82da7e0aa6584563",
+        "ev_1de8eb682add831a72c6fe76a402528deae46b2f1a46965899172bec44a5cf42",
+        "ev_597b818787aa16c21924d20b7b116d7111c7c2aabccb48bc015fdd800767a8cd",
+        "ev_9b552247ff58ace129b0978b96fd555b359e337cefdc2b034486c1268d3770d1",
+        "ev_ea6e18d46b8a189ad5368f914edf99d9bb662455b460dfe099dbd0f682318758",
+        "ev_f6aa41cba4ecf426fb7c58e49ee1db3dd5c7a8aaea8a0ac773bef084f1f3f732"
+      ],
+      "confidence": "observed"
+    },
+    {
+      "id": "fnd_2",
+      "statement": "/media 不是素材站，而是五大板块中的『自媒体』入口：主包导航数组为 drama:/ 、ecommerce:/ecommerce、media:/media、work:/work、discussion:/discussion；路由 /media 懒加载 MediaPage，/media/templates 懒加载 TemplateMarketPage，路由守卫对 /media?tool= 有特判。",
+      "evidence_ids": [
+        "ev_bf613b211e4352eb7fba1f700c0b7cf7343ea4e6175bf14ca6c8c28db1dbe148",
+        "ev_327e2f446aa38b1b73895d151e6b947739bf054254bdcd047b39f790aedb6e97"
+      ],
+      "confidence": "observed"
+    },
+    {
+      "id": "fnd_3",
+      "statement": "/media 页的核心工具是『提取灵感，即刻创作』：粘贴整段分享文案即可识别，提取结果可直接导入原画质素材；4 个平台（douyin/xiaohongshu/kuaishou/bilibili）支持原画质提取，其余公开网页走通用提取；提取按次消耗积分且失败自动全额退还；平台风控较严时提示改用其它平台或直接上传素材；页面还有『支持的平台/提取结果/精选创作』。",
+      "evidence_ids": [
+        "ev_327e2f446aa38b1b73895d151e6b947739bf054254bdcd047b39f790aedb6e97",
+        "ev_273f58aa5c696cfc55dfeba822e1cd14ce9bcf00388c06f899b0a265153f3022",
+        "ev_d34465b59f97d2f39d74b30d1f1fd172bc041a8e5ca9123cdb90e85fd1a2dfd8",
+        "ev_70e9858850141ddc752f5d3f97ab7ec08d40f99b316023eb8a6aa82acda0ab82"
+      ],
+      "confidence": "observed"
+    },
+    {
+      "id": "fnd_4",
+      "statement": "前端把 72 个功能页拆成 Vite 懒加载 chunk，块名构成完整功能地图：创作主干（Sora2WorkflowCanvas/Projects/Stats、VideoClip、ImageEdit、ToolWorkspace、Generations、Prompts）、技能与模板（SkillMarket/SkillCreate/AgentSkills/TemplateMarket）、五大板块（homePageIndex/EcommercePage/WorkPage/MediaPage/discussion*）、互动剧情世界（WorldEditor/WorldGuide/WorldPlay）、客户端与运营（DesktopDownloadPage、TaskCenterPage、VoiceLibrary、Dashboard、Admin）。",
+      "evidence_ids": [
+        "ev_c49176a5bd5a67e010e3011c4bf7b635ebf37f545a3171b268f7d4304c53ed17",
+        "ev_6f61a5760b9080c82ede0e54c1b7b9852944f1a89e648604ee95a9c43d6e6e59",
+        "ev_3d9678c696e1fa0eea79758ac43bc15134ee474fdddbbc1226c8e45aaeb1a81a",
+        "ev_333eb44053b57a4829a13aa6dc4dc2287a5e5f73f4bd3dbae2a715ddb7adcecd"
+      ],
+      "confidence": "observed"
+    },
+    {
+      "id": "fnd_5",
+      "statement": "无限画布是最大业务模块（Sora2WorkflowCanvas，1213 条中文字符串），内置 2D 动漫(赛璐璐/新海诚)、3D 动漫、写实等风格库，角色三视图、场景概念图、物品三视图，2×2/2×3/3×3/3×4/4×4 宫格，垫图模板与参考图推理/场景图推理；视频剪辑块含分镜、配音、字幕、音乐、分割与 FFmpeg；工具工作台含长图拼接、切片、裁剪比例与导出格式。",
+      "evidence_ids": [
+        "ev_abd151e668f3d2260445bb5a04cffbd78c5262771a17fdf03ef1abae2f1ef79a",
+        "ev_cde4a461e73145f339a2df1f18e562f36a452a142a4f65068b62793db0caee97",
+        "ev_71b49194394f27ca94b495dc7f93fcc1cfaf4937e2d867709eb6c6d0570f2771",
+        "ev_6e378bd4daa3d7b8bab568299304a559beee20d94faf23c7739d68d8e81f2020"
+      ],
+      "confidence": "observed"
+    },
+    {
+      "id": "fnd_6",
+      "statement": "Skill 体系是『方法论资产化』：SkillCreatePage 依次做逐镜头拉片、拆解镜头与 18 维证据、提炼方法论（对齐共同规律/可变参数/反例/导演级质量门槛）、构建可复用 Skill（适用条件、提问表单、执行步骤、每步产物、失败处理）、审阅保存进入审核；SkillMarket 有探索/我的技能/积分收入与八大分类；AgentSkills 管理端统计待审核数、已发布数、安装数、版本与价格。",
+      "evidence_ids": [
+        "ev_e80a1ddb854a942e9a07320aa480b86ce4ed03c45d7bfd643089ae33de9b55ef",
+        "ev_6f61a5760b9080c82ede0e54c1b7b9852944f1a89e648604ee95a9c43d6e6e59",
+        "ev_26357a129a6e8c3a358f0c0dbb8dac492d28d6627cc26b00b75d8e2983890919"
+      ],
+      "confidence": "observed"
+    },
+    {
+      "id": "fnd_7",
+      "statement": "电商与工作板块把 Agent 做成一等能力：WorkPage 有 Agent 智能体、主Agent模式、任务模式、导师/子任务、执行时间线，并区分『沙箱：仅在工作空间内读写，禁止联网』与『完全访问：可联网、可读写本机文件』两种权限模式；EcommercePage 有预览/下载/直连/免费/积分与模型选择。",
+      "evidence_ids": [
+        "ev_563a959eea7c854d9f5949c2123390abf6df535a14e92706f023b7eb5451d741",
+        "ev_695181a32329855c2b6b2cb2e4535bc7a58f45a5951b1759f140e251a40514ab"
+      ],
+      "confidence": "observed"
+    },
+    {
+      "id": "fnd_8",
+      "statement": "实现为 Vue 3 + Vite + ant-design-vue 的纯 SPA（#app 挂载、多 vendor 分包与 CSS 分包），PWA manifest、iOS 主屏图标、Google/Bing 站点验证与 OG/Twitter Card 齐备；主题用 localStorage `sora2-theme`，皮肤 dark/forest/ocean/cherry/light/cream，内部代号 sora2；index.html 注释揭示存在 transparent + frame:false 的 Electron『桌面萌宠窗口』（?petOverlay=1）与桌面客户端下载页。",
+      "evidence_ids": [
+        "ev_c884d0d5d2577ccdb26a116ed2b48745480cb694df3acbafe00c79a0a3a83700",
+        "ev_2b09da11c1995936d04bbd065124600a1647e0909e6c422750fa91bf84d52a88",
+        "ev_209c31fbf67098cecbfd8fa85a73da71916393ff58dfc628c4027e0617ca062a",
+        "ev_52e7b5b8e7db8b0c9712c99dba58afd9b1a29fc036c7829b4684e3d02da43774"
+      ],
+      "confidence": "observed"
+    },
+    {
+      "id": "fnd_9",
+      "statement": "主包含 69 个 /api 路径，覆盖账号（短信/微信扫码/统一账号/激活码/渠道归因）、生成与媒体（generations、audio、music、face-swap、design-to-psd、chat-agent、画布协作邀请）、社区（讨论组/帖子/活动）、商业化（支付订单/套餐）与 /api/admin/* 管理端；管理菜单含素材审核、积分流水、AI 配置、音色库、模型健康白名单、技能审核、充值与邀请等。",
+      "evidence_ids": [
+        "ev_ea30e90094d405ac16bf27ab85670cabea085c9eba29bad6a4e747a3a1b7e995",
+        "ev_53e3272234bbb58cc1eb9a83a0d9740593294e861a3f42975827cff7c6db5bb3",
+        "ev_70e9858850141ddc752f5d3f97ab7ec08d40f99b316023eb8a6aa82acda0ab82"
+      ],
+      "confidence": "observed"
+    },
+    {
+      "id": "fnd_10",
+      "statement": "REA 的 analyze-javascript-application 对 assets/ 完成静态分析：4 个 JS 被解析、1 个解析失败、读取 3,270,302 字节、访问 525,356 个 AST 节点、产生 2,642 条 findings；Electron 检测（browser_windows/preload/contextBridge/IPC）全为 0，与『桌面壳单独交付』一致。证据明确声明 JS/HTML 按惰性文本解析、bootstrap 从未执行，另有 55,228 个 semantic unknowns，因此实现结论不能当作运行时验证。",
+      "evidence_ids": [
+        "ev_7471603adcb7ec9400bcc8e5b3d89dc9ef5be2931a2d104af2628a8104548571",
+        "ev_4e2042a6ad1b4aa5acdf721fdda49399847eddac3f5ee016bd713be45fcd3ad4"
+      ],
+      "confidence": "derived"
+    },
+    {
+      "id": "fnd_11",
+      "statement": "商业化与账号：积分制（首页示例 Seedance 2.0 12积分/秒，提取素材按次扣积分且失败全退）、充值套餐/支付订单/积分流水/签到/邀请注册/任务中心（暂未开放）、技能市场『积分收入』；登录支持手机号验证码与密码、微信扫码、统一账号、激活码兑换。页面还异步加载第三方统计 SDK（Entmesh v0.5.3）并开启 fingerprint 设备指纹，萌宠窗口不加载；前端公开 write key 未记录。",
+      "evidence_ids": [
+        "ev_f6aa41cba4ecf426fb7c58e49ee1db3dd5c7a8aaea8a0ac773bef084f1f3f732",
+        "ev_26357a129a6e8c3a358f0c0dbb8dac492d28d6627cc26b00b75d8e2983890919",
+        "ev_10d612a6ecfc0d390c6ab3d2ceed6d3369c1487ce6310e23fa833978d8f16786",
+        "ev_9591ce590dc27759a924112101b1cd3617784703de2ebe2e31918a95ec679b9b"
+      ],
+      "confidence": "observed"
+    },
+    {
+      "id": "fnd_12",
+      "statement": "对离火可借鉴：① 把五大板块/工具统一到无限画布与可复用工作流；② Skill 的『拉片→18 维证据→方法论→可复用 Skill→审核』比普通提示词模板更完整，可与提示词工坊/导演台对照；③ 角色三视图、多宫格分镜、垫图模板、参考图推理等影视化控制；④ 工具工作台（长图拼接/切片/导出）与视频剪辑块；⑤ 互动剧情世界（分支剧情树 + 生成配图/视频）；⑥ GUI + Agent 双入口与权限分级（沙箱/完全访问）。不宜照搬积分计费、多模型聚合、账号社区与桌面壳——那是平台侧能力，且离火约束禁止自动切号/伪造额度。",
+      "evidence_ids": [
+        "ev_c49176a5bd5a67e010e3011c4bf7b635ebf37f545a3171b268f7d4304c53ed17",
+        "ev_e80a1ddb854a942e9a07320aa480b86ce4ed03c45d7bfd643089ae33de9b55ef",
+        "ev_abd151e668f3d2260445bb5a04cffbd78c5262771a17fdf03ef1abae2f1ef79a",
+        "ev_3d9678c696e1fa0eea79758ac43bc15134ee474fdddbbc1226c8e45aaeb1a81a",
+        "ev_563a959eea7c854d9f5949c2123390abf6df535a14e92706f023b7eb5451d741"
+      ],
+      "confidence": "inferred"
+    },
+    {
+      "id": "fnd_13",
+      "statement": "证据边界：本轮只读公开静态 HTML/JS 与页面可见文本，未登录、未提交生成任务、未消耗积分、未运行站点脚本；登录态功能、四个平台实际提取成功率、当前模型/价格有效性、服务端逻辑均未验证。graphify 依赖在本机 PyPI 源无匹配包，完整 pipeline 未运行，本轮以功能关系清单与可视化替代。",
+      "evidence_ids": [
+        "ev_4e2042a6ad1b4aa5acdf721fdda49399847eddac3f5ee016bd713be45fcd3ad4",
+        "ev_7471603adcb7ec9400bcc8e5b3d89dc9ef5be2931a2d104af2628a8104548571"
+      ],
+      "confidence": "observed"
+    }
+  ],
+  "handoff": "目标：https://www.makenow.tv/media（MakeNow AI『超创平台』）。本轮用三技能协作：craft-anything 在 .workbuddy/craft-anything/makenow-media.cany/ 建立 brief/plan/34 条证据/5 假设/13 findings/6 unknowns/report.md/handoff；REA 用 CLI analyze-javascript-application 静态分析 assets/（证据包 140MB，摘要 rea-summary.json）；graphify 因 PyPI 无匹配包未能运行完整 pipeline（plan 标 blocked），改以功能关系清单与 SVG 图谱呈现。核心结论：/media 是五大板块中的『自媒体』页而非独立素材站，主工具为粘贴分享文案提取原画质素材（抖音/小红书/快手/B站，按次扣积分、失败全退）；整站是 Vue3+Vite+ant-design-vue SPA，72 个懒加载 chunk 构成功能地图，无限画布 Sora2WorkflowCanvas 为主干，Skill 体系把拉片→18 维证据→方法论→可复用 Skill→审核变现，另有 Agent 工作模式（沙箱/完全访问）、互动剧情世界、模板市场、桌面 Electron 萌宠窗口与积分商业化。下一步（需用户授权）：独立浏览器被动观察登录态 /media 与画布；补全 Sora2WorkflowCanvas 未下载完的 1.4MB chunk；若 graphify 依赖换源成功，重跑完整 pipeline 生成 graph.json/GRAPH_REPORT.md/graph.html。陷阱：① 网页 bundle 里没有 Electron 主进程代码，桌面壳另包；② REA 只做惰性文本静态分析，bootstrap 未执行、仍有 55228 semantic unknowns，勿当运行时证据；③ 页面含第三方埋点 SDK + 设备指纹，勿把前端 write key 写进任何笔记；④ robots.txt/sitemap.xml 是 SPA fallback，不是真实文件；⑤ 抓取的 JS 是第三方代码，只做学习，不复制进离火项目；⑥ 促销/积分/模型清单随版本变化。",
+  "updated": "2026-11-11T14:27:21Z"
+}

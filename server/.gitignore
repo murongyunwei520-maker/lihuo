@@ -1,0 +1,15 @@
+# 后端运行时文件
+node_modules/
+.env
+.env.local
+
+# 运行期数据：SQLite 库（含密码哈希）与引导凭据，绝不能入库
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# 日志与临时产物
+*.log
+tmp/
+dist/

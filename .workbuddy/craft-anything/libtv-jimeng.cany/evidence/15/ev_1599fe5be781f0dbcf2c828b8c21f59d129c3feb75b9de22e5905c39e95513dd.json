@@ -1,0 +1,98 @@
+{
+  "id": "ev_1599fe5be781f0dbcf2c828b8c21f59d129c3feb75b9de22e5905c39e95513dd",
+  "subject": {
+    "kind": "unknown",
+    "sha256": "90b6df55d52b85e51d1ef57175f570fc02d25023cfc866406a006d935b6cc9c9",
+    "name": "feature-snapshot.md"
+  },
+  "operation": "native_bytes_find",
+  "params": {
+    "encoding": "both",
+    "limit": 10,
+    "offset": 0,
+    "path": "C:\\Users\\qq308\\Desktop\\lihuo\\.workbuddy\\craft-anything\\libtv-jimeng.cany\\sources\\feature-snapshot.md",
+    "pattern": null,
+    "text": "角色三视图"
+  },
+  "result": {
+    "file_size": 12060,
+    "limit": 10,
+    "match_cap_reached": false,
+    "matches": [
+      {
+        "bytes": "e8a792e889b2e4b889e8a786e59bbe",
+        "file_offset": 7823,
+        "file_offset_hex": "0x1e8f",
+        "length": 15,
+        "matched": "utf8"
+      },
+      {
+        "bytes": "e8a792e889b2e4b889e8a786e59bbe",
+        "file_offset": 9247,
+        "file_offset_hex": "0x241f",
+        "length": 15,
+        "matched": "utf8"
+      },
+      {
+        "bytes": "e8a792e889b2e4b889e8a786e59bbe",
+        "file_offset": 10542,
+        "file_offset_hex": "0x292e",
+        "length": 15,
+        "matched": "utf8"
+      }
+    ],
+    "native_container": null,
+    "offset": 0,
+    "path": "C:\\Users\\qq308\\Desktop\\lihuo\\.workbuddy\\craft-anything\\libtv-jimeng.cany\\sources\\feature-snapshot.md",
+    "searched_for": [
+      {
+        "kind": "utf8",
+        "length": 15
+      },
+      {
+        "kind": "utf16le",
+        "length": 10
+      }
+    ],
+    "total_matches": 3
+  },
+  "summary": "3 match(es) for utf8 + utf16le in feature-snapshot.md; showing 3 from #0.",
+  "confidence": "observed",
+  "authority": "original-files",
+  "environment": {
+    "clean_room": false,
+    "engine": "builtin",
+    "engine_version": "0.6.0",
+    "host": "windows-x86_64"
+  },
+  "limitations": [
+    {
+      "code": "file_bytes_only",
+      "message": "The file's bytes are searched as stored: compressed, encrypted or packed regions and data built at run time are not seen, so no match is not proof of absence."
+    },
+    {
+      "code": "no_addresses",
+      "message": "This file is not a readable ELF, PE or Mach-O program, so matches carry file offsets only."
+    }
+  ],
+  "coverage": {
+    "status": "complete",
+    "examined": 3,
+    "total": 3
+  },
+  "locations": [
+    {
+      "kind": "file_offset",
+      "value": "0x1e8f"
+    },
+    {
+      "kind": "file_offset",
+      "value": "0x241f"
+    },
+    {
+      "kind": "file_offset",
+      "value": "0x292e"
+    }
+  ],
+  "links": []
+}

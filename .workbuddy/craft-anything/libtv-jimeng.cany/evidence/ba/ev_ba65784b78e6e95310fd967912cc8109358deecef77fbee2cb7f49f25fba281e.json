@@ -1,0 +1,109 @@
+{
+  "id": "ev_ba65784b78e6e95310fd967912cc8109358deecef77fbee2cb7f49f25fba281e",
+  "subject": {
+    "kind": "unknown",
+    "sha256": "90b6df55d52b85e51d1ef57175f570fc02d25023cfc866406a006d935b6cc9c9",
+    "name": "feature-snapshot.md"
+  },
+  "operation": "native_bytes_find",
+  "params": {
+    "encoding": "both",
+    "limit": 20,
+    "offset": 0,
+    "path": "C:/Users/qq308/Desktop/lihuo/.workbuddy/craft-anything/libtv-jimeng.cany/sources/feature-snapshot.md",
+    "pattern": null,
+    "text": "无限画布"
+  },
+  "result": {
+    "file_size": 12060,
+    "limit": 20,
+    "match_cap_reached": false,
+    "matches": [
+      {
+        "bytes": "e697a0e99990e794bbe5b883",
+        "file_offset": 2422,
+        "file_offset_hex": "0x976",
+        "length": 12,
+        "matched": "utf8"
+      },
+      {
+        "bytes": "e697a0e99990e794bbe5b883",
+        "file_offset": 7360,
+        "file_offset_hex": "0x1cc0",
+        "length": 12,
+        "matched": "utf8"
+      },
+      {
+        "bytes": "e697a0e99990e794bbe5b883",
+        "file_offset": 9932,
+        "file_offset_hex": "0x26cc",
+        "length": 12,
+        "matched": "utf8"
+      },
+      {
+        "bytes": "e697a0e99990e794bbe5b883",
+        "file_offset": 11324,
+        "file_offset_hex": "0x2c3c",
+        "length": 12,
+        "matched": "utf8"
+      }
+    ],
+    "native_container": null,
+    "offset": 0,
+    "path": "C:/Users/qq308/Desktop/lihuo/.workbuddy/craft-anything/libtv-jimeng.cany/sources/feature-snapshot.md",
+    "searched_for": [
+      {
+        "kind": "utf8",
+        "length": 12
+      },
+      {
+        "kind": "utf16le",
+        "length": 8
+      }
+    ],
+    "total_matches": 4
+  },
+  "summary": "4 match(es) for utf8 + utf16le in feature-snapshot.md; showing 4 from #0.",
+  "confidence": "observed",
+  "authority": "original-files",
+  "environment": {
+    "clean_room": false,
+    "engine": "builtin",
+    "engine_version": "0.6.0",
+    "host": "windows-x86_64"
+  },
+  "limitations": [
+    {
+      "code": "file_bytes_only",
+      "message": "The file's bytes are searched as stored: compressed, encrypted or packed regions and data built at run time are not seen, so no match is not proof of absence."
+    },
+    {
+      "code": "no_addresses",
+      "message": "This file is not a readable ELF, PE or Mach-O program, so matches carry file offsets only."
+    }
+  ],
+  "coverage": {
+    "status": "complete",
+    "examined": 4,
+    "total": 4
+  },
+  "locations": [
+    {
+      "kind": "file_offset",
+      "value": "0x976"
+    },
+    {
+      "kind": "file_offset",
+      "value": "0x1cc0"
+    },
+    {
+      "kind": "file_offset",
+      "value": "0x26cc"
+    },
+    {
+      "kind": "file_offset",
+      "value": "0x2c3c"
+    }
+  ],
+  "links": []
+}

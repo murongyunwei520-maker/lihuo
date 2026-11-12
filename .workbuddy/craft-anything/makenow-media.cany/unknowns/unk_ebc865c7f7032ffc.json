@@ -1,0 +1,14 @@
+{
+  "id": "unk_ebc865c7f7032ffc",
+  "revision": 1,
+  "question": "Skill 的 18 维证据具体是哪 18 维，创建出的 Skill 以什么格式存储与执行？",
+  "severity": "high",
+  "domain": "agent",
+  "status": "open",
+  "probes": [
+    "读取 SkillCreatePage 与 AgentSkills 的完整模块图",
+    "查技能市场公开说明"
+  ],
+  "evidence_for": [],
+  "evidence_against": []
+}

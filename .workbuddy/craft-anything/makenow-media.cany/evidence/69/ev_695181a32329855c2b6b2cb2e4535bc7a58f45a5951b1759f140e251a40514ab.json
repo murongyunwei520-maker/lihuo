@@ -1,0 +1,87 @@
+{
+  "id": "ev_695181a32329855c2b6b2cb2e4535bc7a58f45a5951b1759f140e251a40514ab",
+  "subject": {
+    "kind": "unknown",
+    "sha256": "a135e9f7d3e6cdd5e83069a8c946687adb8cd2ab0d48b9c5f015a17604cc745e",
+    "name": "observations.md"
+  },
+  "operation": "native_bytes_find",
+  "params": {
+    "encoding": "both",
+    "limit": 5,
+    "offset": 0,
+    "path": "C:\\Users\\qq308\\Desktop\\lihuo\\.workbuddy\\craft-anything\\makenow-media.cany\\sources\\observations.md",
+    "pattern": null,
+    "text": "Agent 智能体"
+  },
+  "result": {
+    "file_size": 10938,
+    "limit": 5,
+    "match_cap_reached": false,
+    "matches": [
+      {
+        "bytes": "4167656e7420e699bae883bde4bd93",
+        "file_offset": 688,
+        "file_offset_hex": "0x2b0",
+        "length": 15,
+        "matched": "utf8"
+      },
+      {
+        "bytes": "4167656e7420e699bae883bde4bd93",
+        "file_offset": 4832,
+        "file_offset_hex": "0x12e0",
+        "length": 15,
+        "matched": "utf8"
+      }
+    ],
+    "native_container": null,
+    "offset": 0,
+    "path": "C:\\Users\\qq308\\Desktop\\lihuo\\.workbuddy\\craft-anything\\makenow-media.cany\\sources\\observations.md",
+    "searched_for": [
+      {
+        "kind": "utf8",
+        "length": 15
+      },
+      {
+        "kind": "utf16le",
+        "length": 18
+      }
+    ],
+    "total_matches": 2
+  },
+  "summary": "2 match(es) for utf8 + utf16le in observations.md; showing 2 from #0.",
+  "confidence": "observed",
+  "authority": "original-files",
+  "environment": {
+    "clean_room": false,
+    "engine": "builtin",
+    "engine_version": "0.6.0",
+    "host": "windows-x86_64"
+  },
+  "limitations": [
+    {
+      "code": "file_bytes_only",
+      "message": "The file's bytes are searched as stored: compressed, encrypted or packed regions and data built at run time are not seen, so no match is not proof of absence."
+    },
+    {
+      "code": "no_addresses",
+      "message": "This file is not a readable ELF, PE or Mach-O program, so matches carry file offsets only."
+    }
+  ],
+  "coverage": {
+    "status": "complete",
+    "examined": 2,
+    "total": 2
+  },
+  "locations": [
+    {
+      "kind": "file_offset",
+      "value": "0x2b0"
+    },
+    {
+      "kind": "file_offset",
+      "value": "0x12e0"
+    }
+  ],
+  "links": []
+}

@@ -1,0 +1,14 @@
+{
+  "id": "unk_97d56602c4f93883",
+  "revision": 1,
+  "question": "即梦画布页登录后的真实 UI 与 S10 索引文案是否一致？",
+  "severity": "medium",
+  "domain": "product",
+  "status": "open",
+  "probes": [
+    "官方帮助中心 / 登录后被动观察",
+    "复核『Agent 模式』『/ 使用技能』等交互"
+  ],
+  "evidence_for": [],
+  "evidence_against": []
+}

@@ -2,6 +2,7 @@
 
 > 本文档供 AI 编程 Agent 快速了解项目全貌。
 > 信息来源：源码审查 + 现有文档，标注「已验证」的内容来自当前代码。
+> **先看 `ENTRY_POINTS.md`**：启动方式、按功能找文件的入口表、当前架构、已知坑。
 
 ## 一、项目定位
 
@@ -48,21 +49,24 @@ lihuo/
 └── DEVELOPMENT.md                 # 开发文档
 ```
 
-> ⚠️ 工程环境：该目录**不含 `.git`**，`git status` 会报 not a git repository。AGENTS.md 里的「发版本流程」需要先补建版本库才能执行，删除类操作不可回滚。
+> ⚠️ 工程环境：该目录已建 Git 仓库（基线 tag `baseline-20261110`，分支 `chore/integrate-cleanup` 上有整合改动）。删除类操作前先 `git status` 确认，回滚用 `git checkout -- .` 或 `git reset --hard baseline-20261110`。
 
 ## 四、核心子系统
 
 ### 1. 无限画布系统
 - 位置：`web/src/components/canvas/`
 - 节点注册：`builtin-nodes.tsx` + `lihuo/index.tsx`
-- 节点类型：图片、视频、音频、文本、组、便签、提示词工坊、导演台
+- 自研节点：朱笺、提示词工坊、导演台
+- **豆包没有专属节点**：已并入内置「图片 / 视频」节点的统一模型下拉（`builtin-doubao::<模型名>`）
 
 ### 2. 豆包生成链路
-- 前端：`web/src/services/api/doubao-bridge.ts`
+- 前端路由：`web/src/services/api/image.ts` / `video.ts`（`isDoubaoBuiltinModel` 命中即走 bridge）
+- 适配层：`web/src/services/api/doubao-bridge-adapter.ts`（生图 job 组装、参考图上传）
 - 桥接：`doubao-bridge/server.mjs`（:9091）
-- Runner：`doubao-bridge/run-doubao.mjs`
+- Runner：`doubao-bridge/run-doubao.mjs`（CDP 复用账号唯一窗口，新标签页 = 新对话）
 - 浏览器自动化：`vendor/doubao-brain/dbb/`
-- 支持：图片生成、视频生成
+- 支持：图片生成、视频生成、连线参考图随提示词一起提交
+- 结果回填：任务带 `nodeId`，画布卡片按 nodeId 收结果；检查器按 nodeId 反查日志
 
 ### 3. 模型与 Provider 系统
 - 配置存储：`web/src/stores/use-config-store.ts`

@@ -1,0 +1,76 @@
+{
+  "id": "ev_c884d0d5d2577ccdb26a116ed2b48745480cb694df3acbafe00c79a0a3a83700",
+  "subject": {
+    "kind": "script",
+    "sha256": "81e719d3c51c308975a093bbd620929c4b59e7eefe8c7d37a679afcbbc75eb75",
+    "name": "site-index.html"
+  },
+  "operation": "native_bytes_find",
+  "params": {
+    "encoding": "both",
+    "limit": 5,
+    "offset": 0,
+    "path": "C:\\Users\\qq308\\Desktop\\lihuo\\.workbuddy\\craft-anything\\makenow-media.cany\\sources\\site-index.html",
+    "pattern": null,
+    "text": "桌面萌宠"
+  },
+  "result": {
+    "file_size": 8278,
+    "limit": 5,
+    "match_cap_reached": false,
+    "matches": [
+      {
+        "bytes": "e6a18ce99da2e8908ce5aea0",
+        "file_offset": 89,
+        "file_offset_hex": "0x59",
+        "length": 12,
+        "matched": "utf8"
+      }
+    ],
+    "native_container": null,
+    "offset": 0,
+    "path": "C:\\Users\\qq308\\Desktop\\lihuo\\.workbuddy\\craft-anything\\makenow-media.cany\\sources\\site-index.html",
+    "searched_for": [
+      {
+        "kind": "utf8",
+        "length": 12
+      },
+      {
+        "kind": "utf16le",
+        "length": 8
+      }
+    ],
+    "total_matches": 1
+  },
+  "summary": "1 match(es) for utf8 + utf16le in site-index.html; showing 1 from #0.",
+  "confidence": "observed",
+  "authority": "original-files",
+  "environment": {
+    "clean_room": false,
+    "engine": "builtin",
+    "engine_version": "0.6.0",
+    "host": "windows-x86_64"
+  },
+  "limitations": [
+    {
+      "code": "file_bytes_only",
+      "message": "The file's bytes are searched as stored: compressed, encrypted or packed regions and data built at run time are not seen, so no match is not proof of absence."
+    },
+    {
+      "code": "no_addresses",
+      "message": "This file is not a readable ELF, PE or Mach-O program, so matches carry file offsets only."
+    }
+  ],
+  "coverage": {
+    "status": "complete",
+    "examined": 1,
+    "total": 1
+  },
+  "locations": [
+    {
+      "kind": "file_offset",
+      "value": "0x59"
+    }
+  ],
+  "links": []
+}

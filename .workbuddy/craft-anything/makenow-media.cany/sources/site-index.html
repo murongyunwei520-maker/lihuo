@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <!--
+      桌面萌宠窗口标记：**必须在任何样式与脚本之前**同步判断。
+
+      该窗口是 transparent + frame:false 的独立 BrowserWindow，只挂着
+      `?petOverlay=1` 加载同一份 index.html。若等 Vue 挂载后再给 <html>
+      打标记（原先在 App.vue 的 watch 里做），那么：
+        1. 浏览器先按默认白底渲染一帧；
+        2. main.css 又要等整个 JS 模块图加载完才生效，期间也没有任何样式；
+      窗口在这段时间里就是一块不透明底板 —— 用户看到的就是「启动时萌宠区域
+      白屏闪一下」。这里提前打标记 + 内联兜底样式，首帧就是透明的。
+    -->
+    <script>
+      (function () {
+        try {
+          var params = new URLSearchParams(location.search);
+          if (params.get("petOverlay") === "1") {
+            document.documentElement.setAttribute("data-pet-overlay", "");
+            window.__PET_OVERLAY__ = true;
+          }
+        } catch (e) {}
+      })();
+    </script>
+    <style>
+      /* 内联兜底：不等 main.css，首帧就把根节点压成透明 */
+      html[data-pet-overlay],
+      html[data-pet-overlay] body,
+      html[data-pet-overlay] #app {
+        background: transparent !important;
+        background-color: transparent !important;
+        overflow: hidden;
+        -webkit-user-select: none;
+           -moz-user-select: none;
+                user-select: none;
+      }
+    </style>
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="192x192"
+      href="/icons/icon-192.png"
+    />
+    <!-- iOS 主屏图标：根路径下需有真实文件，否则被 SPA fallback 返回 HTML -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover"
+    />
+    <title>MakeNow AI - 你的超创平台 · Make anything. Now</title>
+    <!-- 必须用 .json：nginx 缺 webmanifest 的 MIME 映射，会导致 manifest 被忽略 -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="application-name" content="MakeNow AI" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <!-- iOS：主屏启动为独立窗口（webkit 前缀是 iOS 实际读取的字段） -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="MakeNow AI" />
+    <!-- default：状态栏不透明、内容不会被刘海/状态栏压住（无需再补 safe-area-inset-top） -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <!-- google -->
+    <meta
+      name="google-site-verification"
+      content="M1oKHBZSVSdCjPJbc-_8qhSMV4TvqAbage7GSuhtxPQ"
+    />
+    <!-- 必应 -->
+    <meta name="msvalidate.01" content="FA8030BBA8D3F7C88822F6E0F602E058" />
+    <!-- SEO 基础信息：描述与关键词按当前产品形态（五大板块 + 超多工具）持续维护 -->
+    <meta
+      name="description"
+      content="MakeNow AI 一站式 AI 创作平台：短剧、电商、自媒体、工作、讨论组五大板块，涵盖无限画布、一键成片、视频转绘、AI Agent 智能体与超多实用工具。Make anything. Now —— 你的超创平台！"
+    />
+    <meta
+      name="keywords"
+      content="MakeNow AI,AI创作平台,AI短剧,AI视频生成,一键成片,视频转绘,无限画布,AI Agent,智能体,AI绘画,文生图,以图生图,电商素材,自媒体创作,AI工具"
+    />
+    <meta name="author" content="MakeNow AI" />
+    <meta name="robots" content="index, follow" />
+    <meta name="format-detection" content="telephone=no,email=no,address=no" />
+    <!-- 移动端地址栏/状态栏着色：取站点品牌主色（--brand-primary），与 manifest 一致 -->
+    <meta name="theme-color" content="#4f9cf0" />
+
+    <!-- Open Graph 分享图：512 品牌图标 -->
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="zh_CN" />
+    <meta
+      property="og:title"
+      content="MakeNow AI - 你的超创平台 · Make anything. Now"
+    />
+    <meta
+      property="og:description"
+      content="一站式 AI 创作平台：短剧 · 电商 · 自媒体 · 工作 · 讨论组五大板块，涵盖无限画布、一键成片、视频转绘、AI Agent 智能体与超多实用工具。"
+    />
+    <meta property="og:image" content="/icons/icon-512.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="512" />
+    <meta property="og:image:height" content="512" />
+    <meta property="og:image:alt" content="MakeNow AI 品牌图标" />
+    <meta property="og:site_name" content="MakeNow AI" />
+
+    <!-- Twitter Card：正方形图用 summary -->
+    <meta name="twitter:card" content="summary" />
+    <meta
+      name="twitter:title"
+      content="MakeNow AI - 你的超创平台 · Make anything. Now"
+    />
+    <meta
+      name="twitter:description"
+      content="一站式 AI 创作平台：短剧 · 电商 · 自媒体 · 工作 · 讨论组五大板块，涵盖无限画布、一键成片、视频转绘、AI Agent 智能体与超多实用工具。"
+    />
+    <meta name="twitter:image" content="/icons/icon-512.png" />
+    <meta name="twitter:image:alt" content="MakeNow AI 品牌图标" />
+
+    <!-- 首屏同步套用主题属性，避免 Vue 挂载前闪一帧默认色 -->
+    <script>
+      (function () {
+        var SKINS = {
+          dark: "dark",
+          forest: "dark",
+          ocean: "soft",
+          cherry: "soft",
+          light: "soft",
+          cream: "soft",
+        };
+        var path = location.pathname;
+        var isAdmin = path === "/admin-login" || path.indexOf("/admin/") === 0;
+        var pref = "cream";
+        try {
+          var saved = localStorage.getItem("sora2-theme");
+          if (saved && (saved === "system" || SKINS[saved])) pref = saved;
+        } catch (e) {}
+        var applied = pref;
+        if (applied === "system") {
+          applied =
+            window.matchMedia &&
+            window.matchMedia("(prefers-color-scheme: dark)").matches
+              ? "dark"
+              : "cream";
+        }
+        if (isAdmin) applied = "dark";
+        var root = document.documentElement;
+        root.setAttribute("data-theme", applied);
+        root.setAttribute("data-theme-skin", SKINS[applied] || "dark");
+        root.setAttribute("data-theme-scope", isAdmin ? "admin" : "user");
+        root.setAttribute("data-theme-preference", pref);
+      })();
+    </script>
+
+    <!--
+      统计：萌宠窗口不加载。
+      这原本是一个同步远程 <script>，会阻塞 HTML 解析；萌宠窗口里既没有需要
+      采集的行为，也不该为它拖慢首帧。
+    -->
+    <script>
+      (function () {
+        if (window.__PET_OVERLAY__) return;
+        var s = document.createElement("script");
+        s.src = "https://static.1ms.run/entmesh/sdk-js/v0.5.3/entmesh.umd.js";
+        s.onload = function () {
+          if (!window.Entmesh) return;
+          Entmesh.init({
+            writeKey: "pk_5sJ-ZKhIRkC_6PbcAVk19GA9pNHs30bK",
+            endpoint: "https://collector.entmesh.mliev.com",
+            fingerprint: true,
+            // 如需关闭设备关联信号，改为 fingerprint: false
+          });
+          Entmesh.track("signup_completed", { plan: "team" });
+        };
+        document.head.appendChild(s);
+      })();
+    </script>
+    <script type="module" crossorigin src="/assets/index-BCbWB_b3.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/vendor-BFeR0F9O.js">
+    <link rel="modulepreload" crossorigin href="/assets/vue-vendor-LxwmUis8.js">
+    <link rel="modulepreload" crossorigin href="/assets/ant-design-vue-CxbGwwVL.js">
+    <link rel="stylesheet" crossorigin href="/assets/vendor-CxsKLoAX.css">
+    <link rel="stylesheet" crossorigin href="/assets/vue-vendor-XxB1bW_e.css">
+    <link rel="stylesheet" crossorigin href="/assets/ant-design-vue-CqAJlDPB.css">
+    <link rel="stylesheet" crossorigin href="/assets/index-DXEeOe5n.css">
+  </head>
+  <body>
+    <div id="app"></div>
+  </body>
+</html>

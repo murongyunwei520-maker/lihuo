@@ -327,6 +327,7 @@ export default {
         canvas: "我的画布",
         image: "生图工作台",
         video: "视频创作台",
+        drama: "短剧工作室",
         director: "导演台",
         doubao: "豆包账号",
         prompts: "提示词库",

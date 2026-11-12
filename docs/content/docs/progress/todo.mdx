@@ -5,6 +5,9 @@ description: Planned follow-up work
 
 # TODO
 
+- Design system convergence: `design-system/DESIGN.md` appendix A still lists five places where the code diverges from the spec (the warm `#f1eee8` project card, the near-black `prompt-filter-tag` and aurora title in `globals.css`, the `#2563eb` mask overlay, and the always-white node hover toolbar). Fix them in batches of one theme at a time, and never refactor canvas components just to "tidy up" while doing so.
+- Design system follow-ups: the system font stack in `TYPOGRAPHY.md` is not yet declared in `@theme inline` (`--font-sans: var(--font-sans)` is currently a self-reference), and the glacier blue relation tokens exist only in `canvasThemes` — the admin/desktop surfaces outside the canvas still have no `info` token. Both need a deliberate change, not a drive-by edit.
+
 - Replace the Claude Code CLI adapter with a Claude Agent SDK adapter and improve the tool queue, following the [Local Agent Integration Plan](/docs/progress/local-agent-integration-plan).
 - Add Skill installation from web search, Skill resource-file management, and controlled local-memory persistence.
 - Doubao account pool: the Doubao web app exposes no readable quota API, so quota must be checked manually; `dbb` cannot set duration/resolution/ratio, which would require extending doubao-brain's parameter-panel handling.
@@ -12,3 +15,5 @@ description: Planned follow-up work
 - Doubao job artifacts are referenced by the bridge URL, so reopening a canvas needs the bridge running; downloading them into the local asset library is follow-up work.
 - Model parameter schema follow-up: the video panel now renders from a schema, while the image settings panel and node-level overrides in `buildGenerationConfig` still bypass it. Bind new fields through `ParameterSchema.configKey` instead of adding a second parameter store.
 - Model capability source follow-up: Doubao ratio and duration ranges are currently written into the schema from measured `video-caps.json` values; refreshing them from `/api/accounts/:id/video-caps` would keep them correct after Doubao changes its panel.
+
+- Short drama studio follow-ups: `/drama` currently only stores and edits one sequence locally. Still to build: pasting a script to split it into shots, the timeline and node-graph projections of **the same** sequence, wiring shots to real generation on canvas nodes, real reference images on asset cards, and the e-commerce counterpart that reuses the same ordered-sequence model (product card → layout skeleton → spec matrix → compliance lint). Keep the sequence model single-sourced — no second store, no second page-level state, and no second node registry. Saving a group of nodes as a reusable Skill should be built on this same model rather than as a separate template feature.

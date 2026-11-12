@@ -1,0 +1,76 @@
+{
+  "id": "ev_1c2727e2cad9c7110d8b1dbe4063f7a7fe96898e0864fea6f76ce5b5f0d82b3a",
+  "subject": {
+    "kind": "unknown",
+    "sha256": "90b6df55d52b85e51d1ef57175f570fc02d25023cfc866406a006d935b6cc9c9",
+    "name": "feature-snapshot.md"
+  },
+  "operation": "native_bytes_find",
+  "params": {
+    "encoding": "both",
+    "limit": 10,
+    "offset": 0,
+    "path": "C:\\Users\\qq308\\Desktop\\lihuo\\.workbuddy\\craft-anything\\libtv-jimeng.cany\\sources\\feature-snapshot.md",
+    "pattern": null,
+    "text": "时间轴编排与视频粗剪"
+  },
+  "result": {
+    "file_size": 12060,
+    "limit": 10,
+    "match_cap_reached": false,
+    "matches": [
+      {
+        "bytes": "e697b6e997b4e8bdb4e7bc96e68e92e4b88ee8a786e9a291e7b297e589aa",
+        "file_offset": 5518,
+        "file_offset_hex": "0x158e",
+        "length": 30,
+        "matched": "utf8"
+      }
+    ],
+    "native_container": null,
+    "offset": 0,
+    "path": "C:\\Users\\qq308\\Desktop\\lihuo\\.workbuddy\\craft-anything\\libtv-jimeng.cany\\sources\\feature-snapshot.md",
+    "searched_for": [
+      {
+        "kind": "utf8",
+        "length": 30
+      },
+      {
+        "kind": "utf16le",
+        "length": 20
+      }
+    ],
+    "total_matches": 1
+  },
+  "summary": "1 match(es) for utf8 + utf16le in feature-snapshot.md; showing 1 from #0.",
+  "confidence": "observed",
+  "authority": "original-files",
+  "environment": {
+    "clean_room": false,
+    "engine": "builtin",
+    "engine_version": "0.6.0",
+    "host": "windows-x86_64"
+  },
+  "limitations": [
+    {
+      "code": "file_bytes_only",
+      "message": "The file's bytes are searched as stored: compressed, encrypted or packed regions and data built at run time are not seen, so no match is not proof of absence."
+    },
+    {
+      "code": "no_addresses",
+      "message": "This file is not a readable ELF, PE or Mach-O program, so matches carry file offsets only."
+    }
+  ],
+  "coverage": {
+    "status": "complete",
+    "examined": 1,
+    "total": 1
+  },
+  "locations": [
+    {
+      "kind": "file_offset",
+      "value": "0x158e"
+    }
+  ],
+  "links": []
+}

@@ -1,0 +1,14 @@
+{
+  "id": "unk_729e4c6f0d1997da",
+  "revision": 1,
+  "question": "桌面客户端（Electron 壳）与主站的互操作/IPC/本地文件权限边界是什么？",
+  "severity": "medium",
+  "domain": "desktop",
+  "status": "open",
+  "probes": [
+    "获取并静态分析桌面安装包",
+    "检查 /api/interop/* 与 desktop/report 的语义"
+  ],
+  "evidence_for": [],
+  "evidence_against": []
+}

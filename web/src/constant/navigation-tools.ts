@@ -1,4 +1,4 @@
-import { FileText, Film, ImagePlus, Images, Maximize2, Settings2, UsersRound, Video } from "lucide-react";
+import { Clapperboard, FileText, Film, ImagePlus, Images, Maximize2, Settings2, UsersRound, Video } from "lucide-react";
 
 export const navigationTools = [
     {
@@ -12,6 +12,10 @@ export const navigationTools = [
     {
         slug: "video",
         icon: Video,
+    },
+    {
+        slug: "drama",
+        icon: Clapperboard,
     },
     {
         slug: "director",

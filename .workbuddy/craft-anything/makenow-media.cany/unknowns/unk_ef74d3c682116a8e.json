@@ -1,0 +1,14 @@
+{
+  "id": "unk_ef74d3c682116a8e",
+  "revision": 1,
+  "question": "登录后 /media 的完整工具列表与各平台提取成功率、风控策略是什么？",
+  "severity": "high",
+  "domain": "product",
+  "status": "open",
+  "probes": [
+    "在用户授权后用独立浏览器被动观察登录态页面",
+    "复核 MediaPage 的 adapter 与 unstable 标记含义"
+  ],
+  "evidence_for": [],
+  "evidence_against": []
+}

@@ -1,0 +1,76 @@
+{
+  "id": "ev_aeb92b4a4549b2b4e2e23bdecf5e1191c2d3c1b010a982e301349d210b5b4cb0",
+  "subject": {
+    "kind": "unknown",
+    "sha256": "a135e9f7d3e6cdd5e83069a8c946687adb8cd2ab0d48b9c5f015a17604cc745e",
+    "name": "observations.md"
+  },
+  "operation": "native_bytes_find",
+  "params": {
+    "encoding": "both",
+    "limit": 5,
+    "offset": 0,
+    "path": "C:\\Users\\qq308\\Desktop\\lihuo\\.workbuddy\\craft-anything\\makenow-media.cany\\sources\\observations.md",
+    "pattern": null,
+    "text": "角色三视图"
+  },
+  "result": {
+    "file_size": 10938,
+    "limit": 5,
+    "match_cap_reached": false,
+    "matches": [
+      {
+        "bytes": "e8a792e889b2e4b889e8a786e59bbe",
+        "file_offset": 3533,
+        "file_offset_hex": "0xdcd",
+        "length": 15,
+        "matched": "utf8"
+      }
+    ],
+    "native_container": null,
+    "offset": 0,
+    "path": "C:\\Users\\qq308\\Desktop\\lihuo\\.workbuddy\\craft-anything\\makenow-media.cany\\sources\\observations.md",
+    "searched_for": [
+      {
+        "kind": "utf8",
+        "length": 15
+      },
+      {
+        "kind": "utf16le",
+        "length": 10
+      }
+    ],
+    "total_matches": 1
+  },
+  "summary": "1 match(es) for utf8 + utf16le in observations.md; showing 1 from #0.",
+  "confidence": "observed",
+  "authority": "original-files",
+  "environment": {
+    "clean_room": false,
+    "engine": "builtin",
+    "engine_version": "0.6.0",
+    "host": "windows-x86_64"
+  },
+  "limitations": [
+    {
+      "code": "file_bytes_only",
+      "message": "The file's bytes are searched as stored: compressed, encrypted or packed regions and data built at run time are not seen, so no match is not proof of absence."
+    },
+    {
+      "code": "no_addresses",
+      "message": "This file is not a readable ELF, PE or Mach-O program, so matches carry file offsets only."
+    }
+  ],
+  "coverage": {
+    "status": "complete",
+    "examined": 1,
+    "total": 1
+  },
+  "locations": [
+    {
+      "kind": "file_offset",
+      "value": "0xdcd"
+    }
+  ],
+  "links": []
+}

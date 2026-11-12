@@ -1,0 +1,14 @@
+{
+  "id": "unk_c493b2a5729aaf35",
+  "revision": 1,
+  "question": "无限画布 Sora2WorkflowCanvas 的节点类型、参数面板与连线协议是什么？",
+  "severity": "high",
+  "domain": "canvas",
+  "status": "open",
+  "probes": [
+    "分析该 chunk 的模块图与字符串（本次未完整下载，1.4MB 中只拿到 802KB）",
+    "登录后画布实测"
+  ],
+  "evidence_for": [],
+  "evidence_against": []
+}

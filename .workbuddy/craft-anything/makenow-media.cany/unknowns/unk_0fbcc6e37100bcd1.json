@@ -1,0 +1,14 @@
+{
+  "id": "unk_0fbcc6e37100bcd1",
+  "revision": 1,
+  "question": "69 个 API 的请求/响应结构、鉴权与限流是什么？",
+  "severity": "medium",
+  "domain": "api",
+  "status": "open",
+  "probes": [
+    "静态提取请求构造代码",
+    "仅在授权下做被动网络观察，不主动调用"
+  ],
+  "evidence_for": [],
+  "evidence_against": []
+}

@@ -1,0 +1,660 @@
+{
+  "meta": {
+    "source": "MakeNow AI 公开 shipped artifacts 调研（2026-11-11）",
+    "generator": "手工按 graphify 输出契约构建；graphifyy 包在本机 PyPI 源无匹配，未运行其 pipeline",
+    "node_count": 40,
+    "edge_count": 49,
+    "token_cost": {
+      "input": 0,
+      "output": 0,
+      "note": "未使用 LLM 语义抽取，节点来自静态字符串/路由/API 观察"
+    }
+  },
+  "nodes": [
+    {
+      "id": "product",
+      "label": "MakeNow AI 超创平台",
+      "community": "产品与板块",
+      "degree": 6
+    },
+    {
+      "id": "drama",
+      "label": "短剧 /",
+      "community": "产品与板块",
+      "degree": 1
+    },
+    {
+      "id": "ecom",
+      "label": "电商 /ecommerce",
+      "community": "产品与板块",
+      "degree": 2
+    },
+    {
+      "id": "media",
+      "label": "自媒体 /media",
+      "community": "产品与板块",
+      "degree": 3
+    },
+    {
+      "id": "work",
+      "label": "工作 /work",
+      "community": "产品与板块",
+      "degree": 2
+    },
+    {
+      "id": "discuss",
+      "label": "讨论组 /discussion",
+      "community": "产品与板块",
+      "degree": 2
+    },
+    {
+      "id": "tv",
+      "label": "MakeNow TV 作品流",
+      "community": "产品与板块",
+      "degree": 2
+    },
+    {
+      "id": "canvas",
+      "label": "无限画布 Sora2WorkflowCanvas",
+      "community": "画布与创作",
+      "degree": 10
+    },
+    {
+      "id": "tri",
+      "label": "角色/场景/物品三视图",
+      "community": "画布与创作",
+      "degree": 1
+    },
+    {
+      "id": "grid",
+      "label": "2×2~4×4 宫格分镜",
+      "community": "画布与创作",
+      "degree": 3
+    },
+    {
+      "id": "ref",
+      "label": "垫图模板 / 参考图推理",
+      "community": "画布与创作",
+      "degree": 2
+    },
+    {
+      "id": "video",
+      "label": "视频生成 Seedance 2.0",
+      "community": "画布与创作",
+      "degree": 3
+    },
+    {
+      "id": "image",
+      "label": "图片生成",
+      "community": "画布与创作",
+      "degree": 2
+    },
+    {
+      "id": "script",
+      "label": "剧本创作",
+      "community": "画布与创作",
+      "degree": 1
+    },
+    {
+      "id": "replica",
+      "label": "视频转绘 / 一键成片 / 一键出广告",
+      "community": "画布与创作",
+      "degree": 1
+    },
+    {
+      "id": "clip",
+      "label": "VideoClip 剪辑",
+      "community": "画布与创作",
+      "degree": 3
+    },
+    {
+      "id": "tools",
+      "label": "ToolWorkspace 长图/切片",
+      "community": "画布与创作",
+      "degree": 1
+    },
+    {
+      "id": "skillmkt",
+      "label": "技能市场 / 积分收入",
+      "community": "Skill 与 Agent",
+      "degree": 2
+    },
+    {
+      "id": "skillcreate",
+      "label": "SkillCreate 拉片→18维证据→方法论",
+      "community": "Skill 与 Agent",
+      "degree": 3
+    },
+    {
+      "id": "agentskills",
+      "label": "AgentSkills 技能审核",
+      "community": "Skill 与 Agent",
+      "degree": 2
+    },
+    {
+      "id": "agent",
+      "label": "Agent 智能体 / 主Agent模式",
+      "community": "Skill 与 Agent",
+      "degree": 4
+    },
+    {
+      "id": "sandbox",
+      "label": "沙箱 / 完全访问 权限",
+      "community": "Skill 与 Agent",
+      "degree": 1
+    },
+    {
+      "id": "world",
+      "label": "互动剧情世界 WorldEditor",
+      "community": "世界与社区",
+      "degree": 2
+    },
+    {
+      "id": "template",
+      "label": "模板市场 /media/templates",
+      "community": "世界与社区",
+      "degree": 2
+    },
+    {
+      "id": "quiz",
+      "label": "职场身份卡 PersonaQuiz",
+      "community": "世界与社区",
+      "degree": 1
+    },
+    {
+      "id": "voice",
+      "label": "音色库 VoiceLibrary",
+      "community": "世界与社区",
+      "degree": 1
+    },
+    {
+      "id": "inspire",
+      "label": "灵感库 / 提取原画质素材",
+      "community": "世界与社区",
+      "degree": 4
+    },
+    {
+      "id": "points",
+      "label": "积分（12积分/秒）",
+      "community": "平台与商业化",
+      "degree": 5
+    },
+    {
+      "id": "pay",
+      "label": "充值 / 订单 / 签到 / 邀请",
+      "community": "平台与商业化",
+      "degree": 1
+    },
+    {
+      "id": "account",
+      "label": "统一账号 / 微信扫码 / 激活码",
+      "community": "平台与商业化",
+      "degree": 1
+    },
+    {
+      "id": "desktop",
+      "label": "桌面客户端 / 萌宠窗口",
+      "community": "平台与商业化",
+      "degree": 2
+    },
+    {
+      "id": "web",
+      "label": "Vue3 + Vite + ant-design-vue",
+      "community": "平台与商业化",
+      "degree": 3
+    },
+    {
+      "id": "pwa",
+      "label": "PWA / 多主题 sora2-theme",
+      "community": "平台与商业化",
+      "degree": 1
+    },
+    {
+      "id": "track",
+      "label": "Entmesh 埋点 + 设备指纹",
+      "community": "平台与商业化",
+      "degree": 2
+    },
+    {
+      "id": "api",
+      "label": "69 个 /api 端点",
+      "community": "API 与后台",
+      "degree": 4
+    },
+    {
+      "id": "genapi",
+      "label": "/api/generations/create",
+      "community": "API 与后台",
+      "degree": 2
+    },
+    {
+      "id": "chatapi",
+      "label": "/api/chat-agent/chat",
+      "community": "API 与后台",
+      "degree": 2
+    },
+    {
+      "id": "collab",
+      "label": "画布协作邀请 API",
+      "community": "API 与后台",
+      "degree": 2
+    },
+    {
+      "id": "admin",
+      "label": "/api/admin/* 管理端",
+      "community": "API 与后台",
+      "degree": 4
+    },
+    {
+      "id": "review",
+      "label": "素材审核 / 模型健康白名单",
+      "community": "API 与后台",
+      "degree": 2
+    }
+  ],
+  "edges": [
+    {
+      "source": "product",
+      "target": "drama",
+      "relation": "包含",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "product",
+      "target": "ecom",
+      "relation": "包含",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "product",
+      "target": "media",
+      "relation": "包含",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "product",
+      "target": "work",
+      "relation": "包含",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "product",
+      "target": "discuss",
+      "relation": "包含",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "product",
+      "target": "tv",
+      "relation": "社区展示",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "media",
+      "target": "inspire",
+      "relation": "页内工具",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "media",
+      "target": "template",
+      "relation": "子路由",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "inspire",
+      "target": "points",
+      "relation": "按次扣积分·失败全退",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "inspire",
+      "target": "canvas",
+      "relation": "导入素材",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "inspire",
+      "target": "ref",
+      "relation": "原画质参考",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "canvas",
+      "target": "tri",
+      "relation": "内置能力",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "canvas",
+      "target": "grid",
+      "relation": "内置能力",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "canvas",
+      "target": "ref",
+      "relation": "内置能力",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "canvas",
+      "target": "clip",
+      "relation": "生成→剪辑",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "canvas",
+      "target": "collab",
+      "relation": "协作邀请",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "canvas",
+      "target": "genapi",
+      "relation": "创建生成任务",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "video",
+      "target": "points",
+      "relation": "按秒计费",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "video",
+      "target": "canvas",
+      "relation": "入口",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "image",
+      "target": "canvas",
+      "relation": "入口",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "script",
+      "target": "canvas",
+      "relation": "入口",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "replica",
+      "target": "clip",
+      "relation": "成片链路",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "tools",
+      "target": "image",
+      "relation": "图片后处理",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "skillmkt",
+      "target": "skillcreate",
+      "relation": "发布流程",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "skillmkt",
+      "target": "points",
+      "relation": "积分收入",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "skillcreate",
+      "target": "agentskills",
+      "relation": "提交审核",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "skillcreate",
+      "target": "grid",
+      "relation": "拉片分镜",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "agentskills",
+      "target": "admin",
+      "relation": "管理端",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "agent",
+      "target": "sandbox",
+      "relation": "权限模式",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "agent",
+      "target": "chatapi",
+      "relation": "对话接口",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "work",
+      "target": "agent",
+      "relation": "板块能力",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "ecom",
+      "target": "agent",
+      "relation": "板块能力",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "world",
+      "target": "video",
+      "relation": "生成配图/视频",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "world",
+      "target": "quiz",
+      "relation": "分享形态",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "template",
+      "target": "grid",
+      "relation": "单图等分 2×2",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "voice",
+      "target": "clip",
+      "relation": "配音/音色",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "tv",
+      "target": "discuss",
+      "relation": "社区互动",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "points",
+      "target": "pay",
+      "relation": "充值与流水",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "account",
+      "target": "admin",
+      "relation": "账号管理",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "desktop",
+      "target": "web",
+      "relation": "同一份 index.html",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "web",
+      "target": "pwa",
+      "relation": "实现",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "web",
+      "target": "track",
+      "relation": "异步加载",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "api",
+      "target": "genapi",
+      "relation": "包含",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "api",
+      "target": "chatapi",
+      "relation": "包含",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "api",
+      "target": "collab",
+      "relation": "包含",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "api",
+      "target": "admin",
+      "relation": "包含",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "admin",
+      "target": "review",
+      "relation": "管理模块",
+      "confidence": "EXTRACTED"
+    },
+    {
+      "source": "review",
+      "target": "points",
+      "relation": "风控/额度",
+      "confidence": "INFERRED"
+    },
+    {
+      "source": "track",
+      "target": "desktop",
+      "relation": "萌宠窗口不加载",
+      "confidence": "EXTRACTED"
+    }
+  ],
+  "communities": {
+    "产品与板块": {
+      "label": "产品与板块",
+      "members": [
+        "product",
+        "drama",
+        "ecom",
+        "media",
+        "work",
+        "discuss",
+        "tv"
+      ]
+    },
+    "画布与创作": {
+      "label": "画布与创作",
+      "members": [
+        "canvas",
+        "tri",
+        "grid",
+        "ref",
+        "video",
+        "image",
+        "script",
+        "replica",
+        "clip",
+        "tools"
+      ]
+    },
+    "Skill 与 Agent": {
+      "label": "Skill 与 Agent",
+      "members": [
+        "skillmkt",
+        "skillcreate",
+        "agentskills",
+        "agent",
+        "sandbox"
+      ]
+    },
+    "世界与社区": {
+      "label": "世界与社区",
+      "members": [
+        "world",
+        "template",
+        "quiz",
+        "voice",
+        "inspire"
+      ]
+    },
+    "平台与商业化": {
+      "label": "平台与商业化",
+      "members": [
+        "points",
+        "pay",
+        "account",
+        "desktop",
+        "web",
+        "pwa",
+        "track"
+      ]
+    },
+    "API 与后台": {
+      "label": "API 与后台",
+      "members": [
+        "api",
+        "genapi",
+        "chatapi",
+        "collab",
+        "admin",
+        "review"
+      ]
+    }
+  },
+  "god_nodes": [
+    {
+      "id": "canvas",
+      "label": "无限画布 Sora2WorkflowCanvas",
+      "degree": 10
+    },
+    {
+      "id": "product",
+      "label": "MakeNow AI 超创平台",
+      "degree": 6
+    },
+    {
+      "id": "points",
+      "label": "积分（12积分/秒）",
+      "degree": 5
+    },
+    {
+      "id": "agent",
+      "label": "Agent 智能体 / 主Agent模式",
+      "degree": 4
+    },
+    {
+      "id": "inspire",
+      "label": "灵感库 / 提取原画质素材",
+      "degree": 4
+    },
+    {
+      "id": "api",
+      "label": "69 个 /api 端点",
+      "degree": 4
+    },
+    {
+      "id": "admin",
+      "label": "/api/admin/* 管理端",
+      "degree": 4
+    }
+  ]
+}

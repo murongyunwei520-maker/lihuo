@@ -10,6 +10,11 @@ export const canvasThemes = {
             line: "rgba(80, 66, 110, .09)",
             selectionStroke: "#6b57a8",
             selectionFill: "rgba(107, 87, 168, .10)",
+            // 关系色（冰川蓝）：引用、连线、关联提示用，和选中的雾霭紫分属两种语义。
+            relationStroke: "#3a7c9b",
+            relationFill: "rgba(58, 124, 155, .12)",
+            relationSoft: "#eaf3f8",
+            relationText: "#2c647e",
         },
         node: {
             label: "#554b63",
@@ -38,6 +43,10 @@ export const canvasThemes = {
             line: "rgba(190, 170, 220, .07)",
             selectionStroke: "#b9ace8",
             selectionFill: "rgba(185, 172, 232, .12)",
+            relationStroke: "#8cc7de",
+            relationFill: "rgba(140, 199, 222, .16)",
+            relationSoft: "rgba(31, 76, 96, .42)",
+            relationText: "#a8d7e9",
         },
         node: {
             label: "#b3aabe",

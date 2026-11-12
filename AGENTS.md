@@ -24,6 +24,13 @@
 
 ## 前端规范
 
+### 设计规范入口（开发任何页面前必读）
+
+- 新页面 / 新组件开工前先读 `design-system/DESIGN.md`；涉及具体组件类型再读 `design-system/components/` 下对应文档（画布、节点、参数面板、生成、Agent、Bridge、任务、模型、后台、基础件）。
+- 涉及动画读 `design-system/MOTION.md`，涉及字体读 `design-system/TYPOGRAPHY.md`，涉及品牌露出读 `design-system/BRAND.md`。
+- 外部设计参考（Landdding / Font in Logo / Jiro / 60fps / awesome-design-md）只能经 `design-system/references/` 记录的边界借判断，不得复制外部页面布局、配色、文案或资产；不得把多个资源混成一个组件库来源。
+- 颜色只从 `canvasThemes`（画布）或 `app-theme.ts` / CSS 变量（其他）取；禁止在业务组件里新增硬编码色值，规范外的新色必须先修改对应设计文档再落地。
+
 - 前端使用 Vite、React、React Router、TypeScript、Ant Design、Tailwind、Zustand。
 - 编写 Ant Design 相关代码时，参考 https://ant.design/llms-full.txt 理解组件 API、示例和设计规范，并优先结合项目当前 antd 版本与既有写法。
 - 外部服务请求统一放在 `web/src/services/api/`，由浏览器前端直连，不假设存在项目后端。

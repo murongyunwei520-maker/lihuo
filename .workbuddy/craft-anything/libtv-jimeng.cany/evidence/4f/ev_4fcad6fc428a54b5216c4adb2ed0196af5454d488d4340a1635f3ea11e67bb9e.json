@@ -1,0 +1,76 @@
+{
+  "id": "ev_4fcad6fc428a54b5216c4adb2ed0196af5454d488d4340a1635f3ea11e67bb9e",
+  "subject": {
+    "kind": "unknown",
+    "sha256": "90b6df55d52b85e51d1ef57175f570fc02d25023cfc866406a006d935b6cc9c9",
+    "name": "feature-snapshot.md"
+  },
+  "operation": "native_bytes_find",
+  "params": {
+    "encoding": "both",
+    "limit": 10,
+    "offset": 0,
+    "path": "C:\\Users\\qq308\\Desktop\\lihuo\\.workbuddy\\craft-anything\\libtv-jimeng.cany\\sources\\feature-snapshot.md",
+    "pattern": null,
+    "text": "全能画布 CLI"
+  },
+  "result": {
+    "file_size": 12060,
+    "limit": 10,
+    "match_cap_reached": false,
+    "matches": [
+      {
+        "bytes": "e585a8e883bde794bbe5b88320434c49",
+        "file_offset": 5227,
+        "file_offset_hex": "0x146b",
+        "length": 16,
+        "matched": "utf8"
+      }
+    ],
+    "native_container": null,
+    "offset": 0,
+    "path": "C:\\Users\\qq308\\Desktop\\lihuo\\.workbuddy\\craft-anything\\libtv-jimeng.cany\\sources\\feature-snapshot.md",
+    "searched_for": [
+      {
+        "kind": "utf8",
+        "length": 16
+      },
+      {
+        "kind": "utf16le",
+        "length": 16
+      }
+    ],
+    "total_matches": 1
+  },
+  "summary": "1 match(es) for utf8 + utf16le in feature-snapshot.md; showing 1 from #0.",
+  "confidence": "observed",
+  "authority": "original-files",
+  "environment": {
+    "clean_room": false,
+    "engine": "builtin",
+    "engine_version": "0.6.0",
+    "host": "windows-x86_64"
+  },
+  "limitations": [
+    {
+      "code": "file_bytes_only",
+      "message": "The file's bytes are searched as stored: compressed, encrypted or packed regions and data built at run time are not seen, so no match is not proof of absence."
+    },
+    {
+      "code": "no_addresses",
+      "message": "This file is not a readable ELF, PE or Mach-O program, so matches carry file offsets only."
+    }
+  ],
+  "coverage": {
+    "status": "complete",
+    "examined": 1,
+    "total": 1
+  },
+  "locations": [
+    {
+      "kind": "file_offset",
+      "value": "0x146b"
+    }
+  ],
+  "links": []
+}
