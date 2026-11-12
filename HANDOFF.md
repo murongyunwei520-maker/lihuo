@@ -2,6 +2,9 @@
 
 这份包是**源码**，不含 `node_modules`、构建产物和本机运行时数据。按下面顺序即可在本机跑起来。
 
+> 🤖 **接手前先读**：`AGENTS.md`（开发约束）+ `docs/ai-handover/ENTRY_POINTS.md`（入口地图：启动、改哪个文件、当前架构、已知坑）。
+> 一句话版本：前端 `web/src`，画布主逻辑 `pages/canvas/project.tsx`，豆包/Dola 生成走 `services/api/{image,video}.ts` → `doubao-bridge/server.mjs` → `run-doubao.mjs`；豆包/Dola **没有专属节点**，在普通图片/视频节点的模型下拉里选。
+
 ## 一、准备
 
 - Windows（脚本都是 `.bat`，其他系统用等价命令）

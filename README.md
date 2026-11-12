@@ -8,6 +8,12 @@
 
 离火是基于开源项目 [无限画布 / infinite-canvas](https://github.com/basketikun/infinite-canvas) 二次开发的个人分支：保留上游完整的 AI 创作能力，替换为自己的品牌、配色与本地存储命名空间，并在其上搭了一套可以直接编译进主应用的自研节点框架。
 
+> 🤖 **接手这个项目的 AI / 开发者先读这两份**：
+> 1. `AGENTS.md` —— 开发约束（改哪里、别做什么）
+> 2. `docs/ai-handover/ENTRY_POINTS.md` —— 入口地图（启动方式、按功能找文件的表格、当前架构、已知坑）
+>
+> 入口速记：画布主逻辑在 `web/src/pages/canvas/project.tsx`；豆包/Dola 走 `web/src/services/api/{image,video}.ts` + `doubao-bridge/server.mjs` + `run-doubao.mjs`；**没有豆包专属节点**，模型在普通图片/视频节点的下拉里选。
+
 ## 核心功能
 
 - **无限画布**：多画布项目、节点拖拽缩放、连线、小地图、撤销重做、导入导出。

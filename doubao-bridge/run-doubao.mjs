@@ -73,6 +73,26 @@ async function openMenuByPrefix(page, prefix) {
     return true;
 }
 
+/** 打开模型下拉：触发按钮可能显示「模型 …」也可能只显示当前模型名（Seedream / Seedance / Dreamina）。 */
+async function openModelMenu(page) {
+    const box = await page.evaluate(() => {
+        const vh = window.innerHeight;
+        const cands = [...document.querySelectorAll("button, [role='button'], [class*='cursor-pointer']")]
+            .map((node) => ({ text: (node.innerText || "").trim().replace(/\s+/g, " "), rect: node.getBoundingClientRect() }))
+            .filter((item) => item.rect.width >= 40 && item.rect.height >= 16 && item.rect.y > vh * 0.4);
+        // 取最靠下的匹配项（输入区在底部；侧边栏的会话标题不会匹配这些关键词）
+        const hit = cands
+            .sort((a, b) => b.rect.y - a.rect.y)
+            .find((item) => /^模型/.test(item.text) || /(Seedream|Seedance|Dreamina|豆包|Dola)/i.test(item.text));
+        if (!hit) return null;
+        return { x: Math.round(hit.rect.x + hit.rect.width / 2), y: Math.round(hit.rect.y + hit.rect.height / 2), text: hit.text };
+    });
+    if (!box) return null;
+    await page.mouse.click(box.x, box.y);
+    await page.waitForTimeout(1200);
+    return box.text;
+}
+
 /**
  * 在弹层里点选一项（模型名 / 比例）。
  * 精确文案优先，允许选项文案带后缀（豆包有时在模型名后面挂「推荐 / 新」字样）；
@@ -622,14 +642,16 @@ job: try {
     // 模型
     if (!expectText && spec.model) {
         progress(`选模型：${spec.model}`);
-        if (await openMenuByPrefix(page, "模型")) {
+        const trigger = await openModelMenu(page);
+        if (trigger) {
+            progress(`模型入口：${trigger}`);
             const picked = await pickOption(page, spec.model);
             if (picked.ok) progress(`模型已设为 ${picked.text}`);
             else progress(`模型菜单里没找到「${spec.model}」，可选：${picked.options.join(" / ") || "未识别"}`);
             await page.keyboard.press("Escape");
             await page.waitForTimeout(500);
         } else {
-            progress("没找到模型入口，保持豆包当前模型（面板可能已改版）");
+            progress("没找到模型入口，保持当前模型（面板可能已改版）");
         }
     }
 

@@ -36,7 +36,11 @@ node doubao-bridge/server.mjs            # 豆包桥接 :9091
 | 左侧豆包号池 | `web/src/components/canvas/canvas-doubao-accounts-panel.tsx` |
 | 底部任务队列 | `web/src/components/canvas/canvas-task-bar.tsx` |
 | 全局配置 / 模型清单 | `web/src/stores/use-config-store.ts` |
-| 豆包内置模型清单 | `web/src/constants/doubao-builtin.ts` |
+| 豆包内置模型清单 | `web/src/constants/doubao-builtin.ts`（含 **Dola** 渠道与模型清单） |
+| 账号池面板（豆包 + Dola） | `web/src/components/canvas/canvas-doubao-accounts-panel.tsx` |
+| 站点路由 / 站点文案 | `doubao-bridge/server.mjs` 顶部 `SITES`（`doubao` / `dola`） |
+| 模型探测（新站点对文案） | `doubao-bridge/probe-models.mjs` |
+| 扫码（站点自己的弹窗） | `doubao-bridge/qr-helper-browser.mjs` |
 | 模型参数 Schema | `web/src/stores/model-schema.ts` |
 | 生图请求（OpenAI / Gemini / 豆包路由） | `web/src/services/api/image.ts` |
 | 视频请求（OpenAI / Gemini / 豆包路由） | `web/src/services/api/video.ts` |
@@ -50,18 +54,33 @@ node doubao-bridge/server.mjs            # 豆包桥接 :9091
 
 ## 三、当前架构（重要，别再按旧版改）
 
-### 1. 豆包没有专属节点
+### 1. 豆包没有专属节点（Dola 也没有）
 
-豆包已并入**普通「图片 / 视频」节点**的统一模型下拉：
+豆包 / Dola 都已并入**普通「图片 / 视频」节点**的统一模型下拉：
 
 ```
-节点里选模型 → 选 builtin-doubao::<模型名> → 走 service 层路由到 bridge
+节点里选模型 → 选 builtin-doubao::<模型名> 或 builtin-dola::<模型名>
+  → 走 service 层路由到 bridge（bridge 再按模型决定站点）
 ```
 
-- 模型清单：`web/src/constants/doubao-builtin.ts`（名称必须和豆包面板文案一致，否则执行器点选不到）
-- 生图：`image.ts` 命中 `isDoubaoBuiltinModel` → `generateImageViaDoubao`
-- 视频：`video.ts` 命中 → `createVideoJob`（带 `expectedArtifactKind: "video"`）
+- 模型清单：`web/src/constants/doubao-builtin.ts`（名称必须和对应站点面板文案一致，否则执行器点选不到）
+- 站点：`DOUBAO_BUILTIN_CHANNEL_ID = "builtin-doubao"` / `DOLA_BUILTIN_CHANNEL_ID = "builtin-dola"`
+- **两套账号体系不互通**：豆包模型只能配豆包账号，Dola 模型只能配 Dola 账号
+- 生图：`image.ts` 命中内置模型 → `generateImageViaDoubao`（同一适配层跑两个站点）
+- 视频：`video.ts` 命中 → `createVideoJob`（必须带 `expectedArtifactKind: "video"`）
 - 账号：`config.doubaoAccountId` → 节点 metadata → `buildGenerationConfig`，为空时回退号池「当前账号」
+- 并发上限：`DOUBAO_MAX_PARALLEL = 3`（超过会被桥接直接拒绝，不排队）
+
+### 1.1 Dola 与豆包的差别（只有这些）
+
+| 项 | 豆包 | Dola |
+| --- | --- | --- |
+| 站点 | `www.doubao.com/chat/` | `www.dola.com/chat/` |
+| cookie 域 | `.doubao.com` | `.dola.com` |
+| 图像模型 | Seedream 5.0 Pro / 5.0 Flash / 4.5 / 4.0 | Seedream 5.0 Pro / 4.5 |
+| 视频模型 | Seedance 2.5 / 2.0 / 2.0 Fast / 2.0 Mini | **Dreamina** Seedance 2.0 Fast / 1.0（带前缀！） |
+| 能力栏文案 | 图像生成 / 视频生成 / 对话 | 同中文文案（英文界面用 `DOLA_CAP_*` 覆盖） |
+| 扫码 | passport 接口出码 | 站点自己的登录弹窗取码（`qr-helper-browser.mjs`） |
 
 ### 2. 一个账号只有一个浏览器窗口
 
