@@ -3,7 +3,7 @@
 本文档用于约束本项目中的 AI / 自动化开发行为。开发时优先遵循本文件，其次遵循用户当前消息。
 
 > 📚 **项目交接文档**：新接手的 AI 请先读 `docs/ai-handover/` 下的文档，了解项目全貌、当前进度和已知问题。
-> 入口：`docs/ai-handover/PROJECT_OVERVIEW.md` → `ARCHITECTURE.md` → `CURRENT_STATUS.md` → `KNOWN_ISSUES.md`
+> 入口：`docs/ai-handover/ENTRY_POINTS.md`（启动方式 / 按功能找文件 / 当前架构 / 已知坑）→ `PROJECT_OVERVIEW.md` → `ARCHITECTURE.md` → `CURRENT_STATUS.md` → `KNOWN_ISSUES.md`
 
 ## 基本原则
 
