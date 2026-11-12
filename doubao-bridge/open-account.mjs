@@ -5,11 +5,14 @@ import path from "node:path";
 
 import { launchProfileContext } from "./lib/doubao-context.mjs";
 
-const [stateDirArg, accountIdArg, portArg] = process.argv.slice(2);
+const [stateDirArg, accountIdArg, portArg, siteUrlArg, siteNameArg] = process.argv.slice(2);
 if (!stateDirArg) {
-    console.error("usage: open-account.mjs <stateDir> [accountId] [debugPort]");
+    console.error("usage: open-account.mjs <stateDir> [accountId] [debugPort] [siteUrl] [siteName]");
     process.exit(2);
 }
+// 豆包 / Dola 共用这一个常驻窗口脚本：打开哪个站点由账号所属站点决定
+const SITE_URL = siteUrlArg || "https://www.doubao.com/chat/";
+const SITE_NAME = siteNameArg || "豆包";
 
 const stateDir = path.resolve(stateDirArg);
 const debugPort = Number(portArg || 0);
@@ -25,12 +28,12 @@ function writeStatus(patch) {
 
 let ctx = null;
 try {
-    writeStatus({ state: "starting", message: "正在打开豆包…" });
+    writeStatus({ state: "starting", message: `正在打开${SITE_NAME}…` });
     // 显式指定窗口位置：profile 里可能存着之前「离屏探测」留下的坐标，会把窗口开到屏幕外
     ({ ctx } = await launchProfileContext(stateDir, { position: "60,40", size: "1440,940", debugPort }));
     const page = ctx.pages()[0] || (await ctx.newPage());
-    await page.goto("https://www.doubao.com/chat/", { waitUntil: "commit", timeout: 30000 }).catch(() => undefined);
-    writeStatus({ state: "open", message: "豆包网页端已打开" });
+    await page.goto(SITE_URL, { waitUntil: "commit", timeout: 60000 }).catch(() => undefined);
+    writeStatus({ state: "open", message: `${SITE_NAME}网页端已打开` });
 
     // 一直挂着，直到收到关闭信号（用户点关闭 / 关窗 / 超时 2 小时）
     const started = Date.now();

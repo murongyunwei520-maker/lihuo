@@ -10,7 +10,7 @@ import { imageToDataUrl } from "@/services/image-storage";
 import { imageSizePresets, inferMediaRatio, inferMediaScale } from "@/lib/media-size";
 import type { ReferenceImage } from "@/types/image";
 import { isDoubaoBuiltinModel } from "@/constants/doubao-builtin";
-import { generateImageViaDoubao } from "./doubao-bridge-adapter";
+import { askDoubao, generateImageViaDoubao } from "./doubao-bridge-adapter";
 
 const apiText = (key: string, options?: Record<string, unknown>) => i18n.t(`apiErrors.${key}`, options);
 
@@ -850,7 +850,25 @@ export async function requestEdit(config: AiConfig, prompt: string, references: 
     }
 }
 
+/** 把多轮消息压平成一段提示词：豆包网页端的输入框只吃一段文本。 */
+function messagesToPrompt(messages: AiTextMessage[]) {
+    return messages
+        .map((message) => (typeof message.content === "string" ? message.content : message.content.map((part) => (part.type === "text" ? part.text : "")).join("\n")))
+        .map((text) => text.trim())
+        .filter(Boolean)
+        .join("\n\n");
+}
+
 export async function requestImageQuestion(config: AiConfig, messages: AiTextMessage[], onDelta: (text: string) => void, options?: RequestOptions) {
+    const selected = config.model || config.textModel;
+    if (isDoubaoBuiltinModel(selected)) {
+        // 豆包网页端「对话」：没有流式接口，拿完整回答后一次性回填
+        const accountId = ((config as Record<string, unknown>).doubaoAccountId as string) || undefined;
+        const images = messages.flatMap((message) => (typeof message.content === "string" ? [] : message.content.filter((part) => part.type === "image_url").map((part) => part.image_url.url)));
+        const text = await askDoubao({ prompt: messagesToPrompt(messages), images, accountId, modelValue: selected, nodeId: options?.nodeId, signal: options?.signal });
+        onDelta(text);
+        return text;
+    }
     const requestConfig = resolveModelRequestConfig(config, config.model || config.textModel);
     const script = resolveModelScript(config, config.model || config.textModel);
     if (script) {

@@ -10,11 +10,18 @@ export type DoubaoAccountState = {
     models: string[] | null;
     capabilities: string[] | null;
     error: { reason?: string; message?: string } | null;
+    /** 上一次因套餐/额度被豆包拒绝的能力（同能力成功一次就清掉） */
+    quotaBlock?: { capability?: string; message: string; at?: string } | null;
+    /** 每个能力各有一条（一个号可能同时卡住视频和图片） */
+    quotaBlocks?: { capability?: string; message: string; at?: string }[];
 };
 
 export type DoubaoAccount = {
     id: string;
     name: string;
+    /** 账号所属站点：豆包（国内）或 Dola（国际版） */
+    provider?: BridgeProvider;
+    providerName?: string;
     createdAt: string;
     lastLoginAt: string | null;
     state: DoubaoAccountState;
@@ -87,13 +94,17 @@ export async function bridgeHealth() {
     return request<{ ok: boolean; cliExists: boolean; accounts: number; running: number }>("/api/health");
 }
 
-export async function listAccounts() {
-    const data = await request<{ ok: boolean; accounts: DoubaoAccount[] }>("/api/accounts");
+/** 豆包账号池的站点：doubao = 国内豆包，dola = 国际版 Dola */
+export type BridgeProvider = "doubao" | "dola";
+
+export async function listAccounts(provider?: BridgeProvider) {
+    const query = provider ? `?provider=${provider}` : "";
+    const data = await request<{ ok: boolean; accounts: DoubaoAccount[] }>(`/api/accounts${query}`);
     return data.accounts;
 }
 
-export async function createAccount(name: string) {
-    const data = await request<{ ok: boolean; account: DoubaoAccount }>("/api/accounts", { method: "POST", body: JSON.stringify({ name }) });
+export async function createAccount(name: string, provider: BridgeProvider = "doubao") {
+    const data = await request<{ ok: boolean; account: DoubaoAccount }>("/api/accounts", { method: "POST", body: JSON.stringify({ name, provider }) });
     return data.account;
 }
 
@@ -219,12 +230,14 @@ export async function uploadAttachment(accountId: string, file: Blob, name: stri
 
 export async function createVideoJob(input: {
     accountId?: string;
+    /** 本次任务走哪个站点（由模型决定）：桥接只会调度同站点的账号 */
+    provider?: BridgeProvider;
     accountSelectionMode?: "auto" | "manual" | "round-robin";
     prompt: string;
     attachments?: string[];
     mode?: string;
     capability?: string;
-    expectedArtifactKind?: "image" | "video";
+    expectedArtifactKind?: "image" | "video" | "text";
     modelName?: string;
     requestedParams?: Record<string, unknown>;
     nodeId?: string;
@@ -257,9 +270,10 @@ export function jobFileUrl(jobId: string, index: number) {
 }
 
 /** 轮询到任务结束（供节点与页面复用）。 */
-export async function waitJob(id: string, onProgress?: (job: DoubaoJob) => void, intervalMs = 3000, timeoutMs = 20 * 60 * 1000) {
+export async function waitJob(id: string, onProgress?: (job: DoubaoJob) => void, intervalMs = 3000, timeoutMs = 20 * 60 * 1000, signal?: AbortSignal) {
     const deadline = Date.now() + timeoutMs;
     for (;;) {
+        if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
         const job = await getJob(id);
         onProgress?.(job);
         if (job.status === "succeeded" || job.status === "failed") return job;

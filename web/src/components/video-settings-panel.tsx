@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 import { ImageSettingsTheme } from "@/components/image-settings-panel";
 import { DynamicParamsPanel } from "@/components/DynamicParamsPanel";
-import { isDoubaoBuiltinModel } from "@/constants/doubao-builtin";
+import { builtinProviderName, builtinProviderOf } from "@/constants/doubao-builtin";
 import { listAccounts, type DoubaoAccount } from "@/services/api/doubao-bridge";
 import { useDoubaoAccountStore } from "@/stores/use-doubao-account-store";
 import { type CanvasTheme } from "@/lib/canvas-theme";
@@ -40,14 +40,19 @@ type VideoSettingsPanelProps = {
 
 export function VideoSettingsPanel({ config, onConfigChange, theme, showTitle = true, className = "w-[320px] space-y-4 rounded-2xl px-1 py-0.5" }: VideoSettingsPanelProps) {
     const { t } = useTranslation();
-    // 豆包内置模型需要账号：这里直接给出选择器，避免「登录了却不知道去哪选」
-    const doubaoModel = isDoubaoBuiltinModel(config.videoModel || config.model);
+    // 内置模型（豆包 / Dola）需要账号：这里直接给出选择器，避免「登录了却不知道去哪选」
+    // 站点由模型决定，下拉里只列同站点的账号（两套账号体系不互通）
+    const builtinProvider = builtinProviderOf(config.videoModel || config.model);
+    const siteName = builtinProviderName(builtinProvider);
+    const doubaoModel = Boolean(builtinProvider);
     const currentAccountId = useDoubaoAccountStore((state) => state.currentAccountId);
     const [doubaoAccounts, setDoubaoAccounts] = useState<DoubaoAccount[]>([]);
     useEffect(() => {
-        if (!doubaoModel) return;
-        void listAccounts().then(setDoubaoAccounts).catch(() => undefined);
-    }, [doubaoModel]);
+        if (!builtinProvider) return;
+        void listAccounts(builtinProvider).then(setDoubaoAccounts).catch(() => undefined);
+    }, [builtinProvider]);
+    // 当前号可能属于另一个站点，只有在本站点列表里才显示「当前」
+    const currentForProvider = doubaoAccounts.some((account) => account.id === currentAccountId) ? currentAccountId : null;
     // 参数范围与可选项由当前模型的 Schema 决定，没有 Schema 的模型沿用旧默认值
     const schema = resolveVideoParamSchema(config.videoModel || config.model);
     const ratioField = schema.find((field) => field.configKey === "size");
@@ -80,19 +85,19 @@ export function VideoSettingsPanel({ config, onConfigChange, theme, showTitle = 
             <div className={className} style={{ color: theme.node.text }} onMouseDown={(event) => event.stopPropagation()}>
                 {showTitle ? <div className="text-lg font-semibold">{t("settingsPanels.video.title")}</div> : null}
                 {doubaoModel ? (
-                    <SettingGroup title="豆包账号" color={theme.node.muted}>
+                    <SettingGroup title={`${siteName}账号`} color={theme.node.muted}>
                         <Select
                             className="w-full"
                             value={config.doubaoAccountId || undefined}
-                            placeholder="跟随左侧号池的「当前账号」"
+                            placeholder={currentForProvider ? `跟随号池的「当前${siteName}账号」` : `选择${siteName}账号`}
                             allowClear
                             onChange={(value) => onConfigChange("doubaoAccountId", value || "")}
                             options={doubaoAccounts.map((account) => ({
                                 value: account.id,
-                                label: `${account.name}${account.state.loggedIn ? "" : "（未登录）"}${account.id === currentAccountId ? " · 当前" : ""}`,
+                                label: `${account.name}${account.state.loggedIn ? "" : "（未登录）"}${account.id === currentForProvider ? " · 当前" : ""}`,
                             }))}
                             onDropdownVisibleChange={(open) => {
-                                if (open) void listAccounts().then(setDoubaoAccounts).catch(() => undefined);
+                                if (open && builtinProvider) void listAccounts(builtinProvider).then(setDoubaoAccounts).catch(() => undefined);
                             }}
                         />
                     </SettingGroup>

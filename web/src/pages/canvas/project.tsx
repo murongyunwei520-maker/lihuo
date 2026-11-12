@@ -14,6 +14,8 @@ import { uploadMediaFile, type UploadedFile } from "@/services/file-storage";
 import { nanoid } from "nanoid";
 import { getDataUrlByteSize, readImageMeta } from "@/lib/image-utils";
 import { imageReferenceLabel } from "@/lib/image-reference-prompt";
+import { mapWithConcurrency } from "@/lib/concurrency";
+import { DOUBAO_MAX_PARALLEL, isDoubaoBuiltinModel } from "@/constants/doubao-builtin";
 import { canvasThemes, type CanvasBackgroundMode } from "@/lib/canvas-theme";
 import { useAssetStore } from "@/stores/use-asset-store";
 import { useThemeStore } from "@/stores/use-theme-store";
@@ -42,7 +44,7 @@ import { CanvasToolbar } from "@/components/canvas/canvas-toolbar";
 import { AssetPickerModal, type InsertAssetPayload } from "@/components/canvas/asset-picker-modal";
 import { CanvasSidePanel } from "@/components/canvas/canvas-side-panel";
 import { CanvasDoubaoAccountsPanel } from "@/components/canvas/canvas-doubao-accounts-panel";
-import { CanvasInspectorPanel } from "@/components/canvas/canvas-inspector-panel";
+import { CanvasSideDock } from "@/components/canvas/canvas-side-dock";
 import { CanvasTaskBar } from "@/components/canvas/canvas-task-bar";
 import { CanvasZoomControls } from "@/components/canvas/canvas-zoom-controls";
 import { useAgentStore } from "@/stores/use-agent-store";
@@ -2495,8 +2497,9 @@ function InfiniteCanvasPage() {
                     let hasSuccess = false;
                     let hasFailure = false;
                     let firstError = "";
-                    await Promise.all(
-                        imageIds.map(async (imageId) => {
+                    // 豆包同账号有并行上限：批量生成按上限发，超出的请求会被桥接直接拒绝
+                    const imageBatchLimit = isDoubaoBuiltinModel(generationConfig.model) ? DOUBAO_MAX_PARALLEL : imageIds.length;
+                    await mapWithConcurrency(imageIds, imageBatchLimit, async (imageId) => {
                             try {
                                 const image = referenceImages.length
                                     ? await requestEdit({ ...generationConfig, count: "1" }, effectivePrompt, referenceImages, { signal: controller.signal, nodeId }).then((items) => items[0])
@@ -2539,8 +2542,7 @@ function InfiniteCanvasPage() {
                                 setNodes((prev) => prev.map((node) => (node.id === rootId ? { ...node, metadata: { ...node.metadata, images: node.metadata?.images?.map((image) => (image.id === imageId ? { ...image, status: NODE_STATUS_ERROR, errorDetails } : image)) } } : node)));
                             }
                             return false;
-                        }),
-                    );
+                    });
                     if (rootId !== nodeId) finishGenerationRequest(rootId, controller);
                     if (controller.signal.aborted) {
                         setNodes((prev) => prev.map((node) => (node.id === nodeId && isConfigNode && node.metadata?.status === NODE_STATUS_LOADING ? { ...node, metadata: { ...node.metadata, status: NODE_STATUS_IDLE, errorDetails: undefined } } : node)));
@@ -2554,7 +2556,8 @@ function InfiniteCanvasPage() {
                             node.id === nodeId && isConfigNode
                                 ? { ...node, metadata: { ...node.metadata, status: hasSuccess ? NODE_STATUS_SUCCESS : NODE_STATUS_ERROR, errorDetails: hasSuccess ? undefined : t("canvas.projectPage.generationFailed") } }
                                 : node.id === rootId
-                                  ? { ...node, metadata: { ...node.metadata, status: hasSuccess ? NODE_STATUS_SUCCESS : NODE_STATUS_ERROR, errorDetails: hasSuccess ? undefined : t("canvas.projectPage.allFailed") } }
+                                  // 全部失败时把真实原因带到节点上，别只留一句「全部图片生成失败」
+                                  ? { ...node, metadata: { ...node.metadata, status: hasSuccess ? NODE_STATUS_SUCCESS : NODE_STATUS_ERROR, errorDetails: hasSuccess ? undefined : firstError || t("canvas.projectPage.allFailed") } }
                                     : node,
                         ),
                     );
@@ -2682,8 +2685,9 @@ function InfiniteCanvasPage() {
                 setDialogNodeId(nodeId);
 
                 const controller = rootId === nodeId ? runController : startGenerationRequest(rootId, nodeId, nodeId, runController);
-                const results = await Promise.all(
-                    textIds.map(async (textId): Promise<CanvasNodeText | null> => {
+                // 豆包同账号有并行上限：批量生成按上限发，超出的请求会被桥接直接拒绝
+                const textBatchLimit = isDoubaoBuiltinModel(generationConfig.model) ? DOUBAO_MAX_PARALLEL : textIds.length;
+                const results = await mapWithConcurrency(textIds, textBatchLimit, async (textId): Promise<CanvasNodeText | null> => {
                         let streamed = "";
                         try {
                             const answer = await requestImageQuestion(
@@ -2730,8 +2734,7 @@ function InfiniteCanvasPage() {
                             setNodes((prev) => prev.map((node) => (node.id === rootId ? { ...node, metadata: { ...node.metadata, texts: node.metadata?.texts?.map((item) => (item.id === textId ? { ...item, status: NODE_STATUS_ERROR, errorDetails } : item)) } } : node)));
                             return { id: textId, status: NODE_STATUS_ERROR, content: "", errorDetails } satisfies CanvasNodeText;
                         }
-                    }),
-                );
+                });
                 if (rootId !== nodeId) finishGenerationRequest(rootId, controller);
                 if (controller.signal.aborted) return;
                 const completedTexts = results.flatMap((item) => (item?.status === NODE_STATUS_SUCCESS ? [item] : []));
@@ -3500,7 +3503,7 @@ function InfiniteCanvasPage() {
                 </div>
                 <CanvasTaskBar />
             </section>
-            <CanvasInspectorPanel nodes={nodes} selectedNodeIds={selectedNodeIds} />
+            <CanvasSideDock nodes={nodes} selectedNodeIds={selectedNodeIds} />
         </main>
     );
 }

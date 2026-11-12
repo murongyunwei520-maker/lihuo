@@ -5,25 +5,28 @@ import path from "node:path";
 
 import { launchProfileContext, loadDbbBrowser } from "./lib/doubao-context.mjs";
 
-const [stateDirArg, storageStateArg] = process.argv.slice(2);
+const [stateDirArg, storageStateArg, siteUrlArg, cookieDomainArg] = process.argv.slice(2);
 if (!stateDirArg || !storageStateArg) {
-    console.error("usage: inject-cookies.mjs <stateDir> <storageState.json>");
+    console.error("usage: inject-cookies.mjs <stateDir> <storageState.json> [siteUrl] [cookieDomain]");
     process.exit(2);
 }
+// 豆包 / Dola 共用：站点地址与 cookie 域名由调用方按账号所属站点传入
+const SITE_URL = siteUrlArg || "https://www.doubao.com/chat/";
+const COOKIE_DOMAIN = cookieDomainArg || ".doubao.com";
 
 const stateDir = path.resolve(stateDirArg);
 process.env.DBB_STATE_DIR = stateDir;
 
 const SESSION_COOKIE_RE = /^(sessionid|sessionid_ss|sid_tt|uid_tt|uid_tt_ss|sid_guard|sid_ucp_v1)$/;
 const state = JSON.parse(fs.readFileSync(path.resolve(storageStateArg), "utf8"));
-const cookies = (state.cookies || []).map((cookie) => ({ name: cookie.name, value: cookie.value, domain: ".doubao.com", path: "/" }));
+const cookies = (state.cookies || []).map((cookie) => ({ name: cookie.name, value: cookie.value, domain: COOKIE_DOMAIN, path: "/" }));
 
 const { ctx } = await launchProfileContext(stateDir, { offscreen: true, size: "1280,900" });
 const { exportStorageState } = await loadDbbBrowser();
 try {
     await ctx.addCookies(cookies);
     const page = ctx.pages()[0] || (await ctx.newPage());
-    await page.goto("https://www.doubao.com/chat/", { waitUntil: "commit", timeout: 30000 });
+    await page.goto(SITE_URL, { waitUntil: "commit", timeout: 60000 });
     await page.waitForTimeout(4000);
 
     const session = (await ctx.cookies()).filter((cookie) => SESSION_COOKIE_RE.test(cookie.name)).map((cookie) => cookie.name);

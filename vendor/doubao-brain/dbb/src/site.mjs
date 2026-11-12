@@ -166,17 +166,13 @@ export async function injectPrompt(page, text) {
   await dismissBlockingDialogs(page);
   const editor = page.locator('[contenteditable="true"]').first();
   await editor.waitFor({ state: "visible", timeout: 20000 });
+  // 离火补丁：对话模式的编辑器中心常被悬浮层压住，并发时标签页还会退到后台让 locator.click 的可操作性
+  // 检查（等渲染帧）一直超时。这里点击降级成"尽力而为"——下面清空/写入都用 evaluate 里的 focus()，
+  // 不点也能正常写入。
   try {
-    await editor.click({ timeout: 15000 });
-  } catch (error) {
-    const dlg = await dismissBlockingDialogs(page);
-    if (!dlg.dismissed) {
-      throw Object.assign(
-        new Error(`编辑器被页面弹窗遮挡且无法自动关闭（可见弹窗 ${dlg.remaining ?? 1} 个${dlg.screenshot ? `，截图 ${dlg.screenshot}` : ""}）`),
-        { code: "POPUP_BLOCKING", screenshot: dlg.screenshot }
-      );
-    }
-    await editor.click({ timeout: 15000 });
+    await editor.click({ timeout: 4000 });
+  } catch {
+    /* 点不到就靠 focus() 写，不阻断 */
   }
   await page.waitForTimeout(300);
 
@@ -250,7 +246,12 @@ export async function sendPrompt(page) {
       { code: "POPUP_BLOCKING", screenshot: dlg.screenshot }
     );
   }
-  await page.locator('[contenteditable="true"]').first().press("Enter");
+  // 离火补丁：后台标签页里 locator.press 会卡在可操作性检查上，退回直接按键
+  try {
+    await page.locator('[contenteditable="true"]').first().press("Enter", { timeout: 5000 });
+  } catch {
+    await page.keyboard.press("Enter");
+  }
   await page.waitForTimeout(2000);
   // 兜底：找发送按钮（aria 可能是「发送」或图标按钮）
   const box = await page.evaluate(() => {

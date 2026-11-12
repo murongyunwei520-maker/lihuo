@@ -12,6 +12,36 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, "..");
 const CLI = process.env.DBB_CLI || path.join(REPO, "vendor", "doubao-brain", "dbb", "cli.mjs");
 const ACCOUNTS_ROOT = process.env.DOUBAO_ACCOUNTS_DIR || path.join(REPO, ".doubao-accounts");
+// 站点配置：豆包（国内）与 Dola（国际版）走同一套账号池 / 任务 / 执行器，只是站点地址和能力文案不同
+const PROVIDERS = {
+    doubao: {
+        id: "doubao",
+        name: "豆包",
+        siteUrl: process.env.DBB_SITE_URL || "https://www.doubao.com/chat/",
+        referer: "https://www.doubao.com/",
+        cookieDomain: ".doubao.com",
+        // 能力栏文案：Dola 用同一套中文标签时不用改，改成英文界面时用环境变量覆盖
+        capabilities: {
+            image: process.env.DBB_CAP_IMAGE || "图像生成",
+            video: process.env.DBB_CAP_VIDEO || "视频生成",
+            text: process.env.DBB_CAP_TEXT || "对话",
+        },
+    },
+    dola: {
+        id: "dola",
+        name: "Dola",
+        siteUrl: process.env.DOLA_SITE_URL || "https://www.dola.com/chat/",
+        referer: "https://www.dola.com/",
+        cookieDomain: ".dola.com",
+        capabilities: {
+            image: process.env.DOLA_CAP_IMAGE || "图像生成",
+            video: process.env.DOLA_CAP_VIDEO || "视频生成",
+            text: process.env.DOLA_CAP_TEXT || "对话",
+        },
+    },
+};
+const DEFAULT_PROVIDER = "doubao";
+const providerOf = (account) => PROVIDERS[account?.provider] || PROVIDERS[DEFAULT_PROVIDER];
 const PORT = Number(process.env.DOUBAO_BRIDGE_PORT || 9091);
 const HOST = process.env.DOUBAO_BRIDGE_HOST || "127.0.0.1";
 
@@ -27,6 +57,8 @@ const ACCOUNTS_FILE = path.join(ACCOUNTS_ROOT, "accounts.json");
 // dbb 每个状态目录都要自己的 playwright-core；预装一份模板，新账号直接复制，免去 npm 安装。
 const DEPS_TEMPLATE = path.join(REPO, "vendor", "doubao-brain", "deps-template");
 const LOGIN_QR_SCRIPT = path.join(HERE, "qr-helper.py");
+// Dola 等站点用「站点自己的登录弹窗」取二维码（豆包 passport 接口拿不到别的站点的码）
+const LOGIN_QR_BROWSER_SCRIPT = path.join(HERE, "qr-helper-browser.mjs");
 const WINDOW_LOGIN_SCRIPT = path.join(HERE, "window-login.mjs");
 const RUNNER_SCRIPT = path.join(HERE, "run-doubao.mjs");
 const INJECT_SCRIPT = path.join(HERE, "inject-cookies.mjs");
@@ -240,7 +272,7 @@ async function openViewer(account) {
     const port = viewerPort(account.id);
     fs.mkdirSync(path.join(p.state, "viewer"), { recursive: true });
     fs.writeFileSync(path.join(p.state, "viewer", "status.json"), JSON.stringify({ state: "starting", updatedAt: new Date().toISOString() }));
-    const child = spawn(process.execPath, [VIEWER_SCRIPT, p.state, account.id, String(port)], {
+    const child = spawn(process.execPath, [VIEWER_SCRIPT, p.state, account.id, String(port), providerOf(account).siteUrl, providerOf(account).name], {
         cwd: p.work,
         env: { ...process.env, DBB_STATE_DIR: p.state },
         windowsHide: false,
@@ -278,7 +310,9 @@ fs.mkdirSync(ACCOUNTS_ROOT, { recursive: true });
 function readAccounts() {
     try {
         const data = JSON.parse(fs.readFileSync(ACCOUNTS_FILE, "utf8"));
-        return Array.isArray(data.accounts) ? data.accounts : [];
+        const list = Array.isArray(data.accounts) ? data.accounts : [];
+        // 老数据没有 provider 字段，统一按豆包算
+        return list.map((item) => ({ ...item, provider: PROVIDERS[item.provider] ? item.provider : DEFAULT_PROVIDER }));
     } catch {
         return [];
     }
@@ -343,70 +377,113 @@ async function readJsonBody(req) {
 
 /* -------------------------------- dbb 进程封装 ------------------------------- */
 
-const runningByAccount = new Map(); // accountId -> 当前并发任务数
-const activeJobs = new Map(); // accountId -> 正在跑的任务数（用于并发上限判断）
-const MAX_JOBS_PER_ACCOUNT = 1; // P0: 同账号串行，先保证稳定，后续再恢复并发
+const runningByAccount = new Map(); // accountId -> 当前并发任务数（健康检查用）
+const activeJobs = new Map(); // accountId -> 正在跑的任务数（并发槽位）
+// 同账号真正并发：默认同时最多跑 3 个，超出直接拒绝而不是排队；可用 DOUBAO_MAX_PARALLEL 调整
+const MAX_JOBS_PER_ACCOUNT = Math.max(1, Number(process.env.DOUBAO_MAX_PARALLEL || 3));
+// 豆包因套餐/额度拒绝创作的说法：命中就记在账号上，号池直接标红
+const QUOTA_REFUSAL_RE = /升级正式订阅|体验套餐|体验额度|免费体验|不可用于创作|次数已用完|额度不足|额度已用尽|无可用额度|配额|余额不足|订阅|套餐|insufficient|quota|credit|subscription|upgrade|out of (credits|quota)|(reached|hit) (your|the) (daily )?limit|limit (has been )?reached/i;
 let roundRobinCursor = 0; // 轮询分配的当前位置
 
-// P0-1: 账号级互斥锁，确保同账号任务串行执行
-const accountLocks = new Map(); // accountId -> Promise（锁持有者）
-async function acquireAccountLock(accountId) {
-    while (accountLocks.has(accountId)) {
-        await accountLocks.get(accountId);
-    }
-    let release;
-    const promise = new Promise((resolve) => { release = resolve; });
-    accountLocks.set(accountId, promise);
+/** 占一个并发槽位；满员返回 null（调用方直接拒绝，不排队）。返回的函数负责释放，重复调用安全。 */
+function acquireJobSlot(accountId) {
+    const used = activeJobs.get(accountId) || 0;
+    if (used >= MAX_JOBS_PER_ACCOUNT) return null;
+    activeJobs.set(accountId, used + 1);
+    runningByAccount.set(accountId, (runningByAccount.get(accountId) || 0) + 1);
+    runtimeOf(accountId).busy = true;
+    let released = false;
     return () => {
-        accountLocks.delete(accountId);
-        release();
+        if (released) return;
+        released = true;
+        const active = (activeJobs.get(accountId) || 1) - 1;
+        if (active > 0) activeJobs.set(accountId, active);
+        else activeJobs.delete(accountId);
+        const running = (runningByAccount.get(accountId) || 1) - 1;
+        if (running > 0) runningByAccount.set(accountId, running);
+        else runningByAccount.delete(accountId);
+        runtimeOf(accountId).busy = active > 0;
     };
 }
 
-/** 账号调度：manual / auto。 */
-function pickAccountByMode(mode, preferredAccountId) {
-    const all = readAccounts();
+// 同一个账号的窗口准备过程要合并：并发任务同时发现窗口没开会各自开一次，profile 只能被一个 Edge 占用
+const viewerPreparing = new Map(); // accountId -> Promise
+function ensureViewerOnce(account) {
+    const pending = viewerPreparing.get(account.id);
+    if (pending) return pending;
+    const promise = ensureViewer(account).finally(() => viewerPreparing.delete(account.id));
+    viewerPreparing.set(account.id, promise);
+    return promise;
+}
 
-    // manual 模式：必须用户明确选了账号
+/** 账号调度：manual / auto。 */
+/** 这个账号在这个能力上是不是被豆包判过额度不足。 */
+function quotaBlockedFor(accountId, capability) {
+    if (!capability) return false;
+    return Boolean((runtimeOf(accountId).quotaBlocks || {})[capability]);
+}
+
+function isLoggedIn(account) {
+    const rt = runtimeOf(account.id);
+    return rt.lastDoctor ? Boolean(rt.lastDoctor.loggedIn) : checkLoginStrict(account.id);
+}
+
+function pickAccountByMode(mode, preferredAccountId, capability = "", provider = "") {
+    const allAccounts = readAccounts();
+    // 模型决定站点：豆包模型只能配豆包账号，Dola 模型只能配 Dola 账号（两套账号体系不互通）
+    const all = provider ? allAccounts.filter((item) => (item.provider || DEFAULT_PROVIDER) === provider) : allAccounts;
+    const siteName = provider ? PROVIDERS[provider]?.name || provider : "";
+    if (!all.length) {
+        return { ok: false, reason: "NO_ACCOUNT_FOR_PROVIDER", message: `号池里还没有${siteName}账号，请先在账号池添加并扫码登录` };
+    }
+    if (preferredAccountId && !all.some((item) => item.id === preferredAccountId)) {
+        const mismatched = allAccounts.find((item) => item.id === preferredAccountId);
+        if (mismatched) {
+            return {
+                ok: false,
+                reason: "ACCOUNT_PROVIDER_MISMATCH",
+                message: `「${mismatched.name}」是${providerOf(mismatched).name}账号，不能用于${siteName}模型；请换成${siteName}账号`,
+            };
+        }
+    }
+
+    // manual 模式：必须用户明确选了账号；但选的号在该能力上额度不足时，按号池顺序顺延到下一个可用号
     if (mode === "manual") {
         if (!preferredAccountId) {
             return { ok: false, reason: "ACCOUNT_REQUIRED", message: "手动模式必须选择账号" };
         }
-        const account = all.find((a) => a.id === preferredAccountId);
-        if (!account) {
+        const index = all.findIndex((a) => a.id === preferredAccountId);
+        if (index < 0) {
             return { ok: false, reason: "ACCOUNT_NOT_FOUND", message: `账号不存在: ${preferredAccountId}` };
         }
-        const rt = runtimeOf(account.id);
-        const loggedIn = rt.lastDoctor ? Boolean(rt.lastDoctor.loggedIn) : checkLoginStrict(account.id);
-        if (!loggedIn) {
+        const account = all[index];
+        if (!isLoggedIn(account)) {
             return { ok: false, reason: "ACCOUNT_NOT_LOGGED_IN", message: `账号 ${account.name} 未登录` };
+        }
+        if (quotaBlockedFor(account.id, capability)) {
+            // 从当前号之后开始绕一圈找：号池顺序优先，找不到再回到自己（让它如实报额度不足）
+            const ordered = [...all.slice(index + 1), ...all.slice(0, index)];
+            const fallback = ordered.find((item) => isLoggedIn(item) && !quotaBlockedFor(item.id, capability));
+            if (fallback) {
+                return { ok: true, account: fallback, reason: "QUOTA_FALLBACK", message: `「${account.name}」${capability}额度不足，已按号池顺序改用「${fallback.name}」` };
+            }
+            return { ok: true, account, reason: "MANUAL_SELECTED", message: `所有账号${capability}额度都不足，仍用「${account.name}」尝试` };
         }
         return { ok: true, account, reason: "MANUAL_SELECTED" };
     }
 
-    // auto 模式：自动选账号。额度 unknown 的账号不选。
+    // auto 模式：在「已登录 + 该能力没被判额度不足」的号里按号池顺序轮询
     if (mode === "auto") {
-        // 先筛选：存在 + 已登录
-        const candidates = all.filter((a) => {
-            const rt = runtimeOf(a.id);
-            const loggedIn = rt.lastDoctor ? Boolean(rt.lastDoctor.loggedIn) : checkLoginStrict(a.id);
-            return loggedIn;
-        });
+        const candidates = all.filter((a) => isLoggedIn(a));
         if (!candidates.length) {
-            return { ok: false, reason: "NO_LOGGED_IN_ACCOUNT", message: "没有已登录的账号" };
+            return { ok: false, reason: "NO_LOGGED_IN_ACCOUNT", message: `没有已登录的${siteName}账号` };
         }
-        // 额度 unknown 的账号不选（因为现在没有真实额度读取能力）
-        // TODO: 等有真实额度查询后，从这里筛选额度 sufficient 的账号
-        const quotaOk = candidates.filter((a) => {
-            const rt = runtimeOf(a.id);
-            const quotaStatus = rt.quotaStatus || "unknown"; // 默认 unknown
-            return quotaStatus === "sufficient";
-        });
-        if (!quotaOk.length) {
-            return { ok: false, reason: "ACCOUNT_QUOTA_UNKNOWN", message: "所有账号额度未知，自动分配无法执行，请切换手动模式" };
+        const usable = candidates.filter((a) => !quotaBlockedFor(a.id, capability));
+        if (!usable.length) {
+            return { ok: false, reason: "ACCOUNT_QUOTA_UNKNOWN", message: `所有已登录${siteName}账号的${capability || "该能力"}额度都不足，请升级订阅或换号` };
         }
-        // 选第一个额度充足的（后续可以加轮询/最少使用策略）
-        return { ok: true, account: quotaOk[0], reason: "AUTO_SELECTED" };
+        const account = usable[roundRobinCursor++ % usable.length];
+        return { ok: true, account, reason: "AUTO_SELECTED", message: `按号池顺序轮询到「${account.name}」` };
     }
 
     return { ok: false, reason: "INVALID_ACCOUNT_SELECTION_MODE", message: `不支持的模式: ${mode}` };
@@ -426,7 +503,18 @@ function ensureDeps(accountId) {
 function dbbEnv(accountId) {
     const p = ensureAccountDirs(accountId);
     ensureDeps(accountId);
-    return { ...process.env, DBB_STATE_DIR: p.state };
+    // 同一个执行器要能跑豆包和 Dola：站点地址 / cookie 域名 / 能力文案都从账号所属站点取
+    const site = providerOf(findAccount(accountId));
+    return {
+        ...process.env,
+        DBB_STATE_DIR: p.state,
+        DBB_SITE_URL: site.siteUrl,
+        DBB_SITE_REFERER: site.referer,
+        DBB_COOKIE_DOMAIN: site.cookieDomain,
+        DBB_CAP_IMAGE: site.capabilities.image,
+        DBB_CAP_VIDEO: site.capabilities.video,
+        DBB_CAP_TEXT: site.capabilities.text,
+    };
 }
 
 /**
@@ -516,8 +604,24 @@ function parseActualParams(lines) {
 const accountRuntime = new Map(); // accountId -> { busy, loginRunning, lastDoctor, lastError }
 
 function runtimeOf(id) {
-    if (!accountRuntime.has(id)) accountRuntime.set(id, { busy: false, loginRunning: false, lastDoctor: null, lastError: null });
+    if (!accountRuntime.has(id)) {
+        // 额度不足标记落盘过：重启桥接后照样能把号标红，而不是等下一次被拒才显示
+        const stored = readAccounts().find((item) => item.id === id);
+        accountRuntime.set(id, { busy: false, loginRunning: false, lastDoctor: null, lastError: null, quotaBlocks: stored?.quotaBlocks ? { ...stored.quotaBlocks } : {} });
+    }
     return accountRuntime.get(id);
+}
+
+/** 把某能力上的额度标记写进 accounts.json（block 为空表示清除）。 */
+function persistQuotaBlock(accountId, capability, block) {
+    const accounts = readAccounts().map((item) => {
+        if (item.id !== accountId) return item;
+        const quotaBlocks = { ...(item.quotaBlocks || {}) };
+        if (block) quotaBlocks[capability] = block;
+        else delete quotaBlocks[capability];
+        return { ...item, quotaBlocks };
+    });
+    writeAccounts(accounts);
 }
 
 function publicAccount(account) {
@@ -527,6 +631,8 @@ function publicAccount(account) {
     return {
         id: account.id,
         name: account.name,
+        provider: account.provider || DEFAULT_PROVIDER,
+        providerName: providerOf(account).name,
         createdAt: account.createdAt,
         lastLoginAt: account.lastLoginAt || null,
         state: {
@@ -537,6 +643,10 @@ function publicAccount(account) {
             models: rt.lastDoctor?.models || null,
             capabilities: rt.lastDoctor?.capabilities || null,
             error: rt.lastError,
+            // 上一次因套餐/额度被豆包拒绝的能力（同能力成功一次就清掉）
+            // 一个号可能同时卡住多个能力：数组给前端展示，quotaBlock 仍保留最近的一条
+            quotaBlocks: Object.values(rt.quotaBlocks || {}).sort((a, b) => String(b.at).localeCompare(String(a.at))),
+            quotaBlock: Object.values(rt.quotaBlocks || {}).sort((a, b) => String(b.at).localeCompare(String(a.at)))[0] || null,
         },
     };
 }
@@ -595,8 +705,9 @@ function writeWindowStatus(accountId, payload) {
 function startWindowLogin(account) {
     const p = ensureAccountDirs(account.id);
     ensureDeps(account.id);
-    writeWindowStatus(account.id, { state: "starting", message: "正在打开登录窗口…" });
-    const child = spawn(process.execPath, [WINDOW_LOGIN_SCRIPT, p.state, account.id], {
+    const site = providerOf(account);
+    writeWindowStatus(account.id, { state: "starting", message: `正在打开${site.name}登录窗口…` });
+    const child = spawn(process.execPath, [WINDOW_LOGIN_SCRIPT, p.state, account.id, site.siteUrl, site.name], {
         cwd: p.work,
         env: { ...process.env, DBB_STATE_DIR: p.state },
         windowsHide: false,
@@ -635,12 +746,12 @@ function writeQrStatus(accountId, payload) {
 }
 
 /** 把 {name: value} 形式的 cookie 转成 Playwright storageState。 */
-function cookiesToStorageState(cookies) {
+function cookiesToStorageState(cookies, domain = ".doubao.com") {
     return {
         cookies: Object.entries(cookies).map(([name, value]) => ({
             name,
             value: String(value),
-            domain: ".doubao.com",
+            domain,
             path: "/",
             expires: -1,
             httpOnly: false,
@@ -651,21 +762,37 @@ function cookiesToStorageState(cookies) {
     };
 }
 
-/** 拉起二维码助手：真实二维码来自豆包 passport 接口，扫完拿到 cookies 注入该账号 profile。 */
+/**
+ * 拉起二维码助手。
+ * - 豆包：走 passport 接口（qr-helper.py），拿到的 cookies 注入账号 profile。
+ * - Dola 等其它站点：账号体系独立，只能用**该站点登录弹窗里的二维码**（qr-helper-browser.mjs），
+ *   它直接跑在账号自己的 profile 上，扫完登录态天然落盘，不需要再做注入。
+ */
 function startQrHelper(account) {
+    const site = providerOf(account);
     const p = ensureAccountDirs(account.id);
     const dir = path.join(p.state, "login-qr");
     fs.mkdirSync(dir, { recursive: true });
     const imgFile = path.join(dir, "qr.png");
     // 扫码拿到的 cookies 先落临时文件；只有注入并在浏览器里验证通过，才写真正的 storage-state.json
     const cookiesFile = path.join(dir, "cookies.json");
-    writeQrStatus(account.id, { state: "starting", message: "正在向豆包申请二维码…" });
+    const viaBrowser = site.id !== DEFAULT_PROVIDER;
+    writeQrStatus(account.id, { state: "starting", message: `正在向${site.name}申请二维码…` });
 
-    const child = spawn(PYTHON_BIN, [LOGIN_QR_SCRIPT], {
-        cwd: p.work,
-        env: { ...process.env, PYTHONIOENCODING: "utf-8", DBB_STATE_DIR: p.state },
-        windowsHide: true,
-    });
+    if (viaBrowser) {
+        ensureDeps(account.id);
+    }
+    const child = viaBrowser
+        ? spawn(process.execPath, [LOGIN_QR_BROWSER_SCRIPT, p.state, site.siteUrl, site.cookieDomain || ""], {
+              cwd: p.work,
+              env: { ...process.env, DBB_STATE_DIR: p.state },
+              windowsHide: true,
+          })
+        : spawn(PYTHON_BIN, [LOGIN_QR_SCRIPT], {
+              cwd: p.work,
+              env: { ...process.env, PYTHONIOENCODING: "utf-8", DBB_STATE_DIR: p.state },
+              windowsHide: true,
+          });
     qrProcesses.set(account.id, child);
 
     let buffer = "";
@@ -680,7 +807,7 @@ function startQrHelper(account) {
         }
         if (payload.type === "qr" && payload.base64) {
             fs.writeFileSync(imgFile, Buffer.from(payload.base64, "base64"));
-            writeQrStatus(account.id, { state: "waiting", message: "请用手机豆包 App 扫码并在手机上确认" });
+            writeQrStatus(account.id, { state: "waiting", message: `请用手机${site.name} App 扫码并在手机上确认` });
             return;
         }
         if (payload.type === "status") {
@@ -690,12 +817,30 @@ function startQrHelper(account) {
         }
         if (payload.type === "cookies" && payload.cookies) {
             finished = true;
-            fs.writeFileSync(cookiesFile, JSON.stringify(cookiesToStorageState(payload.cookies), null, 2));
+            // 浏览器助手直接用账号 profile 扫码：登录态已经在里面，并且自己导出了 storage-state.json
+            if (viaBrowser) {
+                writeQrStatus(account.id, { state: "saving", message: "扫码成功，正在保存登录态…" });
+                setTimeout(() => {
+                    const loggedIn = checkLoginStrict(account.id);
+                    writeQrStatus(account.id, {
+                        state: loggedIn ? "logged_in" : "error",
+                        message: loggedIn ? "登录成功" : "登录成功但没读到会话 cookie，请重新扫码",
+                        cookies: Object.keys(payload.cookies || {}).length,
+                    });
+                    if (!loggedIn) return;
+                    const accounts = readAccounts().map((item) => (item.id === account.id ? { ...item, lastLoginAt: new Date().toISOString() } : item));
+                    writeAccounts(accounts);
+                    const rt = runtimeOf(account.id);
+                    rt.lastDoctor = { ...(rt.lastDoctor || {}), loggedIn: true, checkedAt: new Date().toISOString() };
+                }, 800);
+                return;
+            }
+            fs.writeFileSync(cookiesFile, JSON.stringify(cookiesToStorageState(payload.cookies, site.cookieDomain), null, 2));
             writeQrStatus(account.id, { state: "saving", message: "扫码成功，正在写入登录态…" });
             // 写登录态要占 profile：先把该账号已打开的查看窗口收起来，否则注入会失败
             void closeViewer(account.id);
             await new Promise((resolve) => setTimeout(resolve, 1800));
-            const inject = spawn(process.execPath, [INJECT_SCRIPT, p.state, cookiesFile], {
+            const inject = spawn(process.execPath, [INJECT_SCRIPT, p.state, cookiesFile, site.siteUrl, site.cookieDomain || ""], {
                 cwd: p.work,
                 env: { ...process.env, DBB_STATE_DIR: p.state },
                 windowsHide: true,
@@ -764,6 +909,7 @@ function listJobs(limit = 50) {
                 nodeId: job.nodeId || null,
                 accountId: job.accountId,
                 accountName: job.accountName,
+                accountSelectionMessage: job.accountSelectionMessage || null,
                 prompt: job.prompt,
                 capability: job.capability,
                 mode: job.mode,
@@ -792,32 +938,39 @@ async function runJob(job) {
         return;
     }
 
-    // 获取账号级锁，同账号任务串行执行
-    const releaseLock = await acquireAccountLock(account.id);
+    // 同账号可并行：槽位在创建任务时已经占好，这里直接开跑（不再有账号级串行锁）
     const rt = runtimeOf(account.id);
-
     try {
         job.status = "running";
         job.startedAt = new Date().toISOString();
-        job.progress = "正在准备豆包窗口…";
+        const siteName = providerOf(account).name;
+        job.progress = `正在准备${siteName}窗口…`;
 
-        // 严格一个号一个窗口：先确保那个窗口在（不在就打开）
-        const viewerReady = await ensureViewer(account);
-        job.progress = viewerReady ? "正在连接豆包窗口…" : "豆包窗口启动较慢，继续尝试连接…";
+        // 严格一个号一个窗口：窗口准备合并成一次，并发任务共用结果
+        const viewerReady = await ensureViewerOnce(account);
+        job.progress = viewerReady ? `正在连接${siteName}窗口…` : `${siteName}窗口启动较慢，继续尝试连接…`;
 
         const p = ensureAccountDirs(account.id);
         ensureDeps(account.id);
         const specDir = path.join(p.state, "jobs");
         fs.mkdirSync(specDir, { recursive: true });
         const specFile = path.join(specDir, `${job.id}.json`);
+        const site = providerOf(account);
         fs.writeFileSync(
             specFile,
             JSON.stringify({
                 capability: job.capability,
+                // 站点决定执行器去哪个网页操作：豆包 / Dola 共用同一套执行器
+                provider: site.id,
+                siteUrl: site.siteUrl,
+                referer: site.referer,
+                siteCapability: site.capabilities[job.expectedArtifactKind === "text" ? "text" : job.expectedArtifactKind] || job.capability,
                 prompt: job.prompt,
                 model: job.modelName,
                 ratio: job.requestedParams?.ratio ?? null,
                 duration: job.requestedParams?.duration ?? null,
+                // 画布要几张：产物多了也只回传这么多
+                count: job.requestedParams?.count ?? null,
                 attachments: job.attachments,
                 mode: job.mode,
                 expectedArtifactKind: job.expectedArtifactKind || null,
@@ -853,15 +1006,7 @@ async function runJob(job) {
             if (killChild) {
                 try { child.kill(); } catch { /* ignore */ }
             }
-            // busy 状态根据实际计数计算
-            const left = (runningByAccount.get(account.id) || 1) - 1;
-            if (left > 0) runningByAccount.set(account.id, left);
-            else runningByAccount.delete(account.id);
-            const activeLeft = (activeJobs.get(account.id) || 1) - 1;
-            if (activeLeft > 0) activeJobs.set(account.id, activeLeft);
-            else activeJobs.delete(account.id);
-            rt.busy = activeLeft > 0;
-            // 从 runnerProcesses 移除
+            // 从 runnerProcesses 移除（槽位在 runJob 的 finally 里释放，这里不动计数）
             const set = runnerProcesses.get(account.id);
             if (set) {
                 set.delete(child);
@@ -880,13 +1025,29 @@ async function runJob(job) {
                 }));
                 job.files = files;
                 job.text = payload.text || "";
-                job.status = files.length ? "succeeded" : "failed";
-                if (!files.length) job.error = { reason: "NO_ARTIFACT", message: "豆包没有返回可用产物" };
+                // 文本任务没有文件，回答正文就是产物
+                const expectsText = job.expectedArtifactKind === "text";
+                job.status = files.length || (expectsText && job.text.trim()) ? "succeeded" : "failed";
+                if (job.status === "failed") job.error = { reason: "NO_ARTIFACT", message: expectsText ? "豆包没有返回回答内容" : "豆包没有返回可用产物" };
                 job.actualParams = parseActualParams(job.stderrLines) || parseActualParams([job.text]);
+                // 这个能力这次能出活，说明它的额度是通的：只清掉同能力的额度提示
+                if (job.status === "succeeded" && rt.quotaBlocks?.[job.capability]) {
+                    delete rt.quotaBlocks[job.capability];
+                    persistQuotaBlock(account.id, job.capability, null);
+                }
                 resultResolve(payload);
             } else {
                 job.status = "failed";
-                job.error = payload?.error || { reason: "RUNNER_ERROR", message: "生成器异常退出" };
+                // 执行器 ok:false 时必须带 error；真没带说明是进程自己没了，别把原因说成「生成器异常退出」
+                job.error = payload?.error || { reason: "NO_ARTIFACT", message: "生成器没有返回可用产物" };
+                // 额度不足（或明确拒绝但文案带额度/订阅字样）：按能力记在账号上，前端号池据此标红
+                const quotaHit = job.error.reason === "QUOTA_EXCEEDED" || (job.error.reason === "DOUBAO_REFUSED" && QUOTA_REFUSAL_RE.test(String(job.error.message || "")));
+                if (quotaHit) {
+                    const block = { capability: job.capability, message: String(job.error.message).slice(0, 200), at: new Date().toISOString() };
+                    rt.quotaBlocks = { ...(rt.quotaBlocks || {}), [job.capability]: block };
+                    // 落盘：重启桥接后号池仍然标红
+                    persistQuotaBlock(account.id, job.capability, block);
+                }
                 resultReject(new Error(job.error.message));
             }
         };
@@ -956,16 +1117,17 @@ async function runJob(job) {
         await resultPromise;
     } catch (error) {
         job.status = "failed";
-        job.error = { reason: "RUNNER_ERROR", message: error instanceof Error ? error.message : String(error) };
+        // finish() 里已经写好了具体原因（NO_ARTIFACT / TIMEOUT / EXIT_x），不要覆盖成笼统的 RUNNER_ERROR
+        if (!job.error) job.error = { reason: "RUNNER_ERROR", message: error instanceof Error ? error.message : String(error) };
         job.finishedAt = new Date().toISOString();
-    } finally {
-        releaseLock();
     }
 }
 
-function enqueue(job) {
-    // 同账号可并发：不再串行排队，直接开跑（并发上限在 POST /api/jobs 处校验）
-    return runJob(job).catch(() => undefined);
+function enqueue(job, releaseSlot) {
+    // 同账号可并发：槽位在创建任务时已经占好，这里立即开跑，不排队
+    return runJob(job)
+        .catch(() => undefined)
+        .finally(() => releaseSlot?.());
 }
 
 /* ---------------------------------- HTTP 路由 -------------------------------- */
@@ -991,9 +1153,11 @@ const server = http.createServer(async (req, res) => {
             });
         }
 
-        // GET /api/accounts
+        // GET /api/accounts?provider=dola —— 不传 provider 时返回全部（前端要按站点分组展示）
         if (api[0] === "accounts" && api.length === 1 && req.method === "GET") {
-            return send(res, 200, { ok: true, accounts: readAccounts().map(publicAccount) });
+            const provider = String(url.searchParams.get("provider") || "");
+            const list = readAccounts().filter((item) => !provider || item.provider === provider);
+            return send(res, 200, { ok: true, providers: Object.values(PROVIDERS).map(({ id, name }) => ({ id, name })), accounts: list.map(publicAccount) });
         }
 
         // POST /api/accounts
@@ -1001,8 +1165,10 @@ const server = http.createServer(async (req, res) => {
             const body = await readJsonBody(req);
             const name = String(body.name || "").trim();
             if (!name) return send(res, 400, { ok: false, error: "账号名称不能为空" });
+            const provider = String(body.provider || DEFAULT_PROVIDER);
+            if (!PROVIDERS[provider]) return send(res, 400, { ok: false, error: `不支持的站点: ${provider}` });
             const accounts = readAccounts();
-            const account = { id: newId(), name, createdAt: new Date().toISOString() };
+            const account = { id: newId(), name, provider, createdAt: new Date().toISOString() };
             ensureAccountDirs(account.id);
             accounts.push(account);
             writeAccounts(accounts);
@@ -1099,7 +1265,7 @@ const server = http.createServer(async (req, res) => {
                 return send(res, 200, { ok: true });
             }
 
-            // POST /api/accounts/:id/qr-login —— 应用内扫码：后台向豆包申请二维码，图片回传给前端
+            // POST /api/accounts/:id/qr-login —— 应用内扫码：向该账号所属站点申请二维码，图片回传给前端
             if (action === "qr-login" && req.method === "POST") {
                 const existing = qrProcesses.get(account.id);
                 if (existing && !existing.killed) {
@@ -1107,7 +1273,12 @@ const server = http.createServer(async (req, res) => {
                     existing.kill();
                     qrProcesses.delete(account.id);
                 }
-                if (!fs.existsSync(PYTHON_BIN)) return send(res, 500, { ok: false, error: `找不到 Python：${PYTHON_BIN}（豆包扫码登录依赖 .doubao-venv，请确认它已存在）` });
+                const site = providerOf(account);
+                if (site.id === DEFAULT_PROVIDER && !fs.existsSync(PYTHON_BIN)) {
+                    return send(res, 500, { ok: false, error: `找不到 Python：${PYTHON_BIN}（豆包扫码登录依赖 .doubao-venv，请确认它已存在）` });
+                }
+                // 浏览器扫码要用账号 profile：先把查看窗口收起来，否则 profile 被占用会起不来
+                if (site.id !== DEFAULT_PROVIDER) await closeViewer(account.id);
                 fs.rmSync(path.join(accountPaths(account.id).state, "login-qr", "qr.png"), { force: true });
                 startQrHelper(account);
                 return send(res, 200, { ok: true, started: true });
@@ -1269,20 +1440,25 @@ const server = http.createServer(async (req, res) => {
             const prompt = String(body.prompt || "").trim();
             if (!prompt) return send(res, 400, { ok: false, error: "提示词不能为空" });
 
-            // 账号调度：验证用户选择的账号，排队由账号锁处理
+            // 账号调度：手动选的号额度不足时按号池顺序顺延；auto 模式按顺序轮询未额度不足的号。
+            // provider 由模型决定（豆包模型 / Dola 模型），保证不会拿豆包账号去跑 Dola 模型。
             const mode = String(body.accountSelectionMode || "manual");
-            const accountResult = pickAccountByMode(mode, String(body.accountId || ""));
+            const capability = String(body.capability || VIDEO_CAPABILITY);
+            const provider = String(body.provider || "");
+            if (provider && !PROVIDERS[provider]) {
+                return send(res, 400, { ok: false, error: { reason: "INVALID_PROVIDER", message: `不支持的站点: ${provider}` } });
+            }
+            const accountResult = pickAccountByMode(mode, String(body.accountId || ""), capability, provider);
             if (!accountResult.ok) {
                 return send(res, 400, { ok: false, error: { reason: accountResult.reason, message: accountResult.message } });
             }
             const account = accountResult.account;
-            // 注意：不检查 busy/并发——同账号任务通过账号锁串行排队，不直接拒绝
+            // 注意：不检查 busy/并发——并发槽位在下面统一占用
             const attachments = (Array.isArray(body.attachments) ? body.attachments : []).map(String).filter((file) => fs.existsSync(file));
-            const capability = String(body.capability || VIDEO_CAPABILITY);
             // P0: 新任务必须显式传 expectedArtifactKind，不允许用中文 capability 推断
             const expectedArtifactKind = String(body.expectedArtifactKind || "");
-            if (expectedArtifactKind !== "image" && expectedArtifactKind !== "video") {
-                return send(res, 400, { ok: false, error: { reason: "INVALID_ARTIFACT_KIND", message: "必须指定 expectedArtifactKind (image/video)" } });
+            if (!["image", "video", "text"].includes(expectedArtifactKind)) {
+                return send(res, 400, { ok: false, error: { reason: "INVALID_ARTIFACT_KIND", message: "必须指定 expectedArtifactKind (image/video/text)" } });
             }
             const job = {
                 id: newJobId(),
@@ -1295,8 +1471,13 @@ const server = http.createServer(async (req, res) => {
                 requestedAccountId: body.accountId ? String(body.accountId) : null,
                 selectedAccountId: account.id,
                 accountSelectionReason: accountResult.reason || null,
+                // 换号说明（例如「豆包1」视频生成额度不足 → 已按号池顺序改用「豆包2」）
+                accountSelectionMessage: accountResult.message || null,
                 prompt,
                 capability,
+                // 本次走哪个站点（豆包 / Dola）：由模型决定，账号必须同站点
+                provider: providerOf(account).id,
+                providerName: providerOf(account).name,
                 mode: String(body.mode || "text-to-video"),
                 expectedArtifactKind, // 明确期望产物类型：image / video
                 // 用户在节点里选的模型与参数：原样记录，是否被豆包采用由 actualParams（解析原文）说话
@@ -1306,15 +1487,26 @@ const server = http.createServer(async (req, res) => {
                 attachments,
                 status: "queued",
                 createdAt: new Date().toISOString(),
-                progress: "排队中…",
+                progress: "准备中…",
                 stderrLines: [],
                 files: [],
                 text: "",
                 error: null,
             };
+            // 并发槽位：满员直接拒绝，不排队堆在内存里抢同一个窗口
+            const releaseSlot = acquireJobSlot(account.id);
+            if (!releaseSlot) {
+                return send(res, 429, {
+                    ok: false,
+                    error: {
+                        reason: "ACCOUNT_BUSY",
+                        message: `该账号已有 ${MAX_JOBS_PER_ACCOUNT} 个任务在并行执行，请稍后再试（可用 DOUBAO_MAX_PARALLEL 调整上限）`,
+                    },
+                });
+            }
             jobs.set(job.id, job);
             jobOrder.push(job.id);
-            void enqueue(job);
+            void enqueue(job, releaseSlot);
             return send(res, 200, { ok: true, job: { id: job.id, status: job.status } });
         }
 
@@ -1341,17 +1533,41 @@ const server = http.createServer(async (req, res) => {
             });
         }
 
-        // GET /api/jobs/:id/files/:index —— 下载真实产物
+        // GET /api/jobs/:id/files/:index —— 下载真实产物（支持 Range：视频边下边播 / 拖进度都要分段）
         if (api[0] === "jobs" && api[2] === "files" && api.length === 4 && req.method === "GET") {
             const job = jobs.get(api[1]);
             const index = Number(api[3]);
             const file = job?.files?.[index];
             if (!file || !fs.existsSync(file.path)) return send(res, 404, "file not found");
             const stat = fs.statSync(file.path);
+            const type = file.contentType || "application/octet-stream";
+            const disposition = `attachment; filename="${encodeURIComponent(file.name)}"`;
+            const range = /^bytes=(\d*)-(\d*)$/.exec(String(req.headers.range || "").trim());
+            if (range && (range[1] || range[2])) {
+                let start = range[1] ? Number(range[1]) : Math.max(0, stat.size - Number(range[2]));
+                let end = range[1] && range[2] ? Number(range[2]) : stat.size - 1;
+                end = Math.min(end, stat.size - 1);
+                if (!Number.isFinite(start) || start > end || start >= stat.size) {
+                    res.writeHead(416, { "content-range": `bytes */${stat.size}`, "access-control-allow-origin": "*" });
+                    return res.end();
+                }
+                res.writeHead(206, {
+                    "content-type": type,
+                    "content-length": end - start + 1,
+                    "content-range": `bytes ${start}-${end}/${stat.size}`,
+                    "accept-ranges": "bytes",
+                    "content-disposition": disposition,
+                    "access-control-allow-origin": "*",
+                    "access-control-expose-headers": "content-range,content-length",
+                });
+                fs.createReadStream(file.path, { start, end }).pipe(res);
+                return;
+            }
             res.writeHead(200, {
-                "content-type": file.contentType || "application/octet-stream",
+                "content-type": type,
                 "content-length": stat.size,
-                "content-disposition": `attachment; filename="${encodeURIComponent(file.name)}"`,
+                "accept-ranges": "bytes",
+                "content-disposition": disposition,
                 "access-control-allow-origin": "*",
             });
             fs.createReadStream(file.path).pipe(res);

@@ -4,7 +4,7 @@ import { Button, Modal, Select, Tooltip } from "antd";
 import { useTranslation } from "react-i18next";
 
 import { ModelPicker } from "@/components/model-picker";
-import { isDoubaoBuiltinModel } from "@/constants/doubao-builtin";
+import { builtinProviderName, builtinProviderOf } from "@/constants/doubao-builtin";
 import { listAccounts, type DoubaoAccount } from "@/services/api/doubao-bridge";
 import { defaultConfig, resolveModelForCapability, useConfigStore, useEffectiveConfig, type AiConfig } from "@/stores/use-config-store";
 import { useDoubaoAccountStore } from "@/stores/use-doubao-account-store";
@@ -101,7 +101,7 @@ export function CanvasNodePromptPanel({ node, nodes, isRunning, onPromptChange, 
                     <CanvasPromptLibrary onSelect={updatePrompt} />
                     {mode === "image" ? (
                         <>
-                            <ModelPicker config={config} value={config.model} onChange={(model) => onConfigChange(node.id, { model })} capability="image" onMissingConfig={() => openConfigDialog(true)} className="max-w-[190px]" />
+                            <ModelPicker config={config} value={config.model} onChange={(model) => onConfigChange(node.id, modelPatch(config.model, model, { model }))} capability="image" onMissingConfig={() => openConfigDialog(true)} className="max-w-[190px]" />
                             <DoubaoAccountInlinePicker model={config.imageModel || config.model} accountId={config.doubaoAccountId} onChange={(value) => onConfigChange(node.id, { doubaoAccountId: value })} />
                             <CanvasImageSettingsPopover
                                 config={config}
@@ -114,7 +114,7 @@ export function CanvasNodePromptPanel({ node, nodes, isRunning, onPromptChange, 
                         </>
                     ) : mode === "video" ? (
                         <>
-                            <ModelPicker config={config} value={config.videoModel || config.model} onChange={(model) => onConfigChange(node.id, { videoModel: model, model })} capability="video" onMissingConfig={() => openConfigDialog(true)} className="max-w-[190px]" />
+                            <ModelPicker config={config} value={config.videoModel || config.model} onChange={(model) => onConfigChange(node.id, modelPatch(config.videoModel || config.model, model, { videoModel: model, model }))} capability="video" onMissingConfig={() => openConfigDialog(true)} className="max-w-[190px]" />
                             <DoubaoAccountInlinePicker model={config.videoModel || config.model} accountId={config.doubaoAccountId} onChange={(value) => onConfigChange(node.id, { doubaoAccountId: value })} />
                             <CanvasVideoSettingsPopover config={config} buttonClassName="!h-10 !max-w-[220px] !justify-start !rounded-full !px-3" onConfigChange={(key, value) => onConfigChange(node.id, videoConfigPatch(key, value))} />
                         </>
@@ -125,7 +125,7 @@ export function CanvasNodePromptPanel({ node, nodes, isRunning, onPromptChange, 
                         </>
                     ) : (
                         <>
-                            <ModelPicker config={config} value={config.model} onChange={(model) => onConfigChange(node.id, { model })} capability="text" onMissingConfig={() => openConfigDialog(true)} className="max-w-[190px]" />
+                            <ModelPicker config={config} value={config.model} onChange={(model) => onConfigChange(node.id, modelPatch(config.model, model, { model }))} capability="text" onMissingConfig={() => openConfigDialog(true)} className="max-w-[190px]" />
                             <CanvasTextSettingsPopover config={config} count={node.metadata?.textCount || 1} onConfigChange={(_, value) => onConfigChange(node.id, { reasoningEffort: value })} onCountChange={(textCount) => onConfigChange(node.id, { textCount })} />
                         </>
                     )}
@@ -166,6 +166,13 @@ export function CanvasNodePromptPanel({ node, nodes, isRunning, onPromptChange, 
             </Modal>
         </div>
     );
+}
+
+/** 换模型时如果站点变了（豆包 ↔ Dola），把上一个站点的账号清掉，避免桥接按站点拒绝。 */
+function modelPatch(prev: string | undefined, next: string, patch: Record<string, unknown>) {
+    const before = builtinProviderOf(prev);
+    const after = builtinProviderOf(next);
+    return before && after && before !== after ? { ...patch, doubaoAccountId: "" } : patch;
 }
 
 function defaultMode(type: CanvasNodeData["type"]): CanvasNodeGenerationMode {
@@ -214,26 +221,31 @@ function audioConfigPatch(key: CanvasAudioSettingKey, value: string) {
     return { audioInstructions: value };
 }
 
-/** 选了豆包模型时，节点里直接出现账号下拉（不选则跟随左侧号池当前账号）。 */
+/** 选了豆包 / Dola 模型时，节点里直接出现账号下拉（不选则跟随号池当前账号）。 */
 function DoubaoAccountInlinePicker({ model, accountId, onChange }: { model: string; accountId: string; onChange: (value: string) => void }) {
     const currentAccountId = useDoubaoAccountStore((state) => state.currentAccountId);
     const [accounts, setAccounts] = useState<DoubaoAccount[]>([]);
-    const doubaoModel = isDoubaoBuiltinModel(model);
+    // 豆包和 Dola 账号体系不互通：模型决定站点，下拉里只列同站点的号
+    const provider = builtinProviderOf(model);
+    const siteName = builtinProviderName(provider);
     useEffect(() => {
-        if (doubaoModel) void listAccounts().then(setAccounts).catch(() => undefined);
-    }, [doubaoModel]);
-    if (!doubaoModel) return null;
+        if (!provider) return;
+        void listAccounts(provider).then(setAccounts).catch(() => undefined);
+    }, [provider]);
+    if (!provider) return null;
+    // 号池只有一个「当前账号」，它可能属于另一个站点：只有真在该站点列表里才算当前
+    const currentForProvider = accounts.some((account) => account.id === currentAccountId) ? currentAccountId : null;
     return (
         <Select
             size="small"
             className="max-w-[170px]"
             value={accountId || undefined}
-            placeholder={currentAccountId ? "跟随号池当前账号" : "选择豆包账号"}
+            placeholder={currentForProvider ? `跟随号池当前${siteName}账号` : `选择${siteName}账号`}
             allowClear
             onChange={(value) => onChange(value || "")}
             options={accounts.map((account) => ({
                 value: account.id,
-                label: `${account.name}${account.state.loggedIn ? "" : "（未登录）"}${account.id === currentAccountId ? " · 当前" : ""}`,
+                label: `${account.name}${account.state.loggedIn ? "" : "（未登录）"}${account.id === currentForProvider ? " · 当前" : ""}`,
             }))}
         />
     );

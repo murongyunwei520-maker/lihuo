@@ -59,6 +59,25 @@ if not exist "dist\index.html" (
     )
 )
 
+rem The server below serves web\dist, so a bundle built before the last code change would silently
+rem serve old UI. Rebuild whenever src\ (or index.html) is newer than dist\index.html.
+if exist "dist\index.html" (
+    "%NODE_CMD%" -e "const fs=require('fs'),p=require('path');const base=fs.statSync('dist/index.html').mtimeMs;let stale=false;const check=(f)=>{try{if(fs.statSync(f).mtimeMs>base)stale=true}catch(e){}};const walk=(d)=>{for(const e of fs.readdirSync(d,{withFileTypes:true})){if(stale)return;const f=p.join(d,e.name);if(e.isDirectory())walk(f);else if(/\.(ts|tsx|js|jsx|css|json|html)$/.test(e.name))check(f)}};walk('src');check('index.html');process.exit(stale?1:0)"
+    if errorlevel 1 (
+        echo.
+        echo [Lihuo] Source changed since the last build, rebuilding...
+        echo.
+        "%NODE_CMD%" "node_modules\vite\bin\vite.js" build
+        if errorlevel 1 (
+            popd
+            echo.
+            echo [Lihuo] Build failed, check the log above.
+            pause
+            exit /b 1
+        )
+    )
+)
+
 popd
 
 rem Start the local Doubao account-pool bridge (doubao-bridge) if it is not listening yet.

@@ -147,10 +147,10 @@ function getModelSchema(modelId: string): {
     schemaVersion?: number;
 } | null {
     // ========== 豆包视频模型通用 Schema ==========
-    // 所有 builtin-doubao 开头的视频模型都用这套 Schema
+    // 所有内置（builtin-doubao / builtin-dola）的视频模型都用这套 Schema
     // 取值范围来自豆包网页端真实能力（账号态 state/video-caps.json）：
     // 比例 = 自动/1:1/3:4/4:3/16:9/9:16/21:9，时长 = 4~15s
-    if (modelId.startsWith("builtin-doubao::") && (modelId.includes("Seedance") || modelId.includes("视频"))) {
+    if ((modelId.startsWith("builtin-doubao::") || modelId.startsWith("builtin-dola::")) && (modelId.includes("Seedance") || modelId.includes("视频"))) {
         return {
             parameterSchema: [
                 {
@@ -197,8 +197,8 @@ function getModelSchema(modelId: string): {
     // 豆包 Seedance 2.5 视频模型（精确匹配也走上面的通用规则，这里只是示例）
     // if (modelId === "builtin-doubao::Seedance 2.5") { ... }
 
-    // 豆包 Seedream 5.0 图片模型
-    if (modelId === "builtin-doubao::Seedream 5.0") {
+    // 豆包 Seedream 5.0 图片模型（Dola 同名模型同样适用）
+    if (modelId === "builtin-doubao::Seedream 5.0" || modelId === "builtin-dola::Seedream 5.0") {
         return {
             parameterSchema: [
                 {
@@ -381,7 +381,8 @@ const GENERIC_VIDEO_PARAM_SCHEMA: ParameterSchema[] = [
 ];
 
 export function resolveVideoParamSchema(modelValue: string | undefined): ParameterSchema[] {
-    if (modelValue && modelValue.startsWith("builtin-doubao::")) {
+    // 内置站点（豆包 / Dola）共用同一套参数 Schema
+    if (modelValue && (modelValue.startsWith("builtin-doubao::") || modelValue.startsWith("builtin-dola::"))) {
         return getModelSchema(modelValue)?.parameterSchema ?? [];
     }
     return GENERIC_VIDEO_PARAM_SCHEMA;

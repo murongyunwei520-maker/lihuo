@@ -5,7 +5,7 @@ import { persist } from "zustand/middleware";
 import { nanoid } from "nanoid";
 
 import i18n from "@/i18n";
-import { DOUBAO_BUILTIN_CHANNEL_ID, getDoubaoBuiltinChannel } from "@/constants/doubao-builtin";
+import { DOUBAO_BUILTIN_CHANNEL_ID, DOLA_BUILTIN_CHANNEL_ID, getDolaBuiltinChannel, getDoubaoBuiltinChannel } from "@/constants/doubao-builtin";
 
 export type ApiCallFormat = "openai" | "gemini";
 export type ModelCapability = "image" | "video" | "text" | "audio";
@@ -181,9 +181,10 @@ function findChannelModel(config: AiConfig, value: string): { channel: ModelChan
     return channel && model ? { channel, model } : null;
 }
 
-/** 合并用户配置的 channels 和系统内置 channel（豆包）。 */
+/** 合并用户配置的 channels 和系统内置 channel（豆包 / Dola）。 */
 export function allChannels(config: AiConfig): ModelChannel[] {
-    return [...config.channels, getDoubaoBuiltinChannel()];
+    // 豆包与 Dola 都是内置渠道：同一套桥接，模型列表按各自面板文案
+    return [...config.channels, getDoubaoBuiltinChannel(), getDolaBuiltinChannel()];
 }
 
 export function modelCapabilityOf(config: AiConfig, value: string): ModelCapability | undefined {
@@ -221,8 +222,9 @@ export function resolveModelScript(config: AiConfig, value: string) {
 function isAiConfigReady(config: AiConfig, model: string) {
     const match = findChannelModel(config, model);
     if (!match) return false;
-    // 豆包内置 channel：凭证来自 bridge 账号池，这里不要求 baseUrl/apiKey
-    if (match.channel.id === DOUBAO_BUILTIN_CHANNEL_ID) return true;
+    // 内置站点（豆包 / Dola）：凭证来自 bridge 账号池，这里不要求 baseUrl/apiKey。
+    // 之前只放过了 builtin-doubao，导致画布上选 Dola 模型时被判定「没配置 API」，直接拦掉、发不出任务。
+    if (match.channel.id === DOUBAO_BUILTIN_CHANNEL_ID || match.channel.id === DOLA_BUILTIN_CHANNEL_ID) return true;
     return Boolean(match.channel.baseUrl.trim() && match.channel.apiKey.trim());
 }
 

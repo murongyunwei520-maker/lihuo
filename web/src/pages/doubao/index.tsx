@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { App, Button, Input, Modal, Spin, Tag, Tooltip } from "antd";
+import { App, Button, Input, Modal, Select, Spin, Tag, Tooltip } from "antd";
 import { CheckCircle2, CircleDashed, Loader2, MonitorSmartphone, Plus, QrCode, RefreshCw, Trash2, UserRound } from "lucide-react";
 
 import {
@@ -38,6 +38,8 @@ export default function DoubaoAccountPage() {
     const [busyId, setBusyId] = useState<string | null>(null);
     const [addOpen, setAddOpen] = useState(false);
     const [newName, setNewName] = useState("");
+    // 账号所属站点：豆包（国内）/ Dola（国际版）
+    const [newProvider, setNewProvider] = useState<"doubao" | "dola">("doubao");
     const [qrAccount, setQrAccount] = useState<DoubaoAccount | null>(null);
     const [loginMode, setLoginMode] = useState<"window" | "qr">("qr");
     const [windowStatus, setWindowStatus] = useState<DoubaoWindowStatus>({ state: "starting" });
@@ -74,7 +76,7 @@ export default function DoubaoAccountPage() {
         const name = newName.trim();
         if (!name) return;
         try {
-            const account = await createAccount(name);
+            const account = await createAccount(name, newProvider);
             setNewName("");
             setAddOpen(false);
             setAccounts((prev) => [...prev, account]);
@@ -262,7 +264,7 @@ export default function DoubaoAccountPage() {
 
                     {!loading && !accounts.length ? (
                         <div className="rounded-2xl border border-dashed border-slate-300 bg-white/60 py-14 text-center text-[13px] text-slate-500 dark:border-white/15 dark:bg-white/[0.02] dark:text-white/40">
-                            还没有豆包账号，先添加一个，再点「登录」扫码授权。
+                            还没有账号，先添加一个（可选豆包 / Dola），再点「登录」扫码授权。
                         </div>
                     ) : null}
 
@@ -308,7 +310,26 @@ export default function DoubaoAccountPage() {
                                                     任务进行中
                                                 </Tag>
                                             ) : null}
+                                            {(account.state.quotaBlocks?.length || account.state.quotaBlock) ? (
+                                                <Tag
+                                                    color="red"
+                                                    className="!m-0"
+                                                    title={(account.state.quotaBlocks?.length ? account.state.quotaBlocks : [account.state.quotaBlock!])
+                                                        .map((block) => block.message)
+                                                        .join("\n")}
+                                                >
+                                                    额度不足
+                                                </Tag>
+                                            ) : null}
                                         </div>
+                                        {(account.state.quotaBlocks?.length ? account.state.quotaBlocks : account.state.quotaBlock ? [account.state.quotaBlock] : []).map(
+                                            (block) => (
+                                                <p key={block.capability || "all"} className="mt-1.5 text-[11px] text-red-500">
+                                                    {block.capability ? `${block.capability}：` : ""}
+                                                    {block.message}
+                                                </p>
+                                            ),
+                                        )}
                                         {account.state.checkedAt ? (
                                             <p className="mt-1.5 text-[11px] text-slate-400 dark:text-white/30">
                                                 上次检测 {new Date(account.state.checkedAt).toLocaleString()}
@@ -389,9 +410,18 @@ export default function DoubaoAccountPage() {
                 ) : null}
             </div>
 
-            <Modal title="添加豆包账号" open={addOpen} onCancel={() => setAddOpen(false)} onOk={() => void handleAdd()} okText="添加" destroyOnClose>
-                <Input placeholder="例如：豆包账号 A" value={newName} onChange={(event) => setNewName(event.target.value)} onPressEnter={() => void handleAdd()} autoFocus />
-                <p className="mt-3 text-[12px] leading-5 text-slate-500 dark:text-white/40">添加后需要点该账号的「登录」，在弹出的豆包页面里扫码完成授权。</p>
+            <Modal title="添加账号" open={addOpen} onCancel={() => setAddOpen(false)} onOk={() => void handleAdd()} okText="添加" destroyOnClose>
+                <Select
+                    className="mb-3 w-full"
+                    value={newProvider}
+                    onChange={(value) => setNewProvider(value)}
+                    options={[
+                        { value: "doubao", label: "豆包（国内 doubao.com）" },
+                        { value: "dola", label: "Dola（国际版 dola.com）" },
+                    ]}
+                />
+                <Input placeholder="例如：豆包账号 A" value={newName} onChange={(event) => setNewName(event.target.value)} onPressEnter={() => void handleAdd()} />
+                <p className="mt-3 text-[12px] leading-5 text-slate-500 dark:text-white/40">添加后需要点该账号的「登录」，在弹出的页面里扫码完成授权（豆包打开 doubao.com，Dola 打开 dola.com）。</p>
             </Modal>
 
             <Modal
@@ -403,7 +433,7 @@ export default function DoubaoAccountPage() {
                 title={
                     <span className="flex items-center gap-2">
                         <QrCode className="size-4" />
-                        登录豆包 · {qrAccount?.name}
+                        登录{qrAccount?.providerName || "豆包"} · {qrAccount?.name}
                     </span>
                 }
             >
@@ -450,7 +480,7 @@ export default function DoubaoAccountPage() {
                                 )}
                             </div>
                             <p className="text-center text-[13px] text-slate-500 dark:text-white/55">{qrStatus.state === "logged_in" ? "登录成功" : qrStatus.message || "正在获取二维码…"}</p>
-                            <p className="text-center text-[11px] leading-5 text-slate-400 dark:text-white/35">二维码约 1 分钟过期，过期后会自动换一张。用手机豆包 App 扫码并在手机上确认。</p>
+                            <p className="text-center text-[11px] leading-5 text-slate-400 dark:text-white/35">二维码约 1 分钟过期，过期后会自动换一张。用手机{qrAccount?.providerName || "豆包"} App 扫码并在手机上确认。</p>
                             <div className="flex gap-2">
                                 <Button
                                     size="small"

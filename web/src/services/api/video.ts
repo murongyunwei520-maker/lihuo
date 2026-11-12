@@ -11,7 +11,7 @@ import { boolConfig, buildApiUrl, modelOptionName, resolveModelRequestConfig, re
 import { runModelPlugin } from "./model-plugin";
 import type { ReferenceImage } from "@/types/image";
 import type { ReferenceAudio, ReferenceVideo } from "@/types/media";
-import { isDoubaoBuiltinModel } from "@/constants/doubao-builtin";
+import { builtinProviderName, builtinProviderOf, isDoubaoBuiltinModel } from "@/constants/doubao-builtin";
 import { getJob, DOUBAO_BRIDGE_URL } from "./doubao-bridge";
 
 type VideoResponse = { id: string; status?: string; error?: { message?: string }; url?: string; result_url?: string; video_url?: string; content?: { video_url?: string; url?: string } | null };
@@ -51,13 +51,14 @@ export async function requestVideoGeneration(config: AiConfig, prompt: string, r
 }
 
 export async function waitForVideoGenerationTask(config: AiConfig, task: VideoGenerationTask, options?: RequestOptions): Promise<VideoGenerationResult> {
-    for (let attempt = 0; attempt < 120; attempt += 1) {
+    for (let attempt = 0; attempt < 200; attempt += 1) {
         if (options?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
         const state = await pollVideoGenerationTask(config, task, options);
         if (state.status === "completed") return state.result;
         if (state.status === "failed") throw videoTaskFailed(state.error);
-        if (attempt === 119) throw new Error(apiText("videoTimeout", { provider: "" }));
-        await delay(2500, options?.signal);
+        if (attempt === 199) throw new Error(apiText("videoTimeout", { provider: "" }));
+        // 豆包任务在本地桥接里，轮询快一点能早 1-2 秒拿到产物
+        await delay(1500, options?.signal);
     }
     throw new Error(apiText("videoTimeout", { provider: "" }));
 }
@@ -76,36 +77,46 @@ export async function createVideoGenerationTask(config: AiConfig, prompt: string
     // P1: 视频任务优先用 videoModel，不是全局 model（全局 model 可能是图片模型）
     const selectedModel = (config.videoModel || config.model).trim();
     if (isDoubaoBuiltinModel(selectedModel)) {
-        // 豆包 bridge 路由：创建 job，后续 poll 走 getJob
+        // 豆包 / Dola bridge 路由：创建 job，后续 poll 走 getJob
+        // 站点由模型决定（builtin-doubao → 豆包，builtin-dola → Dola），账号必须在同一站点里选
+        const builtinProvider = builtinProviderOf(selectedModel);
+        const siteLabel = builtinProviderName(builtinProvider);
         const { listAccounts, createVideoJob, uploadAttachment } = await import("./doubao-bridge");
-        const accounts = await listAccounts();
+        const accounts = (await listAccounts()).filter((a) => (a.provider ?? "doubao") === builtinProvider);
         const loggedIn = accounts.filter((a) => a.state.loggedIn);
-        if (!loggedIn.length) throw new Error("豆包未登录：请先在左侧号池扫码登录");
+        if (!loggedIn.length) throw new Error(`${siteLabel}未登录：请先在账号池扫码登录`);
 
         // 账号调度模式：显式配置 / 号池当前账号优先，都没有才交给桥接的 auto
         const { useDoubaoAccountStore } = await import("@/stores/use-doubao-account-store");
         const configuredAccountId = String((config as Record<string, unknown>).doubaoAccountId || "").trim();
-        const preferredAccountId = configuredAccountId || useDoubaoAccountStore.getState().currentAccountId || "";
+        const requestedAccountId = configuredAccountId || useDoubaoAccountStore.getState().currentAccountId || "";
+        // 选的号不属于该站点时不要硬塞给桥接（会被拒），退回 auto 让桥接在该站点里挑
+        const preferredAccountId = accounts.some((a) => a.id === requestedAccountId) ? requestedAccountId : "";
         const accountSelectionMode = preferredAccountId ? "manual" : "auto";
 
         // 先上传素材到账号目录（用第一个账号先传，后端调度会重新分配）
         const accountIdForUpload = accountSelectionMode === "manual" && preferredAccountId
             ? preferredAccountId
             : loggedIn[0].id;
-        // 画布上连线到视频卡片的图片（references）必须真实上传给豆包，和提示词一起提交
-        const attachments: string[] = [];
-        for (const [index, reference] of references.slice(0, 6).entries()) {
-            try {
-                const blob = await (await fetch(reference.dataUrl)).blob();
-                attachments.push(await uploadAttachment(accountIdForUpload, blob, reference.name || `ref-${index}.png`));
-            } catch {
-                /* 读不到字节的跳过，不阻塞任务 */
-            }
-        }
-        // 比例/时长按当前模型 Schema 收敛后提交；「自动」比例保留原文案交给豆包网页端
+        // 画布上连线到视频卡片的图片（references）必须真实上传给站点，和提示词一起提交
+        // 并发上传：多图任务串行传会明显拖慢「传到豆包」的耗时
+        const attachments = (
+            await Promise.all(
+                references.slice(0, 6).map(async (reference, index) => {
+                    try {
+                        const blob = await (await fetch(reference.dataUrl)).blob();
+                        return await uploadAttachment(accountIdForUpload, blob, reference.name || `ref-${index}.png`);
+                    } catch {
+                        return ""; // 读不到字节的跳过，不阻塞任务
+                    }
+                }),
+            )
+        ).filter(Boolean);
+        // 比例/时长按当前模型 Schema 收敛后提交；「自动」比例保留原文案交给网页端
         const { ratio, duration } = readVideoRequestParams(config);
         const job = await createVideoJob({
             accountId: preferredAccountId,
+            provider: builtinProvider || undefined,
             accountSelectionMode,
             prompt,
             capability: "视频生成",

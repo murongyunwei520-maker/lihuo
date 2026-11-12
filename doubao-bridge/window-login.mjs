@@ -7,11 +7,14 @@ import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-const [stateDirArg, accountIdArg] = process.argv.slice(2);
+const [stateDirArg, accountIdArg, siteUrlArg, siteNameArg] = process.argv.slice(2);
 if (!stateDirArg) {
-    console.error("usage: window-login.mjs <stateDir> [accountId]");
+    console.error("usage: window-login.mjs <stateDir> [accountId] [siteUrl] [siteName]");
     process.exit(2);
 }
+// 豆包 / Dola 共用这一个登录窗口脚本：站点地址由桥接按账号所属站点传入
+const SITE_URL = siteUrlArg || "https://www.doubao.com/chat/";
+const SITE_NAME = siteNameArg || "豆包";
 
 const stateDir = path.resolve(stateDirArg);
 const outDir = path.join(stateDir, "login-window");
@@ -22,9 +25,8 @@ process.env.DBB_STATE_DIR = stateDir;
 
 const dbbRoot = path.resolve(import.meta.dirname, "..", "vendor", "doubao-brain", "dbb");
 const { launchBrowser, openPage, exportStorageState } = await import(pathToFileURL(path.join(dbbRoot, "src", "browser.mjs")).href);
-const site = await import(pathToFileURL(path.join(dbbRoot, "src", "site.mjs")).href);
 
-const SESSION_COOKIE_RE = /^(sessionid|sessionid_ss|sid_tt|uid_tt|uid_tt_ss|sid_guard|sid_ucp_v1)$/;
+const SESSION_COOKIE_RE = /^(sessionid|sessionid_ss|sid_tt|uid_tt|uid_tt_ss|sid_guard|sid_ucp_v1|session_key)$/;
 const TIMEOUT_MS = 20 * 60 * 1000;
 
 function writeStatus(patch) {
@@ -41,11 +43,11 @@ function readStatus() {
 
 let ctx = null;
 try {
-    writeStatus({ state: "starting", message: "正在打开登录窗口…" });
+    writeStatus({ state: "starting", message: `正在打开${SITE_NAME}登录窗口…` });
     ctx = await launchBrowser({ headless: false });
     const page = await openPage(ctx);
-    await site.gotoSite(page);
-    writeStatus({ state: "waiting", message: "窗口已打开：请在窗口里扫码或用工号登录，完成后会自动保存" });
+    await page.goto(SITE_URL, { waitUntil: "domcontentloaded", timeout: 60000 }).catch(() => undefined);
+    writeStatus({ state: "waiting", message: `窗口已打开：请扫码或登录${SITE_NAME}，完成后会自动保存` });
 
     const started = Date.now();
     for (;;) {
