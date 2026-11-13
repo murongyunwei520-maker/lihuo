@@ -9,6 +9,8 @@ data/
 .DS_Store
 .idea
 web/dist
+# ffmpeg 静态二进制（约 100MB，按需下载，见 DEVELOPMENT.md）
+vendor/ffmpeg/
 
 **/dist
 web/public/plugins

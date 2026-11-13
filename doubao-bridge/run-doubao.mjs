@@ -6,7 +6,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 
 const [stateDirArg, specFileArg] = process.argv.slice(2);
 const stateDir = path.resolve(stateDirArg);
@@ -132,6 +132,76 @@ async function pickOption(page, label) {
 }
 
 /** 给下载加个硬超时：CDN 卡住时不能让整个轮询停在这里（豆包/Dola 的签名地址偶尔会这样）。 */
+/**
+ * 读 mp4 的视频编码。不同站点给的编码不一样：豆包是 H.264（avc1），
+ * Dola 的成片是 HEVC（hvc1）——Chrome / Edge 没装 HEVC 解码器时**只能解出时长、画面全黑**。
+ */
+function videoCodecOf(file) {
+    try {
+        const buf = fs.readFileSync(file);
+        // 一条轨道一个 stsd：音频轨（mp4a）通常排在前面，所以要把所有 stsd 都看一遍，
+        // 只认视频轨的编码，不能拿第一个就下结论。
+        const codecs = [];
+        let index = buf.indexOf("stsd");
+        while (index > 0) {
+            const entry = index + 4 + 8;
+            codecs.push(buf.toString("ascii", entry + 4, entry + 8));
+            index = buf.indexOf("stsd", index + 4);
+        }
+        if (codecs.some((fourcc) => fourcc === "hvc1" || fourcc === "hev1")) return "hevc";
+        if (codecs.some((fourcc) => fourcc === "avc1" || fourcc === "avc3")) return "h264";
+        if (codecs.some((fourcc) => fourcc === "av01")) return "av1";
+        return codecs[0] || "unknown";
+    } catch {
+        return "unknown";
+    }
+}
+
+/** 找可用的 ffmpeg：项目自带 > 环境变量 FFMPEG_PATH > PATH。 */
+function findFfmpeg() {
+    // 自带的那份（vendor/ffmpeg/ffmpeg.exe）优先：不要求用户自己装，也不依赖 PATH
+    const bundled = path.resolve(import.meta.dirname, "..", "vendor", "ffmpeg", process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg");
+    if (fs.existsSync(bundled)) return bundled;
+    const explicit = process.env.FFMPEG_PATH;
+    if (explicit && fs.existsSync(explicit)) return explicit;
+    const names = process.platform === "win32" ? ["ffmpeg.exe", "ffmpeg"] : ["ffmpeg"];
+    for (const dir of String(process.env.PATH || "").split(path.delimiter)) {
+        for (const name of names) {
+            const candidate = path.join(dir, name);
+            try {
+                if (fs.statSync(candidate).isFile()) return candidate;
+            } catch {
+                /* 继续找 */
+            }
+        }
+    }
+    return "";
+}
+
+/** HEVC 的 mp4 在浏览器里解不了（黑屏）：有 ffmpeg 就转成 H.264，没有就如实告诉上层。 */
+function ensurePlayableVideo(file) {
+    const codec = videoCodecOf(file);
+    if (codec !== "hevc") return { file, codec, note: "ok" };
+    const ffmpeg = findFfmpeg();
+    if (!ffmpeg) return { file, codec, note: "hevc-no-ffmpeg" };
+    const output = `${file.replace(/\.mp4$/i, "")}-h264.mp4`;
+    const result = spawnSync(
+        ffmpeg,
+        ["-y", "-loglevel", "error", "-i", file, "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p", "-c:a", "aac", "-movflags", "+faststart", output],
+        { windowsHide: true, timeout: 240000 },
+    );
+    if (result.status !== 0 || !fs.existsSync(output)) {
+        try {
+            fs.rmSync(output, { force: true });
+        } catch {
+            /* ignore */
+        }
+        return { file, codec, note: "hevc-transcode-failed" };
+    }
+    rmQuiet(file);
+    return { file: output, codec: "h264", note: "transcoded" };
+}
+
 /** 删临时文件：失败就忽略，绝不能因为「删不掉」把任务判失败。 */
 function rmQuiet(file) {
     try {
@@ -972,6 +1042,20 @@ job: try {
             });
             if (good.length) {
                 files = good.slice(0, expectVideo ? 1 : wantCount);
+                if (expectVideo && files[0]) {
+                    // 编码不是 H.264 的话浏览器会黑屏：能转就转，不能转就明确写在日志里
+                    const playable = ensurePlayableVideo(files[0].file);
+                    if (playable.note === "transcoded") {
+                        progress("视频是 HEVC(H.265) 编码，已转成 H.264（浏览器可直接播放）");
+                        files = [{ ...files[0], file: playable.file, name: path.basename(playable.file), bytes: fs.statSync(playable.file).size }];
+                    } else if (playable.note === "hevc-no-ffmpeg") {
+                        progress("⚠️ 视频是 HEVC(H.265) 编码，当前浏览器无法解码，节点会显示黑屏；安装 ffmpeg 后桥接会自动转码成 H.264");
+                    } else if (playable.note === "hevc-transcode-failed") {
+                        progress("⚠️ HEVC 转 H.264 失败，仍返回原文件（浏览器可能黑屏）");
+                    } else {
+                        progress(`视频编码：${playable.codec}`);
+                    }
+                }
                 progress(`产物就绪：${files.length} 个${expectVideo ? "视频" : "图片"}`);
                 // 后台页面不要继续播：取到地址就暂停，避免豆包窗口自己放起来
                 if (expectVideo) await pauseVideos(page);
