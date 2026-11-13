@@ -417,10 +417,28 @@ function ensureViewerOnce(account) {
 }
 
 /** 账号调度：manual / auto。 */
-/** 这个账号在这个能力上是不是被豆包判过额度不足。 */
+/** 额度标记只在「被打上的那一天」有效：豆包 / Dola 的免费额度每天 0 点重置。 */
+function quotaBlockIsFresh(block) {
+    if (!block?.at) return false;
+    const at = new Date(block.at);
+    if (Number.isNaN(at.getTime())) return false;
+    const now = new Date();
+    return at.getFullYear() === now.getFullYear() && at.getMonth() === now.getMonth() && at.getDate() === now.getDate();
+}
+
+/** 只保留今天的额度标记（跨过 0 点后旧标记自动失效）。 */
+function freshQuotaBlocks(blocks) {
+    const result = {};
+    for (const [capability, block] of Object.entries(blocks || {})) {
+        if (quotaBlockIsFresh(block)) result[capability] = block;
+    }
+    return result;
+}
+
+/** 这个账号在这个能力上是不是被豆包判过额度不足（只看今天的标记）。 */
 function quotaBlockedFor(accountId, capability) {
     if (!capability) return false;
-    return Boolean((runtimeOf(accountId).quotaBlocks || {})[capability]);
+    return Boolean(freshQuotaBlocks(runtimeOf(accountId).quotaBlocks)[capability]);
 }
 
 function isLoggedIn(account) {
@@ -607,9 +625,25 @@ function runtimeOf(id) {
     if (!accountRuntime.has(id)) {
         // 额度不足标记落盘过：重启桥接后照样能把号标红，而不是等下一次被拒才显示
         const stored = readAccounts().find((item) => item.id === id);
-        accountRuntime.set(id, { busy: false, loginRunning: false, lastDoctor: null, lastError: null, quotaBlocks: stored?.quotaBlocks ? { ...stored.quotaBlocks } : {} });
+        accountRuntime.set(id, { busy: false, loginRunning: false, lastDoctor: null, lastError: null, quotaBlocks: freshQuotaBlocks(stored?.quotaBlocks) });
     }
     return accountRuntime.get(id);
+}
+
+/** 跨天之后把昨天的额度标记清掉（内存 + accounts.json），号池里就不再标红。 */
+function pruneStaleQuotaBlocks() {
+    let dirty = false;
+    const accounts = readAccounts().map((item) => {
+        const kept = freshQuotaBlocks(item.quotaBlocks);
+        if (Object.keys(kept).length === Object.keys(item.quotaBlocks || {}).length) return item;
+        dirty = true;
+        return { ...item, quotaBlocks: kept };
+    });
+    if (dirty) writeAccounts(accounts);
+    for (const [id, rt] of accountRuntime) {
+        const kept = freshQuotaBlocks(rt.quotaBlocks);
+        if (Object.keys(kept).length !== Object.keys(rt.quotaBlocks || {}).length) rt.quotaBlocks = kept;
+    }
 }
 
 /** 把某能力上的额度标记写进 accounts.json（block 为空表示清除）。 */
@@ -645,8 +679,8 @@ function publicAccount(account) {
             error: rt.lastError,
             // 上一次因套餐/额度被豆包拒绝的能力（同能力成功一次就清掉）
             // 一个号可能同时卡住多个能力：数组给前端展示，quotaBlock 仍保留最近的一条
-            quotaBlocks: Object.values(rt.quotaBlocks || {}).sort((a, b) => String(b.at).localeCompare(String(a.at))),
-            quotaBlock: Object.values(rt.quotaBlocks || {}).sort((a, b) => String(b.at).localeCompare(String(a.at)))[0] || null,
+            quotaBlocks: Object.values(freshQuotaBlocks(rt.quotaBlocks)).sort((a, b) => String(b.at).localeCompare(String(a.at))),
+            quotaBlock: Object.values(freshQuotaBlocks(rt.quotaBlocks)).sort((a, b) => String(b.at).localeCompare(String(a.at)))[0] || null,
         },
     };
 }
@@ -1155,6 +1189,7 @@ const server = http.createServer(async (req, res) => {
 
         // GET /api/accounts?provider=dola —— 不传 provider 时返回全部（前端要按站点分组展示）
         if (api[0] === "accounts" && api.length === 1 && req.method === "GET") {
+            pruneStaleQuotaBlocks();
             const provider = String(url.searchParams.get("provider") || "");
             const list = readAccounts().filter((item) => !provider || item.provider === provider);
             return send(res, 200, { ok: true, providers: Object.values(PROVIDERS).map(({ id, name }) => ({ id, name })), accounts: list.map(publicAccount) });
