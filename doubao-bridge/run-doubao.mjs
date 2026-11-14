@@ -111,17 +111,21 @@ async function pickOption(page, label) {
             })
             .filter((item) => item.rect.width > 12 && item.rect.height > 10 && item.rect.y > viewportH * 0.25);
         const exact = items.filter((item) => item.text === target);
+        // 前缀命中要卡词边界：「Seedance 2.5」不能匹配到「Seedance 2.5 Flash」（那是另一个模型），
+        // 所以 target 后面紧跟的字符必须是空格/中文/符号，不能是字母数字。
+        const boundary = items.filter((item) => item.text.length > target.length && item.text.startsWith(target) && !/[A-Za-z0-9]/.test(item.text[target.length] || " "));
         // 面板文案可能比请求名长（带后缀说明），也可能短（别的站点少一个 Pro/后缀）：都算命中
-        const extended = items.filter((item) => item.text.length > target.length && item.text.startsWith(target));
+        const extended = items.filter((item) => item.text.length > target.length && item.text.startsWith(target) && !boundary.includes(item));
         const family = items.filter((item) => item.text.length >= 6 && target.startsWith(item.text));
-        const hits = [...exact, ...extended, ...family];
+        const hits = [...exact, ...boundary, ...extended, ...family];
         if (!hits.length) {
             const nearby = items.filter((item) => item.text.length > 1 && item.text.length < 24).map((item) => item.text);
             return { box: null, options: [...new Set(nearby)].slice(0, 12) };
         }
-        const rank = (item) => (item.text === target ? 0 : item.text.startsWith(target) ? 1 : 2);
-        // 文案完全一致的优先；同一档里取文案最长（最贴近真名）且面积最小（最贴近叶子节点）的那个
-        hits.sort((a, b) => rank(a) - rank(b) || b.text.length - a.text.length || a.rect.width * a.rect.height - b.rect.width * b.rect.height);
+        const rank = (item) => (item.text === target ? 0 : boundary.includes(item) ? 1 : item.text.startsWith(target) ? 2 : 3);
+        // 完全一致的最优先；词边界命中里取文案最短的（「Seedance 2.5 升级」而不是「Seedance 2.5 Flash 升级」）；
+        // 同一档里再取面积最小的，最贴近叶子节点
+        hits.sort((a, b) => rank(a) - rank(b) || a.text.length - b.text.length || a.rect.width * a.rect.height - b.rect.width * b.rect.height);
         const { rect, text } = hits[0];
         return { box: { x: Math.round(rect.x + rect.width / 2), y: Math.round(rect.y + rect.height / 2) }, text, options: [] };
     }, label);

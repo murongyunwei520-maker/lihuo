@@ -18,11 +18,18 @@ export const DOUBAO_MAX_PARALLEL = 3;
 // 文本走豆包网页端的「对话」能力：那边没有具名模型（只有默认豆包 + 快速/思考开关），
 // 所以这里就叫「对话」，执行器只负责把提示词发出去再把回答取回来。
 export const DOUBAO_BUILTIN_MODELS: ChannelModel[] = [
+    // 2026-11 面板实测（probe-panel-models.mjs 读取的真实下拉文案）：
+    //   图像：Seedream 5.5 旗舰生图 / 5.0 Pro 专业出图 / 5.0 Flash 专业快速 / 4.5 日常生成 / 4.0 基础生图
+    //   视频：Seedance 2.5 旗舰视频标杆・5 倍消耗 / 2.5 Flash 旗舰高性价比・2 倍消耗 /
+    //         2.0 进阶画面表现・2 倍消耗 / 2.0 Fast 快速出片 / 2.0 Mini 日常生成
+    // 名字只写模型本体：执行器按「词边界前缀」匹配，面板上的「旗舰生图」「5 倍消耗」这类后缀会自动兼容。
+    { name: "Seedream 5.5", capability: "image" },
     { name: "Seedream 5.0 Pro", capability: "image" },
     { name: "Seedream 5.0 Flash", capability: "image" },
     { name: "Seedream 4.5", capability: "image" },
     { name: "Seedream 4.0", capability: "image" },
     { name: "Seedance 2.5", capability: "video" },
+    { name: "Seedance 2.5 Flash", capability: "video" },
     { name: "Seedance 2.0", capability: "video" },
     { name: "Seedance 2.0 Fast", capability: "video" },
     { name: "Seedance 2.0 Mini", capability: "video" },
