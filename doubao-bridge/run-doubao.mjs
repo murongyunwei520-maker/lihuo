@@ -389,6 +389,39 @@ async function answerArtifacts(page, onlyFresh = true) {
     return { videos: scan.videos, images: scan.images, pendingAnswers: scan.pending };
 }
 
+/** 等能力入口渲染出来：站点慢的时候首屏可能 20~30 秒才出现（网络差更久）。 */
+async function waitForCapability(page, label, timeoutMs = 90000) {
+    const deadline = Date.now() + timeoutMs;
+    let lastLog = 0;
+    while (Date.now() < deadline) {
+        const found = await page
+            .evaluate((target) => {
+                const visible = (el) => !!el && el.getClientRects().length > 0;
+                return [...document.querySelectorAll("button,[role=button],[class*='cursor-pointer'],div,span")].some(
+                    (el) => visible(el) && (el.innerText || "").trim() === target,
+                );
+            }, label)
+            .catch(() => false);
+        if (found) return true;
+        if (Date.now() - lastLog > 15000) {
+            lastLog = Date.now();
+            progress(`等待「${label}」入口渲染…`);
+        }
+        await page.waitForTimeout(1500);
+    }
+    return false;
+}
+
+/** 轮询等面板就绪（参数控件加载比入口更慢）。 */
+async function waitForPanel(page, check, timeoutMs = 20000) {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+        if (await check(page).catch(() => false)) return true;
+        await page.waitForTimeout(1500);
+    }
+    return false;
+}
+
 /** 数一下「这次新增的回答」有几条（判断请求有没有被受理）。 */
 async function freshAnswerCount(page) {
     return (await scanAnswers(page, { fresh: true })).fresh;
@@ -705,7 +738,12 @@ job: try {
     // 快速路径：页面已经停在目标能力上就别再点一遍白等
     let panelReady = expectText ? await hasChatComposer(page) : await hasGenerationPanel(page);
     if (panelReady) progress(`已经在「${SITE_CAPABILITY}」，跳过切换`);
-    for (let attempt = 1; attempt <= 4 && !panelReady; attempt += 1) {
+    // 入口本身可能还没渲染（网络慢）：先等它出现，别急着点空
+    if (!panelReady) {
+        const appeared = await waitForCapability(page, SITE_CAPABILITY, 90000);
+        if (!appeared) progress(`等了 90 秒仍没看到「${SITE_CAPABILITY}」入口（网络太慢或站点改版）`);
+    }
+    for (let attempt = 1; attempt <= 6 && !panelReady; attempt += 1) {
         if (attempt === 3) {
             progress("还没进面板，先回到新对话再试…");
             await page
@@ -714,16 +752,15 @@ job: try {
                 .click({ timeout: 5000 })
                 .catch(() => undefined);
             await page.waitForTimeout(2500);
+            await waitForCapability(page, SITE_CAPABILITY, 30000);
         }
         const box = await clickCapability(page, SITE_CAPABILITY);
-        await page.waitForTimeout(2500);
         // 对话模式没有「模型/比例」控件，用「输入框在 + 没有生成参数控件」判断
-        panelReady = expectText ? await hasChatComposer(page) : await hasGenerationPanel(page);
+        panelReady = await waitForPanel(page, expectText ? hasChatComposer : hasGenerationPanel, attempt === 1 ? 20000 : 12000);
         if (!panelReady && box) {
             progress("切能力没反应，同一位置补一次点击…");
             await page.mouse.click(box.x, box.y);
-            await page.waitForTimeout(3000);
-            panelReady = expectText ? await hasChatComposer(page) : await hasGenerationPanel(page);
+            panelReady = await waitForPanel(page, expectText ? hasChatComposer : hasGenerationPanel, 15000);
         }
     }
     if (!panelReady) {
