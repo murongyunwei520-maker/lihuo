@@ -12,6 +12,30 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, "..");
 const CLI = process.env.DBB_CLI || path.join(REPO, "vendor", "doubao-brain", "dbb", "cli.mjs");
 const ACCOUNTS_ROOT = process.env.DOUBAO_ACCOUNTS_DIR || path.join(REPO, ".doubao-accounts");
+// 产物索引：桥接一重启，内存里的 jobs 就没了，画布上已经渲染过的节点再取
+// /api/jobs/<id>/files/0 会 404 —— 浏览器对 404 的 mp4 只报「不支持的音频/视频格式」，
+// 用户看到的就是「生成的视频是黑屏 / 打不开」。索引落盘后重启也能播。
+const FILE_INDEX_DIR = path.join(ACCOUNTS_ROOT, "_files");
+function jobIdSafe(value) {
+    return /^[A-Za-z0-9._-]{1,80}$/.test(String(value || ""));
+}
+function persistJobFiles(jobId, files) {
+    if (!jobIdSafe(jobId)) return;
+    try {
+        fs.mkdirSync(FILE_INDEX_DIR, { recursive: true });
+        fs.writeFileSync(path.join(FILE_INDEX_DIR, `${jobId}.json`), JSON.stringify(files || [], null, 1), "utf8");
+    } catch {
+        /* 写不进去不影响本次任务 */
+    }
+}
+function readJobFiles(jobId) {
+    if (!jobIdSafe(jobId)) return null;
+    try {
+        return JSON.parse(fs.readFileSync(path.join(FILE_INDEX_DIR, `${jobId}.json`), "utf8"));
+    } catch {
+        return null;
+    }
+}
 // 站点配置：豆包（国内）与 Dola（国际版）走同一套账号池 / 任务 / 执行器，只是站点地址和能力文案不同
 const PROVIDERS = {
     doubao: {
@@ -1060,6 +1084,8 @@ async function runJob(job) {
                     contentType: file.contentType || null,
                 }));
                 job.files = files;
+                // 落盘索引：桥接重启后画布上的老节点还能拿到同一个文件（否则 404 → 播放器报格式不支持）
+                persistJobFiles(job.id, files);
                 job.text = payload.text || "";
                 // 文本任务没有文件，回答正文就是产物
                 const expectsText = job.expectedArtifactKind === "text";
@@ -1574,8 +1600,18 @@ const server = http.createServer(async (req, res) => {
         if (api[0] === "jobs" && api[2] === "files" && api.length === 4 && req.method === "GET") {
             const job = jobs.get(api[1]);
             const index = Number(api[3]);
-            const file = job?.files?.[index];
-            if (!file || !fs.existsSync(file.path)) return send(res, 404, "file not found");
+            let file = job?.files?.[index];
+            // 内存里没有（桥接重启过 / 任务早被淘汰）：退回磁盘索引，别让画布上的老节点变成 404
+            if ((!file || !fs.existsSync(file.path)) && Number.isInteger(index)) {
+                const persisted = readJobFiles(api[1]);
+                const fallback = Array.isArray(persisted) ? persisted[index] : null;
+                if (fallback?.path && fs.existsSync(fallback.path)) file = fallback;
+            }
+            if (!file || !fs.existsSync(file.path)) {
+                // 别让浏览器把 404 缓存住：文件补上之后画布刷新还能正常播
+                res.writeHead(404, { "cache-control": "no-store", "access-control-allow-origin": "*" });
+                return res.end("file not found");
+            }
             const stat = fs.statSync(file.path);
             const type = file.contentType || "application/octet-stream";
             const disposition = `attachment; filename="${encodeURIComponent(file.name)}"`;

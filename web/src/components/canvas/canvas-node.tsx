@@ -738,6 +738,11 @@ function EmptyImageContent({ theme }: NodeContentRendererProps) {
 
 function VideoNodeContent({ node, theme }: NodeContentRendererProps) {
     const { t } = useTranslation();
+    // 站点产物地址是 /api/jobs/<id>/files/0：桥接重启后内存里的任务没了会短暂 404，
+    // 浏览器对 404 的 mp4 只报「不支持的音频/视频格式」，而且会把这个 404 缓存住。
+    // 这里失败自动带时间戳重试一次，仍失败再给一个「重新加载」，用户不用刷新整个画布。
+    const [attempt, setAttempt] = useState(0);
+    const [failed, setFailed] = useState(false);
     if (!node.metadata?.content)
         return (
             <div className="flex h-full w-full flex-col items-center justify-center gap-3" style={{ color: theme.node.placeholder }}>
@@ -745,8 +750,43 @@ function VideoNodeContent({ node, theme }: NodeContentRendererProps) {
                 <span className="text-sm">{t("canvas.node.emptyVideo")}</span>
             </div>
         );
+    const base = node.metadata.content.split("#")[0];
+    const src = `${base}${base.includes("?") ? "&" : "?"}r=${attempt}#t=0.1`;
     // preload="auto" + #t=0.1：默认只拉元数据时不会解码画面，节点上就只显示一块黑屏
-    return <video src={`${node.metadata.content}#t=0.1`} controls preload="auto" playsInline className="h-full w-full rounded-[18px] bg-black object-contain" data-canvas-video={node.id} data-canvas-no-zoom />;
+    return (
+        <div className="relative h-full w-full">
+            <video
+                key={attempt}
+                src={src}
+                controls
+                preload="auto"
+                playsInline
+                className="h-full w-full rounded-[18px] bg-black object-contain"
+                data-canvas-video={node.id}
+                data-canvas-no-zoom
+                onError={() => {
+                    if (attempt < 1) setAttempt((value) => value + 1);
+                    else setFailed(true);
+                }}
+                onLoadedData={() => setFailed(false)}
+            />
+            {failed ? (
+                <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                    <button
+                        type="button"
+                        className="pointer-events-auto rounded-full bg-black/65 px-3 py-1.5 text-xs text-white backdrop-blur"
+                        onClick={(event) => {
+                            event.stopPropagation();
+                            setFailed(false);
+                            setAttempt((value) => value + 1);
+                        }}
+                    >
+                        {t("canvas.node.reloadVideo")}
+                    </button>
+                </div>
+            ) : null}
+        </div>
+    );
 }
 
 function AudioNodeContent({ node, theme }: NodeContentRendererProps) {

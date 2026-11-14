@@ -193,92 +193,119 @@ export async function injectPrompt(page, text) {
   }
   await page.waitForTimeout(300);
 
-  // ① 清空编辑器（全选 + 删除，走框架认可的方式）
-  const cleared = await page.evaluate((sel) => {
-    const ed = document.querySelector(sel);
-    if (!ed) return { ok: false, before: 0 };
-    ed.focus?.();
-    // 普通输入框（新版生成模式）：用原生 setter + input 事件，React 才认
-    if (ed.tagName === "TEXTAREA" || ed.tagName === "INPUT") {
-      const before = (ed.value || "").length;
-      if (before > 0) {
-        const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
-        if (setter) setter.call(ed, "");
-        else ed.value = "";
-        ed.dispatchEvent(new Event("input", { bubbles: true }));
-      }
-      return { ok: true, before, cleared: before > 0 };
-    }
-    const before = (ed.innerText || "").trim().length;
-    if (before === 0) return { ok: true, before: 0, cleared: false };
-    const sel2 = window.getSelection();
-    const range = document.createRange();
-    range.selectNodeContents(ed);
-    sel2.removeAllRanges();
-    sel2.addRange(range);
-    document.execCommand("delete", false, null);
-    return { ok: true, before, cleared: true };
-  }, editorSelector);
-  await page.waitForTimeout(300);
-
-  const insert = async (t) =>
-    page.evaluate(
-      ({ sel, value }) => {
-        const ed = document.querySelector(sel);
-        if (!ed) return { ok: false, len: 0 };
-        ed.focus?.();
-        if (ed.tagName === "TEXTAREA" || ed.tagName === "INPUT") {
-          const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
-          const next = `${ed.value || ""}${value}`;
-          if (setter) setter.call(ed, next);
-          else ed.value = next;
-          ed.dispatchEvent(new Event("input", { bubbles: true }));
-          return { ok: true, len: next.length };
-        }
-        // 插入前再次确保光标在末尾（内容为空时即在开头）
-        const sel2 = window.getSelection();
-        if (!sel2.rangeCount) {
-          const r = document.createRange();
-          r.selectNodeContents(ed);
-          r.collapse(false);
-          sel2.removeAllRanges();
-          sel2.addRange(r);
-        }
-        const ok = document.execCommand("insertText", false, value);
-        return { ok, len: (ed.innerText || "").length };
-      },
-      { sel: editorSelector, value: t },
-    );
-
-  const first = await insert(text);
   const expected = text.replace(/\s+/g, " ").trim().length;
-  if (first.len < expected * 0.9) {
-    for (let i = 0; i < 3; i++) {
-      const cur = await page.evaluate((sel) => {
+  const readLen = () =>
+    page
+      .evaluate((sel) => {
         const ed = document.querySelector(sel);
         if (!ed) return 0;
         return ed.tagName === "TEXTAREA" || ed.tagName === "INPUT" ? (ed.value || "").length : (ed.innerText || "").length;
-      }, editorSelector);
-      if (cur >= expected * 0.9) break;
-      await insert(text.slice(cur));
-      await page.waitForTimeout(400);
+      }, editorSelector)
+      .catch(() => 0);
+
+  // ① 清空：先用真实键盘「全选 + 退格」，再用 evaluate 补一刀。
+  // 并发时有三个标签页同时跑，输入框里常常还留着上一个任务的提示词；
+  // 只靠 evaluate 改 value，React 受控组件有时不认，结果两次提示词拼在一起
+  // （日志里 31/15、31/16 这种「长度比期望长」的失败就是这么来的）。
+  const beforeLen = await readLen();
+  const clearEditor = async () => {
+    try {
+      await editor.click({ timeout: 3000 });
+    } catch {
+      /* 点不到就靠 focus() */
     }
+    await page.keyboard.press("Control+A").catch(() => undefined);
+    await page.keyboard.press("Backspace").catch(() => undefined);
+    await page.waitForTimeout(150);
+    await page
+      .evaluate((sel) => {
+        const ed = document.querySelector(sel);
+        if (!ed) return;
+        ed.focus?.();
+        if (ed.tagName === "TEXTAREA" || ed.tagName === "INPUT") {
+          if ((ed.value || "").length) {
+            const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
+            if (setter) setter.call(ed, "");
+            else ed.value = "";
+            ed.dispatchEvent(new Event("input", { bubbles: true }));
+          }
+          return;
+        }
+        if ((ed.innerText || "").trim().length) {
+          const sel2 = window.getSelection();
+          const range = document.createRange();
+          range.selectNodeContents(ed);
+          sel2.removeAllRanges();
+          sel2.addRange(range);
+          document.execCommand("delete", false, null);
+        }
+      }, editorSelector)
+      .catch(() => undefined);
+    await page.waitForTimeout(150);
+  };
+
+  // ② 写入：优先真实键盘 insertText（textarea / 富文本都认，框架状态也同步）
+  const typeText = async (value) => {
+    await page.keyboard.insertText(value).catch(() => undefined);
+    await page.waitForTimeout(250);
+  };
+  // ③ 兜底：evaluate 直接写（键盘被后台标签页吞掉时用）
+  const insertByDom = async (value) =>
+    page
+      .evaluate(
+        ({ sel, text: payload }) => {
+          const ed = document.querySelector(sel);
+          if (!ed) return 0;
+          ed.focus?.();
+          if (ed.tagName === "TEXTAREA" || ed.tagName === "INPUT") {
+            const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
+            if (setter) setter.call(ed, payload);
+            else ed.value = payload;
+            ed.dispatchEvent(new Event("input", { bubbles: true }));
+            return (ed.value || "").length;
+          }
+          const sel2 = window.getSelection();
+          const range = document.createRange();
+          range.selectNodeContents(ed);
+          sel2.removeAllRanges();
+          sel2.addRange(range);
+          document.execCommand("insertText", false, payload);
+          return (ed.innerText || "").length;
+        },
+        { sel: editorSelector, text: value },
+      )
+      .catch(() => 0);
+
+  await clearEditor();
+  await typeText(text);
+  let finalLen = await readLen();
+  if (Math.abs(finalLen - expected) > Math.max(4, expected * 0.1)) {
+    // 第二次：彻底清一遍再写（并发场景下第一次被旧内容污染的最多）
+    await clearEditor();
+    await typeText(text);
+    finalLen = await readLen();
   }
-  await page.waitForTimeout(400);
-  const finalText = await page.evaluate((sel) => {
-    const ed = document.querySelector(sel);
-    if (!ed) return "";
-    return ed.tagName === "TEXTAREA" || ed.tagName === "INPUT" ? ed.value || "" : ed.innerText || "";
-  }, editorSelector);
-  const finalLen = finalText.trim().length;
+  if (Math.abs(finalLen - expected) > Math.max(4, expected * 0.1)) {
+    await clearEditor();
+    await insertByDom(text);
+    finalLen = await readLen();
+  }
+  await page.waitForTimeout(300);
+  const finalText = await page
+    .evaluate((sel) => {
+      const ed = document.querySelector(sel);
+      if (!ed) return "";
+      return ed.tagName === "TEXTAREA" || ed.tagName === "INPUT" ? ed.value || "" : ed.innerText || "";
+    }, editorSelector)
+    .catch(() => "");
   // 校验：注入后的内容应约等于目标文本（防止把旧内容一起发出去）
   const matches = Math.abs(finalLen - expected) <= Math.max(5, expected * 0.1);
   return {
     ok: finalLen > 0 && matches,
     valueLength: finalLen,
     expected,
-    cleared: cleared.cleared,
-    clearedLength: cleared.before ?? 0,
+    cleared: beforeLen > 0,
+    clearedLength: beforeLen,
     preview: finalText.trim().slice(0, 60),
     reason: matches ? undefined : "INJECT_MISMATCH",
   };

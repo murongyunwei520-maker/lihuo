@@ -267,7 +267,7 @@ export default {
         },
         node: {
             node: "Node",
-            untitled: "Untitled node", renameHint: "Double-click to rename the node", group: "Group", nodeCount: "{{count}} nodes", generating: "Generating", failed: "Generation failed", retry: "Retry", missingPlugin: "Plugin missing", missingPluginDescription: "The plugin for node type “{{type}}” is not installed or enabled", generateImage: "Generate image from text", generate: "Generate", editText: "Double-click to edit text", emptyImage: "Empty image node", emptyVideo: "Empty video node", emptyAudio: "Empty audio node", audio: "Audio", batchExpanded: "Image group expanded", batchCollapsed: "Image group collapsed", textBatchExpanded: "Text alternatives expanded", textBatchCollapsed: "Text alternatives collapsed", createCopy: "Create copy", setPrimary: "Set as primary", setPrimaryText: "Set as primary",
+            untitled: "Untitled node", renameHint: "Double-click to rename the node", group: "Group", nodeCount: "{{count}} nodes", generating: "Generating", failed: "Generation failed", retry: "Retry", missingPlugin: "Plugin missing", missingPluginDescription: "The plugin for node type “{{type}}” is not installed or enabled", generateImage: "Generate image from text", generate: "Generate", editText: "Double-click to edit text", emptyImage: "Empty image node", emptyVideo: "Empty video node", reloadVideo: "Reload", emptyAudio: "Empty audio node", audio: "Audio", batchExpanded: "Image group expanded", batchCollapsed: "Image group collapsed", textBatchExpanded: "Text alternatives expanded", textBatchCollapsed: "Text alternatives collapsed", createCopy: "Create copy", setPrimary: "Set as primary", setPrimaryText: "Set as primary",
         },
         videoFrames: { first: "Capture first frame", last: "Capture last frame", current: "Capture current frame", firstTitle: "{{name}} first frame", lastTitle: "{{name}} last frame", currentTitle: "{{name}} current frame", captured: "Image node created", failed: "Could not capture this frame. Try again." },
         sidePanel: {
@@ -396,6 +396,7 @@ export default {
         proxy: {
             title: "Local proxy",
             description: "Forward provider requests (models, image, video, text, audio) and WebDAV sync through a proxy running on your machine to avoid browser CORS errors.",
+            lihuoHint: "Under the Lihuo architecture, model requests are proxied by the Lihuo backend. The local proxy is only for legacy channels that still call upstream APIs directly from the browser and will be phased out.",
             startHint: "Run this in a terminal first, and keep it running while you use the canvas:",
             address: "Proxy address",
             addressDescription: "Must match the address printed by the command above.",
@@ -536,6 +537,7 @@ export default {
             name: "Provider name",
             protocol: "Protocol",
             baseUrl: "API endpoint",
+            apiKeyHint: "The API key stays in memory for this session only. It is not written to browser storage or exported config files; re-enter it after a refresh.",
             models: "Provider models",
             modelDescription: "{{count}} selected; assign a capability to each model and optionally customize its request script.",
             selectModels: "Select models",

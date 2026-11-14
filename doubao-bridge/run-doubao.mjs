@@ -688,22 +688,75 @@ async function revealAnswerMedia(page) {
  * 拿一个可用的标签页：优先复用窗口里闲置的豆包页（页内用 __lihuoBusy 标记占用），
  * 全都忙时才新开一个，任务结束再关掉——不再每跑一个任务就多一个标签页。
  */
+/**
+ * 跨进程互斥（同一账号的多个任务各是一个 node 进程）。
+ * 「挑一个没被占用的标签页」是典型的 TOCTOU：A、B 同时 evaluate 都看到 __lihuoBusy=false，
+ * 然后各自打上标记 → 两个任务挤进同一个标签页，提示词互相覆盖，只发出最后一个，
+ * 用户看到的就是「同时点多个任务，结果只生成了一个」。
+ * 这里用 O_EXCL 创建锁文件把「挑页 + 占页」这一步串起来，只让一个进程进。
+ */
+async function withPageLock(fn, timeoutMs = 90000) {
+    const lockFile = path.join(stateDir, ".page-lock");
+    const deadline = Date.now() + timeoutMs;
+    let fd = null;
+    while (Date.now() < deadline) {
+        try {
+            fd = fs.openSync(lockFile, "wx");
+            fs.writeSync(fd, String(process.pid));
+            break;
+        } catch (error) {
+            if (error.code !== "EEXIST") throw error;
+            // 僵尸锁：持有者进程已退出，或锁太旧（>90 秒），直接接管
+            try {
+                const pid = Number(fs.readFileSync(lockFile, "utf8").trim()) || 0;
+                let alive = pid > 0;
+                if (alive) {
+                    try {
+                        process.kill(pid, 0);
+                    } catch {
+                        alive = false;
+                    }
+                }
+                const stale = Date.now() - fs.statSync(lockFile).mtimeMs > 90000;
+                if (!alive || stale) fs.rmSync(lockFile, { force: true });
+            } catch {
+                /* 锁文件可能刚好被别人删掉，下一轮重试 */
+            }
+            await new Promise((resolve) => setTimeout(resolve, 150));
+        }
+    }
+    if (fd === null) throw new Error("等待标签页分配超时：同一账号并发任务过多，请稍后重试");
+    try {
+        return await fn();
+    } finally {
+        try {
+            fs.closeSync(fd);
+        } catch {
+            /* ignore */
+        }
+        try {
+            fs.rmSync(lockFile, { force: true });
+        } catch {
+            /* ignore */
+        }
+    }
+}
+
 async function acquirePage(ctx) {
-    const pages = ctx.pages().filter((item) => /doubao\.com|dola\.com/.test(item.url()));
-    // 优先复用停在首页的标签页，其次任意闲置豆包页
-    const ordered = [
-        ...pages.filter((item) => /\/chat\/?(\?.*)?$/.test(item.url())),
-        ...pages.filter((item) => !/\/chat\/?(\?.*)?$/.test(item.url())),
-    ];
-    for (const candidate of ordered) {
-        // 占用标记带心跳时间：执行器被强杀（任务超时/手动结束）时标记会留在页面里，
-        // 只看布尔值会导致这些页永远「忙」，以后每个任务都新开一个标签页。
-        const busy = await candidate
-            .evaluate(() => window.__lihuoBusy === true && Date.now() - (window.__lihuoBusyAt || 0) < 3 * 60 * 1000)
-            .catch(() => true);
-        if (busy) continue;
-        await candidate.evaluate(() => { window.__lihuoBusy = true; window.__lihuoBusyAt = Date.now(); }).catch(() => undefined);
-        return { page: candidate, created: false };
+    // 不再「复用闲置标签页」：切到新标签页必然要 goto，一旦导航，页面里的 __lihuoBusy 标记
+    // 就被清掉了；别的任务这时再看就是「空闲」，于是两个任务挤进同一页，提示词互相覆盖、
+    // 只发出最后一个，两个任务拿到同一张图——用户看到的就是「多个任务合并成了一个」。
+    // 现在一律一任务一标签页（并发上限本来就只有 3），结束后各自关掉。
+    //
+    // 顺手清掉历史遗留的空标签页（上一个任务崩了没关的那种），最多留 3 个豆包页。
+    const stale = ctx.pages().filter((item) => /doubao\.com|dola\.com/.test(item.url()));
+    if (stale.length > 3) {
+        for (const old of stale.slice(0, stale.length - 3)) {
+            const busy = await old
+                .evaluate(() => window.__lihuoBusy === true && Date.now() - (window.__lihuoBusyAt || 0) < 10 * 60 * 1000)
+                .catch(() => true);
+            if (!busy) await old.close().catch(() => undefined);
+        }
     }
     const created = await ctx.newPage();
     await created.evaluate(() => { window.__lihuoBusy = true; window.__lihuoBusyAt = Date.now(); }).catch(() => undefined);
@@ -843,7 +896,7 @@ job: try {
         // 严格禁止新开窗口：连不上已有 viewer 就直接报错
         throw new Error("连不上已开的豆包窗口。请先在左侧账号池点击「打开」启动该账号的浏览器窗口，再点生成。");
     }
-    const acquired = await acquirePage(ctx);
+    const acquired = await withPageLock(() => acquirePage(ctx));
     page = acquired.page;
     ownsPage = acquired.created;
     progress(acquired.created ? "[DOUBAO_BROWSER] 新开一个标签页执行" : "[DOUBAO_BROWSER] 复用已有标签页执行（不再每个任务开一个新标签页）");
@@ -1119,14 +1172,37 @@ job: try {
     const sent = await site.sendPrompt(page);
     if (!sent.ok) throw new Error(`发送失败：${sent.reason || ""}`);
 
-    // 确认参数（豆包会列参数要求确认）
-    for (let round = 0; round < 3; round += 1) {
-        await page.waitForTimeout(4000);
-        const said = await site.readLastAnswer(page).catch(() => "");
-        if (!/确认/.test(said)) break;
-        progress(`豆包要求确认参数（第 ${round + 1} 轮），回复确认…`);
-        await site.injectPrompt(page, "确认，开始生成");
-        await site.sendPrompt(page);
+    // 确认参数：豆包 / Dola 有时先说「确认后我再开始生成视频。」，必须回一句「确认，开始生成」才会真的开始。
+    // 这里不能只看一眼就过：实测这句话 10~40 秒才出现，原来固定等 4 秒读一次就 break，
+    // 漏掉之后一路干等到 15 分钟超时（日志里 931 秒 / 947 秒那两个失败就是它）。
+    {
+        const confirmRe = /确认后.{0,6}(我再|开始|继续)|请.{0,4}确认|是否(开始|继续|确认)|回复.{0,6}确认|点击.{0,8}(开始生成|确认)|如确认|确认无误/i;
+        // 已经在排队/生成中的信号：见到就说明不需要再确认，立刻退出等待，别把每个任务都拖慢两分钟
+        const startedRe = /预计.{0,6}等待|正在生成|生成中|即将生成|生成好后|会主动发送|已开始生成|排队/i;
+        const deadlineAt = Date.now() + 120000;
+        let rounds = 0;
+        let quietSince = Date.now();
+        while (Date.now() < deadlineAt && rounds < 3) {
+            await page.waitForTimeout(3000);
+            const texts = await freshMessageTexts(page, 3);
+            const said = texts.join(" ").trim();
+            if (!said) {
+                // 40 秒都没等到任何新消息：站点这次不需要确认，走正常等待流程
+                if (Date.now() - quietSince > 40000) break;
+                continue;
+            }
+            // 先看「要确认」：这句常和「预计等待…」同一段出现，先判排队就会漏掉确认
+            if (confirmRe.test(said)) {
+                rounds += 1;
+                progress(`站点要求确认：「${said.slice(0, 40)}」→ 回复「确认，开始生成」`);
+                await site.injectPrompt(page, "确认，开始生成");
+                await site.sendPrompt(page);
+                await page.waitForTimeout(2500);
+                continue;
+            }
+            if (startedRe.test(said)) break;
+            quietSince = Date.now();
+        }
     }
 
     // 对话任务：等回答不再变长就算完成（豆包没有“生成结束”事件，只能看文本是否稳定）
