@@ -164,8 +164,25 @@ export async function waitForEditor(page, { timeoutMs = 1800000, pollMs = 3000, 
 export async function injectPrompt(page, text) {
   // ⓪ 弹窗（首屏或中途出现）会盖住编辑器拦截点击 —— 先清一次，点击被拦再兜底
   await dismissBlockingDialogs(page);
-  const editor = page.locator('[contenteditable="true"]').first();
-  await editor.waitFor({ state: "visible", timeout: 20000 });
+  // 离火补丁：新版豆包（2026-11 技能栏）切到图像/视频模式后，输入区不再是唯一的 contenteditable，
+  // 页面里还有隐藏的/侧栏的编辑器，死取第一个就会一直写不进去（日志里出现的「注入提示词失败：0/23」）。
+  // 这里先挑「可见 + 面积够大 + 最靠下」的那个编辑器打标记，后面清空/写入/校验都按这个标记来。
+  const picked = await page
+    .evaluate(() => {
+      const cands = [...document.querySelectorAll('[contenteditable="true"], textarea')]
+        .map((el) => ({ el, rect: el.getBoundingClientRect() }))
+        .filter((item) => item.el.getClientRects().length > 0 && item.rect.width > 80 && item.rect.height > 14);
+      if (!cands.length) return null;
+      cands.sort((a, b) => b.rect.y - a.rect.y);
+      const chosen = cands[0].el;
+      document.querySelectorAll("[data-lihuo-editor]").forEach((el) => el.removeAttribute("data-lihuo-editor"));
+      chosen.setAttribute("data-lihuo-editor", "1");
+      return { tag: chosen.tagName.toLowerCase(), bottom: Math.round(cands[0].rect.y) };
+    })
+    .catch(() => null);
+  const editorSelector = '[data-lihuo-editor="1"], [contenteditable="true"], textarea';
+  const editor = page.locator(editorSelector).first();
+  await editor.waitFor({ state: "visible", timeout: 20000 }).catch(() => undefined);
   // 离火补丁：对话模式的编辑器中心常被悬浮层压住，并发时标签页还会退到后台让 locator.click 的可操作性
   // 检查（等渲染帧）一直超时。这里点击降级成"尽力而为"——下面清空/写入都用 evaluate 里的 focus()，
   // 不点也能正常写入。
@@ -177,52 +194,82 @@ export async function injectPrompt(page, text) {
   await page.waitForTimeout(300);
 
   // ① 清空编辑器（全选 + 删除，走框架认可的方式）
-  const cleared = await page.evaluate(() => {
-    const ed = document.querySelector('[contenteditable="true"]');
+  const cleared = await page.evaluate((sel) => {
+    const ed = document.querySelector(sel);
     if (!ed) return { ok: false, before: 0 };
+    ed.focus?.();
+    // 普通输入框（新版生成模式）：用原生 setter + input 事件，React 才认
+    if (ed.tagName === "TEXTAREA" || ed.tagName === "INPUT") {
+      const before = (ed.value || "").length;
+      if (before > 0) {
+        const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
+        if (setter) setter.call(ed, "");
+        else ed.value = "";
+        ed.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+      return { ok: true, before, cleared: before > 0 };
+    }
     const before = (ed.innerText || "").trim().length;
-    ed.focus();
     if (before === 0) return { ok: true, before: 0, cleared: false };
-    const sel = window.getSelection();
+    const sel2 = window.getSelection();
     const range = document.createRange();
     range.selectNodeContents(ed);
-    sel.removeAllRanges();
-    sel.addRange(range);
+    sel2.removeAllRanges();
+    sel2.addRange(range);
     document.execCommand("delete", false, null);
     return { ok: true, before, cleared: true };
-  });
+  }, editorSelector);
   await page.waitForTimeout(300);
 
   const insert = async (t) =>
-    page.evaluate((value) => {
-      const ed = document.querySelector('[contenteditable="true"]');
-      if (!ed) return { ok: false, len: 0 };
-      ed.focus();
-      // 插入前再次确保光标在末尾（内容为空时即在开头）
-      const sel = window.getSelection();
-      if (!sel.rangeCount) {
-        const r = document.createRange();
-        r.selectNodeContents(ed);
-        r.collapse(false);
-        sel.removeAllRanges();
-        sel.addRange(r);
-      }
-      const ok = document.execCommand("insertText", false, value);
-      return { ok, len: (ed.innerText || "").length };
-    }, t);
+    page.evaluate(
+      ({ sel, value }) => {
+        const ed = document.querySelector(sel);
+        if (!ed) return { ok: false, len: 0 };
+        ed.focus?.();
+        if (ed.tagName === "TEXTAREA" || ed.tagName === "INPUT") {
+          const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
+          const next = `${ed.value || ""}${value}`;
+          if (setter) setter.call(ed, next);
+          else ed.value = next;
+          ed.dispatchEvent(new Event("input", { bubbles: true }));
+          return { ok: true, len: next.length };
+        }
+        // 插入前再次确保光标在末尾（内容为空时即在开头）
+        const sel2 = window.getSelection();
+        if (!sel2.rangeCount) {
+          const r = document.createRange();
+          r.selectNodeContents(ed);
+          r.collapse(false);
+          sel2.removeAllRanges();
+          sel2.addRange(r);
+        }
+        const ok = document.execCommand("insertText", false, value);
+        return { ok, len: (ed.innerText || "").length };
+      },
+      { sel: editorSelector, value: t },
+    );
 
   const first = await insert(text);
   const expected = text.replace(/\s+/g, " ").trim().length;
   if (first.len < expected * 0.9) {
     for (let i = 0; i < 3; i++) {
-      const cur = await page.evaluate(() => (document.querySelector('[contenteditable="true"]')?.innerText || "").length);
+      const cur = await page.evaluate((sel) => {
+        const ed = document.querySelector(sel);
+        if (!ed) return 0;
+        return ed.tagName === "TEXTAREA" || ed.tagName === "INPUT" ? (ed.value || "").length : (ed.innerText || "").length;
+      }, editorSelector);
       if (cur >= expected * 0.9) break;
       await insert(text.slice(cur));
       await page.waitForTimeout(400);
     }
   }
   await page.waitForTimeout(400);
-  const finalText = await page.evaluate(() => document.querySelector('[contenteditable="true"]')?.innerText || "");
+  const finalText = await page.evaluate((sel) => {
+    const ed = document.querySelector(sel);
+    if (!ed) return "";
+    return ed.tagName === "TEXTAREA" || ed.tagName === "INPUT" ? ed.value || "" : ed.innerText || "";
+  }, editorSelector);
   const finalLen = finalText.trim().length;
   // 校验：注入后的内容应约等于目标文本（防止把旧内容一起发出去）
   const matches = Math.abs(finalLen - expected) <= Math.max(5, expected * 0.1);
@@ -248,7 +295,7 @@ export async function sendPrompt(page) {
   }
   // 离火补丁：后台标签页里 locator.press 会卡在可操作性检查上，退回直接按键
   try {
-    await page.locator('[contenteditable="true"]').first().press("Enter", { timeout: 5000 });
+    await page.locator('[data-lihuo-editor="1"], [contenteditable="true"], textarea').first().press("Enter", { timeout: 5000 });
   } catch {
     await page.keyboard.press("Enter");
   }

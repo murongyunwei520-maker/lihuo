@@ -70,7 +70,14 @@ const result = { provider: account.provider || "doubao", image: [], video: [] };
 try {
     const page = ctx.pages()[0] || (await ctx.newPage());
     await page.goto(site.siteUrl, { waitUntil: "domcontentloaded", timeout: 90000 }).catch(() => undefined);
-    await sleep(8000);
+    // 能力栏在慢网下要 20~30 秒才渲染：轮询等它出现，别固定等几秒就点
+    for (let i = 0; i < 30; i += 1) {
+        const ready = await page
+            .evaluate((label) => [...document.querySelectorAll("button,[role=button],[class*='cursor-pointer']")].some((el) => el.getClientRects().length > 0 && (el.innerText || "").trim() === label), site.image)
+            .catch(() => false);
+        if (ready) break;
+        await sleep(3000);
+    }
     await page.getByText("我知道了", { exact: true }).first().click({ timeout: 2000 }).catch(() => undefined);
 
     for (const [kind, label] of [["image", site.image], ["video", site.video]]) {

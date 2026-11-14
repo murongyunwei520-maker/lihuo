@@ -215,6 +215,66 @@ function withTimeout(promise, ms, fallback) {
     return Promise.race([promise, new Promise((resolve) => setTimeout(() => resolve(fallback), ms))]);
 }
 
+/**
+ * 读图片真实像素（PNG / JPEG / WebP）。
+ * 生成图给的是 CDN 的缩略版本（384x216 之类），必须按真实宽度判断，
+ * 否则画布节点上挂的就是一张糊图——文件大小恰好过 100KB，光看字节数根本拦不住。
+ */
+function imageSizeOf(file) {
+    let buf;
+    try {
+        buf = fs.readFileSync(file);
+    } catch {
+        return null;
+    }
+    if (buf.length < 24) return null;
+    // PNG: \x89PNG....IHDR 宽高在 16..24
+    if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) {
+        return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
+    }
+    // JPEG: 扫 SOFn 段
+    if (buf[0] === 0xff && buf[1] === 0xd8) {
+        let offset = 2;
+        while (offset + 9 < buf.length) {
+            if (buf[offset] !== 0xff) {
+                offset += 1;
+                continue;
+            }
+            const marker = buf[offset + 1];
+            const length = buf.readUInt16BE(offset + 2);
+            if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
+                return { width: buf.readUInt16BE(offset + 7), height: buf.readUInt16BE(offset + 5) };
+            }
+            offset += 2 + (length || 2);
+        }
+    }
+    // WebP (VP8 / VP8L / VP8X)
+    if (buf.toString("ascii", 0, 4) === "RIFF" && buf.toString("ascii", 8, 12) === "WEBP") {
+        const kind = buf.toString("ascii", 12, 16);
+        if (kind === "VP8X") return { width: 1 + buf.readUIntLE(24, 3), height: 1 + buf.readUIntLE(27, 3) };
+        if (kind === "VP8L") {
+            const bits = buf.readUInt32LE(21);
+            return { width: (bits & 0x3fff) + 1, height: ((bits >> 14) & 0x3fff) + 1 };
+        }
+        if (kind === "VP8 ") return { width: buf.readUInt16LE(26) & 0x3fff, height: buf.readUInt16LE(28) & 0x3fff };
+    }
+    return null;
+}
+
+/**
+ * 把 CDN 的缩略模板地址还原成原图地址。
+ * 字节系图片地址形如 .../<hash>.png~tplv-a9rns2rl98-image-qvalue.png?lk3s=...
+ * 「~tplv-」后面那段是模板（决定尺寸/质量），去掉就是原图；签名参数保留仍然有效。
+ */
+function originalImageUrl(url) {
+    const cut = url.indexOf("~tplv-");
+    if (cut < 0) return "";
+    const head = url.slice(0, cut);
+    const queryAt = url.indexOf("?");
+    const query = queryAt >= 0 ? url.slice(queryAt) : "";
+    return `${head}${query}`;
+}
+
 /** 设置时长：优先用滑杆的 range 输入，退化为按轨道位置点击。 */
 async function setDuration(page, seconds) {
     const slider = await page.evaluate((value) => {
@@ -245,8 +305,28 @@ async function setDuration(page, seconds) {
     return true;
 }
 
+/** 把光标点进输入框。新版豆包（2026-11 的技能栏）不聚焦输入框时点技能胶囊是空操作，
+ *  必须先聚焦再点，否则「切能力没反应」——这正是画布发任务却跑成普通对话的原因。 */
+async function focusComposer(page) {
+    const box = await page
+        .evaluate(() => {
+            const el = document.querySelector('[contenteditable="true"], textarea');
+            if (!el || !el.getClientRects().length) return null;
+            const rect = el.getBoundingClientRect();
+            if (rect.width < 40 || rect.height < 10) return null;
+            return { x: Math.round(rect.x + rect.width / 2), y: Math.round(rect.y + rect.height / 2) };
+        })
+        .catch(() => null);
+    if (!box) return false;
+    await page.mouse.click(box.x, box.y).catch(() => undefined);
+    await page.waitForTimeout(400);
+    return true;
+}
+
 /** 点击能力栏上的「视频生成 / 图像生成」等入口，返回点到的坐标（点不到返回 null）。 */
-async function clickCapability(page, capability) {
+async function clickCapability(page, capability, options = {}) {
+    // 先聚焦输入框：不聚焦时新版技能栏的胶囊点击会被吞掉（实测点 4 次都没反应）
+    if (options.focus !== false) await focusComposer(page);
     const box = await page
         .evaluate((label) => {
             const hits = [...document.querySelectorAll("button,[role=button],[class*='cursor-pointer']")]
@@ -277,18 +357,47 @@ async function clickCapability(page, capability) {
     return box;
 }
 
-/** 生成面板是否已经出现（输入区上方会有「模型 / 比例 / 时长」这类参数控件）。 */
-async function hasGenerationPanel(page) {
+/**
+ * 生成面板是否已经出现。两代 UI 都要认：
+ *  1) 旧版：输入区上方有「模型 / 比例 / 时长」这类参数控件；
+ *  2) 新版（2026-11 技能栏）：技能胶囊直接排在输入框里，点「图像生成 / 视频生成」后
+ *     胶囊行就地收起、只剩一个模式胶囊（输入框提示语变成「描述你想要的图片」）。
+ *     新版没有「模型」控件，只认参数控件会导致永远判「没进面板」，最后把提示词发到普通对话里。
+ */
+async function hasGenerationPanel(page, capability) {
+    const target = capability || SITE_CAPABILITY;
     return page
-        .evaluate(() => {
+        .evaluate((label) => {
             const vh = window.innerHeight;
             const vw = window.innerWidth;
-            return [...document.querySelectorAll("button,[role=button],[class*='cursor-pointer'],div,span")].some((el) => {
+            const nodes = [...document.querySelectorAll("button,[role=button],[class*='cursor-pointer'],div,span")];
+            // 1) 旧版参数控件
+            const hasParams = nodes.some((el) => {
                 const text = (el.innerText || "").trim().replace(/\s+/g, " ");
                 const rect = el.getBoundingClientRect();
                 if (rect.width <= 0 || rect.height <= 0 || rect.y < vh * 0.35 || rect.x < vw * 0.2) return false;
                 return /^模型|^model/i.test(text) || /^比例|^ratio|^aspect/i.test(text) || /^(自动|auto|\d+:\d+)\s*·/i.test(text) || /·\s*\d+\s*s$/i.test(text);
             });
+            if (hasParams) return true;
+            // 2) 新版模式胶囊：底部出现与能力同名的胶囊，且技能栏（PPT 生成 / 帮我写作…）已收起
+            const bottomish = (rect) => rect.width > 20 && rect.height > 10 && rect.y > vh * 0.55 && rect.x > vw * 0.2;
+            const chip = nodes.some((el) => (el.innerText || "").trim() === label && bottomish(el.getBoundingClientRect()));
+            if (!chip) return false;
+            const skillBar = nodes.some(
+                (el) => /^(PPT 生成|帮我写作|录音转写|AI 表格|更多技能)$/.test((el.innerText || "").trim()) && bottomish(el.getBoundingClientRect()),
+            );
+            return !skillBar;
+        }, target)
+        .catch(() => false);
+}
+
+/** 对话输入框是否就绪（且没有停在「描述你想要的图片 / 视频」这种生成模式里）。 */
+async function hasChatComposer(page) {
+    return page
+        .evaluate(() => {
+            const el = document.querySelector('[contenteditable="true"], textarea');
+            if (!el || !el.getClientRects().length) return false;
+            return !/描述你想要的(图片|视频)|describe the (image|video)/i.test(document.body.innerText || "");
         })
         .catch(() => false);
 }
@@ -340,9 +449,27 @@ async function scanAnswers(page, { fresh = false, pending = "", probePlayer = fa
                 result.videos = [...scope.querySelectorAll("video")].map((video) => video.currentSrc || video.src || "").filter(Boolean);
                 // 图片是**懒加载**的：没滚进视口时 <img> 只有一个 data:image/svg+xml 占位符，
                 // 真地址要等滚到可见才写进 src / currentSrc（原来这里直接排掉 data:，等于永远拿不到图）。
-                result.images = [...scope.querySelectorAll("img")]
-                    .map((img) => img.currentSrc || img.src || "")
-                    .filter((url) => url && !url.startsWith("data:"));
+                // 卡片上的 <img> 往往只是 384x216 的预览图：把 srcset / 外层链接也带上，
+                // 由下载侧按「真实像素」挑最大的一张（否则画布拿到的是缩略图）。
+                const details = [...scope.querySelectorAll("img")]
+                    .map((img) => {
+                        const src = img.currentSrc || img.src || "";
+                        const srcset = (img.getAttribute("srcset") || "")
+                            .split(",")
+                            .map((part) => part.trim())
+                            .filter(Boolean)
+                            .map((part) => {
+                                const [u, w] = part.split(/\s+/);
+                                return { url: u || "", w: Number.parseInt(w || "0", 10) || 0 };
+                            })
+                            .sort((a, b) => b.w - a.w)[0]?.url || "";
+                        const link = img.closest("a")?.getAttribute("href") || "";
+                        return { url: src, srcset, link, w: img.naturalWidth || 0, h: img.naturalHeight || 0 };
+                    })
+                    .filter((item) => item.url && !item.url.startsWith("data:"));
+                details.sort((a, b) => b.w * b.h - a.w * a.h);
+                result.imageDetails = details;
+                result.images = details.map((item) => item.url);
                 // 占位符模式下把节点滚进视口，下一轮就能拿到真地址
                 result.needScroll = !result.images.length && [...scope.querySelectorAll("img")].some((img) => (img.src || "").startsWith("data:"));
                 if (needPlayer && !result.videos.length) {
@@ -736,7 +863,8 @@ job: try {
     // 另外首页上第一次点击偶尔会被吞（窗口刚激活/能力条刚滚进视野），所以没进面板就在同一位置补一次。
     progress(`切换能力：${SITE_CAPABILITY}`);
     // 快速路径：页面已经停在目标能力上就别再点一遍白等
-    let panelReady = expectText ? await hasChatComposer(page) : await hasGenerationPanel(page);
+    const panelCheck = (p) => (expectText ? hasChatComposer(p) : hasGenerationPanel(p, SITE_CAPABILITY));
+    let panelReady = await panelCheck(page);
     if (panelReady) progress(`已经在「${SITE_CAPABILITY}」，跳过切换`);
     // 入口本身可能还没渲染（网络慢）：先等它出现，别急着点空
     if (!panelReady) {
@@ -756,11 +884,11 @@ job: try {
         }
         const box = await clickCapability(page, SITE_CAPABILITY);
         // 对话模式没有「模型/比例」控件，用「输入框在 + 没有生成参数控件」判断
-        panelReady = await waitForPanel(page, expectText ? hasChatComposer : hasGenerationPanel, attempt === 1 ? 20000 : 12000);
+        panelReady = await waitForPanel(page, panelCheck, attempt === 1 ? 20000 : 12000);
         if (!panelReady && box) {
             progress("切能力没反应，同一位置补一次点击…");
             await page.mouse.click(box.x, box.y);
-            panelReady = await waitForPanel(page, expectText ? hasChatComposer : hasGenerationPanel, 15000);
+            panelReady = await waitForPanel(page, panelCheck, 15000);
         }
     }
     if (!panelReady) {
@@ -1084,10 +1212,23 @@ job: try {
             .filter((url) => !expectVideo || !baselineVideos.has(url.split("?")[0]))
             // 同一张图常被抓到多条仅签名不同的地址：按基础地址去重，别重复下载 4 次
             .filter((url, index, list) => list.findIndex((other) => other.split("?")[0] === url.split("?")[0]) === index)
-            .slice(0, expectVideo ? 1 : 4);
+            .slice(0, expectVideo ? 1 : 4)
+            // 图片：回答区拿到的是 CDN 的缩略模板地址（384x216），先把原图地址排前面一起下，
+            // 下载后按真实像素挑最大的那张——不然画布上挂的就是一张糊图。
+            .flatMap((url) => {
+                if (expectVideo) return [url];
+                const original = originalImageUrl(url);
+                return original ? [original, url] : [url];
+            })
+            .slice(0, expectVideo ? 1 : 8);
 
         if (pool.length) {
             progress(`${expectVideo ? "视频" : "图片"}候选：${pool.map((url) => url.split("?")[0].slice(-42)).join(" | ")}`);
+            try {
+                fs.writeFileSync(path.join(downloadsDir, "candidates.txt"), pool.join("\n"), "utf8");
+            } catch {
+                /* 写不进去不影响生成 */
+            }
             const downloaded = await withTimeout(site.downloadArtifactsByUrl(pool.map((url) => ({ kind, url })), downloadsDir, cookieHeader, { referer: SITE_REFERER }), 240000, null);
             if (!downloaded) {
                 progress("下载超时（4 分钟），继续等下一个候选…");
@@ -1098,14 +1239,26 @@ job: try {
             downloaded.forEach((item, index) => {
                 const url = pool[index] || "";
                 if (item.ok && item.bytes >= minBytes && !seenBytes.has(item.bytes)) {
+                    // 图片再过一道像素闸：缩略图（384x216）字节数也可能过 100KB，但挂到画布上就是糊的
+                    if (!expectVideo) {
+                        const dim = imageSizeOf(item.file);
+                        if (dim && dim.width < 768) {
+                            progress(`跳过 ${dim.width}x${dim.height} 的小图（缩略图），继续等原图…`);
+                            if (url) rejected.add(url);
+                            rmQuiet(item.file);
+                            return;
+                        }
+                    }
                     seenBytes.add(item.bytes);
-                    good.push({ file: item.file, bytes: item.bytes, kind: item.kind, contentType: item.contentType });
+                    good.push({ file: item.file, bytes: item.bytes, kind: item.kind, contentType: item.contentType, dim: expectVideo ? null : imageSizeOf(item.file) });
                     return;
                 }
                 // 头像/图标/重复产物：记下来不再重复下载，继续等真正的产物
                 if (url) rejected.add(expectVideo ? url.split("?")[0] : url);
                 if (item.ok) rmQuiet(item.file);
             });
+            // 同一轮里下到多张：原图优先（像素大的在前），别把缩略图当结果返回
+            if (!expectVideo) good.sort((a, b) => (b.dim?.width || 0) - (a.dim?.width || 0));
             if (good.length) {
                 files = good.slice(0, expectVideo ? 1 : wantCount);
                 if (expectVideo && files[0]) {
