@@ -235,6 +235,13 @@ export function HelloContent({ ctx }: { ctx: CanvasNodeContext }) {
 
 模型与密钥来自 `stores/use-config-store.ts`，存在浏览器本地（`localforage`），不会上传。
 
+### 5.1 豆包 / Dola 桥接的视频编码
+
+- 豆包成片是 H.264（`avc1`），Dola 成片是 HEVC（`hvc1`）。Chrome / Edge 没装 HEVC 解码器时只能解析出时长、画面全黑（`canPlayType('video/mp4; codecs="hvc1…"')` 返回空串）。
+- 执行器（`doubao-bridge/run-doubao.mjs`）在回传前会读 `stsd` 里**视频轨**的编码（音频轨 `mp4a` 排在前面，不能只看第一条）；识别到 HEVC 就调用 ffmpeg 转成 H.264（`libx264 -crf 20 -pix_fmt yuv420p -movflags +faststart`），转码失败或没有 ffmpeg 时在运行日志里明确写出原因。
+- ffmpeg 按「`vendor/ffmpeg/ffmpeg.exe` → 环境变量 `FFMPEG_PATH` → `PATH`」的顺序查找。项目自带的这份是 Windows 静态构建（`ffmpeg-master-latest-win64-gpl`，约 160MB），**不进 git**（`.gitignore` 已排除 `vendor/ffmpeg/`）。
+- 换新版本：把新的 `ffmpeg.exe` 覆盖到 `vendor/ffmpeg/ffmpeg.exe` 即可，要求带 `hevc` 解码器与 `libx264` 编码器（`ffmpeg -decoders | grep hevc`、`-encoders | grep libx264` 可验）。
+
 ## 6. 灵感图鉴
 
 首页「灵感图鉴」的作品图随包发布，不走任何外部接口，因此离线也能打开、点击能看大图。
