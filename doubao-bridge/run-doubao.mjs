@@ -430,7 +430,7 @@ const DENIAL_RE = /不可用|无法|不能|不足|用完|用尽|达上限|已用
 async function scanAnswers(page, { fresh = false, pending = "", probePlayer = false } = {}) {
     return page
         .evaluate(
-            ({ selector, hint, onlyFresh, pendingSrc, needPlayer }) => {
+            ({ selector, hint, onlyFresh, pendingSrc, needPlayer, seenSigs, seenCount }) => {
                 const visible = (el) => !!el && el.getClientRects().length > 0;
                 // 侧栏会话列表也带 inner-item，不能当成回答
                 // 用户自己发的那条也用同一套容器：它不是回答，绝不能拿它的文字判断「额度不足 / 已生成」
@@ -439,9 +439,14 @@ async function scanAnswers(page, { fresh = false, pending = "", probePlayer = fa
                     const role = el.getAttribute("data-message-role") || el.querySelector("[data-message-role]")?.getAttribute("data-message-role") || "";
                     return !role || role === "assistant";
                 };
+                const sigOf = (el) => `${(el.innerText || "").trim().replace(/\s+/g, " ").slice(0, 120)}|${el.querySelectorAll("img,video").length}`;
+                const seen = new Set(seenSigs || []);
                 const all = [...document.querySelectorAll(selector)].filter((el) => visible(el) && !!el.querySelector(hint) && !el.closest("aside, nav, header") && isAnswer(el));
                 const answers = all.filter((el) => !all.some((other) => other !== el && el.contains(other)));
-                const freshOnes = onlyFresh ? answers.filter((el) => el.getAttribute("data-lihuo-seen") !== "1") : answers;
+                // 新回答 = 属性没被标记 且 不在发送前的指纹基线里（站点重渲染会丢属性，只看属性会误认旧回答）
+                let freshOnes = onlyFresh ? answers.filter((el) => el.getAttribute("data-lihuo-seen") !== "1" && !seen.has(sigOf(el))) : answers;
+                // 同样的提示词重跑时新旧回答可能完全一致：条数比基线多就把多出来的当新的
+                if (onlyFresh && !freshOnes.length && answers.length > (seenCount || 0)) freshOnes = answers.slice(seenCount || 0);
                 const pendingRe = new RegExp(pendingSrc || "$^", "i");
                 const ready = freshOnes.filter((el) => !pendingRe.test((el.innerText || "").replace(/\s+/g, " ")));
                 const scope = ready[ready.length - 1] || null;
@@ -486,7 +491,7 @@ async function scanAnswers(page, { fresh = false, pending = "", probePlayer = fa
                 }
                 return result;
             },
-            { selector: ANSWER_SELECTOR, hint: ANSWER_HINT, onlyFresh: Boolean(fresh), pendingSrc: pending, needPlayer: Boolean(probePlayer) },
+            { selector: ANSWER_SELECTOR, hint: ANSWER_HINT, onlyFresh: Boolean(fresh), pendingSrc: pending, needPlayer: Boolean(probePlayer), seenSigs: baselineSigs, seenCount: baselineCount },
         )
         .catch(() => ({ total: 0, fresh: 0, pending: 0, text: "", videos: [], images: [], playerBox: null }));
 }
@@ -558,9 +563,16 @@ async function freshAnswerCount(page) {
     return (await scanAnswers(page, { fresh: true })).fresh;
 }
 
+// 发送前页面上已有的回答快照（指纹 + 条数）。
+// 只靠 data-lihuo-seen 属性不可靠：站点是 React 渲染，发送后整条列表会重建，
+// 旧回答的标记随之丢失 → 上一个任务的回答被当成这次的新回答（实测把上一张赛博朋克图
+// 当成「森林小路」的结果回传了）。所以再加一道「内容指纹 + 条数」的基线。
+let baselineSigs = [];
+let baselineCount = 0;
+
 /** 给「当前已经存在的回答」打标记，之后只认新增的那几条。 */
 async function markAnswers(page) {
-    return page
+    const snapshot = await page
         .evaluate(
             ({ selector, hint }) => {
                 const visible = (el) => !!el && el.getClientRects().length > 0;
@@ -571,6 +583,7 @@ async function markAnswers(page) {
                     const role = el.getAttribute("data-message-role") || el.querySelector("[data-message-role]")?.getAttribute("data-message-role") || "";
                     return !role || role === "assistant";
                 };
+                const sigOf = (el) => `${(el.innerText || "").trim().replace(/\s+/g, " ").slice(0, 120)}|${el.querySelectorAll("img,video").length}`;
                 // 所有消息块都记一笔：错误卡片（「出了点问题」）没有正文，不会被当成「回答」，
                 // 但它同样是这次新出现的，得单独识别出来才能快速失败。
                 [...document.querySelectorAll(selector)]
@@ -579,11 +592,14 @@ async function markAnswers(page) {
                 const all = [...document.querySelectorAll(selector)].filter((el) => visible(el) && !!el.querySelector(hint) && !el.closest("aside, nav, header") && isAnswer(el));
                 const answers = all.filter((el) => !all.some((other) => other !== el && el.contains(other)));
                 answers.forEach((el) => el.setAttribute("data-lihuo-seen", "1"));
-                return answers.length;
+                return { count: answers.length, sigs: answers.map(sigOf) };
             },
             { selector: ANSWER_SELECTOR, hint: ANSWER_HINT },
         )
-        .catch(() => 0);
+        .catch(() => ({ count: 0, sigs: [] }));
+    baselineCount = snapshot.count;
+    baselineSigs = snapshot.sigs;
+    return snapshot.count;
 }
 
 function classifyRefusal(text) {
@@ -1265,6 +1281,8 @@ job: try {
             if (!expectVideo) good.sort((a, b) => (b.dim?.width || 0) - (a.dim?.width || 0));
             if (good.length) {
                 files = good.slice(0, expectVideo ? 1 : wantCount);
+                // 多下的图（同一轮里原图 + 缩略图都成功）只留要回传的那几张，其余删掉，别把磁盘堆满
+                for (const extra of good.slice(files.length)) rmQuiet(extra.file);
                 if (expectVideo && files[0]) {
                     // 编码不是 H.264 的话浏览器会黑屏：能转就转，不能转就明确写在日志里
                     const playable = ensurePlayableVideo(files[0].file);

@@ -609,9 +609,11 @@ function parseActualParams(lines) {
         const hit = text.match(re);
         return hit ? hit[1].trim() : null;
     };
-    const model = pick(/模型[：:]\s*([^\n，,。]+)/);
-    const ratio = pick(/比例[：:]\s*([^\n，,。]+)/);
-    const duration = pick(/时长[：:]\s*(\d+)\s*秒/);
+    // 「模型：…」来自豆包回答里的参数确认原文；「模型已设为 …」来自执行器的点选日志。
+    // 新版面板不再回「参数确认」这一段，只有点选日志，所以两种都要认。
+    const model = pick(/模型[：:]\s*([^\n，,。]+)/) || pick(/模型已设为\s*([^\n，,。]+)/);
+    const ratio = pick(/比例[：:]\s*([^\n，,。]+)/) || pick(/比例已设为\s*([^\n，,。]+)/);
+    const duration = pick(/时长[：:]\s*(\d+)\s*秒/) || pick(/时长已设为\s*(\d+)\s*s/);
     const resolution = pick(/分辨率[：:]\s*([^\n，,。]+)/);
     if (!model && !ratio && !duration && !resolution) return null;
     return { model, ratio, duration: duration ? Number(duration) : null, resolution, source: "豆包参数确认原文" };
