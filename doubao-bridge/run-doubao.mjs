@@ -931,6 +931,40 @@ job: try {
     }
     progress("[DOUBAO_BROWSER] 页面渲染就绪");
 
+    // 同一账号并发时，豆包会把新标签页都恢复到**同一个会话**（它记着「上次打开的对话」）。
+    // 两个任务于是把提示词发进同一个对话，最后都挑到「最新那条带视频的回答」——
+    // 素材完全不同的两个节点最后拿到同一个文件（实测 A 的参考图是青色汉服，回传的是 B 的红衣视频）。
+    // 所以在发送前先确保处在一个新会话里：页面上已经有消息就点一次「新对话」。
+    const existingAnswers = await page
+        .evaluate((sel) => [...document.querySelectorAll(sel)].filter((el) => !el.closest("aside, nav, header")).length, ANSWER_SELECTOR)
+        .catch(() => 0);
+    if (existingAnswers > 0) {
+        progress(`当前会话里已有 ${existingAnswers} 条消息（可能是别的任务的），先切到新对话…`);
+        const clicked = await page
+            .evaluate(() => {
+                const el = [...document.querySelectorAll("button,[role=button],[class*='cursor-pointer'],div,span")].find((node) => {
+                    const text = (node.innerText || "").trim().replace(/\s+/g, " ");
+                    const rect = node.getBoundingClientRect();
+                    return /^新对话(\s|$)/.test(text) && rect.width > 20 && rect.height > 16 && rect.x < window.innerWidth * 0.4;
+                });
+                if (!el) return null;
+                const rect = el.getBoundingClientRect();
+                return { x: Math.round(rect.x + rect.width / 2), y: Math.round(rect.y + rect.height / 2) };
+            })
+            .catch(() => null);
+        if (clicked) {
+            await page.mouse.click(clicked.x, clicked.y);
+        } else {
+            // 侧栏被收起时用快捷键（豆包：Ctrl+Shift+K）
+            await page.keyboard.press("Control+Shift+K").catch(() => undefined);
+        }
+        await page.waitForTimeout(2500);
+        const after = await page
+            .evaluate((sel) => [...document.querySelectorAll(sel)].filter((el) => !el.closest("aside, nav, header")).length, ANSWER_SELECTOR)
+            .catch(() => 0);
+        progress(after > 0 ? `⚠️ 新对话没清干净（还剩 ${after} 条），继续执行` : "已切到新对话");
+    }
+
     // 切能力栏：必须用真实鼠标点击。豆包首页那颗「视频生成」是 <button>，DOM 的 .click() 在它的 React 里
     // 是空操作——之前就是这样“切成功了”其实还停在首页，最后把普通对话里的视频当成产物返回。
     // 另外首页上第一次点击偶尔会被吞（窗口刚激活/能力条刚滚进视野），所以没进面板就在同一位置补一次。
@@ -1171,6 +1205,17 @@ job: try {
     if (!injected.ok) throw new Error(`注入提示词失败：${injected.valueLength}/${injected.expected}`);
     const sent = await site.sendPrompt(page);
     if (!sent.ok) throw new Error(`发送失败：${sent.reason || ""}`);
+
+    // 最后一道防线：提示词必须真的出现在这个会话里。
+    // 并发时最怕「A 的提示词发进了 B 的对话」，那样后面不管怎么挑产物都是错的；
+    // 与其回传别人的视频，不如立刻失败让人重试。
+    {
+        const needle = spec.prompt.trim().slice(0, 12);
+        const echoed = await page
+            .evaluate((text) => (document.body.innerText || "").replace(/\s+/g, " ").includes(text), needle)
+            .catch(() => true);
+        if (!echoed) throw new Error("提示词没有出现在会话里（可能发到了别的对话），已中止，避免回传其它任务的产物");
+    }
 
     // 确认参数：豆包 / Dola 有时先说「确认后我再开始生成视频。」，必须回一句「确认，开始生成」才会真的开始。
     // 这里不能只看一眼就过：实测这句话 10~40 秒才出现，原来固定等 4 秒读一次就 break，
