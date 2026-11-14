@@ -3,7 +3,7 @@ setlocal
 set "ROOT=%~dp0"
 set "WEB_DIR=%ROOT%web"
 set "PORT=3000"
-set "URL=http://127.0.0.1:%PORT%/"
+set "URL=http://127.0.0.1:%PORT%/canvas"
 
 if not exist "%WEB_DIR%\package.json" (
     echo [Lihuo] Cannot find "%WEB_DIR%\package.json".
@@ -84,7 +84,10 @@ rem Start the local Doubao account-pool bridge (doubao-bridge) if it is not list
 set "BRIDGE_RUNNING="
 for /f "tokens=*" %%L in ('netstat -ano ^| findstr /r /c:":9091 .*LISTENING"') do set "BRIDGE_RUNNING=1"
 if not defined BRIDGE_RUNNING if exist "%ROOT%doubao-bridge\server.mjs" (
+    echo   [Lihuo] Starting Doubao bridge on :9091 ...
     start "Lihuo bridge" /min "%NODE_CMD%" "%ROOT%doubao-bridge\server.mjs"
+    rem 等桥接起来再开浏览器，避免第一次点生成时抢跑
+    ping -n 3 127.0.0.1 >nul
 )
 
 rem Already serving: just open the browser again.
@@ -102,6 +105,7 @@ start "" "%URL%"
 
 echo.
 echo   [Lihuo] Opened %URL%
+echo   [Lihuo] Bridge: http://127.0.0.1:9091/api/health
 echo   The server runs in a minimized window.
 echo   Double-click stop-canvas.bat to stop it.
 echo.

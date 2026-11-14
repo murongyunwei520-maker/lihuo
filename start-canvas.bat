@@ -1,6 +1,9 @@
 @echo off
 setlocal
-set "WEB_DIR=%~dp0web"
+set "ROOT=%~dp0"
+set "WEB_DIR=%ROOT%web"
+set "PORT=3000"
+set "URL=http://127.0.0.1:%PORT%/canvas"
 
 if not exist "%WEB_DIR%\package.json" (
     echo [Lihuo] Cannot find "%WEB_DIR%\package.json".
@@ -42,13 +45,24 @@ if not exist "node_modules\vite\bin\vite.js" (
     )
 )
 
+rem 开发服务器同样需要豆包桥接：没监听 :9091 就先拉起来
+set "BRIDGE_RUNNING="
+for /f "tokens=*" %%L in ('netstat -ano ^| findstr /r /c:":9091 .*LISTENING"') do set "BRIDGE_RUNNING=1"
+if not defined BRIDGE_RUNNING if exist "%ROOT%doubao-bridge\server.mjs" (
+    echo.
+    echo   [Lihuo] Starting Doubao bridge on :9091 ...
+    start "Lihuo bridge" /min "%NODE_CMD%" "%ROOT%doubao-bridge\server.mjs"
+    ping -n 3 127.0.0.1 >nul
+)
+
 echo.
-echo   [Lihuo] Starting at http://127.0.0.1:3000/
+echo   [Lihuo] Starting at %URL%
+echo   Bridge: http://127.0.0.1:9091/api/health
 echo   The browser will open automatically.
 echo   Keep this window open while using the canvas; closing it stops the server.
 echo.
 
-"%NODE_CMD%" "node_modules\vite\bin\vite.js" dev --host 127.0.0.1 --port 3000 --open
+"%NODE_CMD%" "node_modules\vite\bin\vite.js" dev --host 127.0.0.1 --port 3000 --open /canvas
 set "EXIT_CODE=%ERRORLEVEL%"
 
 popd
