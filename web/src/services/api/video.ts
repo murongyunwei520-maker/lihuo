@@ -142,6 +142,7 @@ export async function pollVideoGenerationTask(config: AiConfig, task: VideoGener
     if (task.provider === "doubao") {
         const job = await getJob(task.id);
         if (options?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
+        if (!job) return { status: "failed", error: "任务已在桥接重启后失效，请重新生成" };
         if (job.status === "succeeded") {
             const video = job.files.find((f) => f.kind === "video" || (f.contentType || "").startsWith("video/"));
             if (!video) return { status: "failed", error: "豆包未返回视频" };

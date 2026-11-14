@@ -36,6 +36,82 @@ function readJobFiles(jobId) {
         return null;
     }
 }
+
+// 桥接重启后内存里的任务全没了，但磁盘上还留着每个任务的 spec（state/jobs/<id>.json）
+// 和产物目录（state/downloads/manual/<id>/）。画布上老节点指向的正是这些任务，
+// 以前这里直接 404，前端就弹「任务不存在」、视频节点也变成黑屏。
+// 现在按 jobId 从磁盘把任务「重建」出来，老节点照常能看、能播。
+const recoveredJobs = new Map();
+function recoverJob(jobId) {
+    if (!jobIdSafe(jobId)) return null;
+    if (recoveredJobs.has(jobId)) return recoveredJobs.get(jobId);
+    let accounts = [];
+    try {
+        accounts = readAccounts();
+    } catch {
+        accounts = [];
+    }
+    for (const account of accounts) {
+        const stateDir = path.join(ACCOUNTS_ROOT, account.id, "state");
+        const specFile = path.join(stateDir, "jobs", `${jobId}.json`);
+        const dir = path.join(stateDir, "downloads", "manual", jobId);
+        if (!fs.existsSync(specFile) && !fs.existsSync(dir)) continue;
+        let spec = {};
+        try {
+            spec = JSON.parse(fs.readFileSync(specFile, "utf8"));
+        } catch {
+            spec = {};
+        }
+        let names = [];
+        try {
+            names = fs.readdirSync(dir).filter((name) => /\.(mp4|webm|mov|png|jpe?g|webp)$/i.test(name));
+        } catch {
+            names = [];
+        }
+        // 视频转码后目录里会多一个 -h264.mp4：优先用它，别把原始 HEVC 那份排到 0 号
+        names.sort((a, b) => {
+            const score = (name) => (/-h264\.mp4$/i.test(name) ? 0 : /\.mp4$/i.test(name) ? 1 : 2);
+            return score(a) - score(b) || a.localeCompare(b);
+        });
+        const files = names.map((name, index) => {
+            const filePath = path.join(dir, name);
+            let bytes = null;
+            try {
+                bytes = fs.statSync(filePath).size;
+            } catch {
+                bytes = null;
+            }
+            const ext = path.extname(name).toLowerCase();
+            const kind = /mp4|webm|mov/.test(ext) ? "video" : "image";
+            const contentType = kind === "video" ? "video/mp4" : ext === ".png" ? "image/png" : ext === ".webp" ? "image/webp" : "image/jpeg";
+            return { index, path: filePath, name, bytes, kind, contentType };
+        });
+        const job = {
+            id: jobId,
+            nodeId: spec.nodeId || null,
+            accountId: account.id,
+            accountName: account.name,
+            provider: account.provider || "doubao",
+            prompt: spec.prompt || "",
+            capability: spec.capability || "",
+            mode: spec.mode || "",
+            modelName: spec.model || null,
+            requestedParams: spec.requestedParams || null,
+            actualParams: null,
+            status: files.length ? "succeeded" : "failed",
+            createdAt: spec.createdAt || new Date().toISOString(),
+            finishedAt: null,
+            elapsedMs: null,
+            progress: files.length ? "桥接重启后从磁盘恢复" : "产物已不在磁盘上",
+            files,
+            text: "",
+            error: files.length ? null : { reason: "GONE", message: "桥接重启后，这个任务的产物已不在磁盘上" },
+        };
+        recoveredJobs.set(jobId, job);
+        return job;
+    }
+    return null;
+}
 // 站点配置：豆包（国内）与 Dola（国际版）走同一套账号池 / 任务 / 执行器，只是站点地址和能力文案不同
 const PROVIDERS = {
     doubao: {
@@ -1582,14 +1658,34 @@ const server = http.createServer(async (req, res) => {
 
         // GET /api/jobs/:id
         if (api[0] === "jobs" && api.length === 2 && req.method === "GET") {
-            const job = jobs.get(api[1]);
+            const job = jobs.get(api[1]) || recoverJob(api[1]);
             if (!job) return send(res, 404, { ok: false, error: "任务不存在" });
+            const summary = listJobs(1000).find((item) => item.id === job.id);
             return send(res, 200, {
                 ok: true,
                 job: {
-                    ...listJobs(1000).find((item) => item.id === job.id),
+                    ...(summary || {
+                        id: job.id,
+                        nodeId: job.nodeId ?? null,
+                        accountId: job.accountId,
+                        accountName: job.accountName,
+                        provider: job.provider,
+                        prompt: job.prompt,
+                        capability: job.capability,
+                        mode: job.mode,
+                        modelName: job.modelName ?? null,
+                        requestedParams: job.requestedParams ?? null,
+                        actualParams: job.actualParams ?? null,
+                        status: job.status,
+                        createdAt: job.createdAt,
+                        finishedAt: job.finishedAt ?? null,
+                        elapsedMs: job.elapsedMs ?? null,
+                        files: job.files || [],
+                        text: job.text || "",
+                        error: job.error || null,
+                    }),
                     progress: job.progress,
-                    stderr: tail(job.stderrLines.join("\n"), 12),
+                    stderr: tail((job.stderrLines || []).join("\n"), 12),
                     modes: job.modes || null,
                     confirmRounds: job.confirmRounds ?? null,
                 },
@@ -1598,14 +1694,18 @@ const server = http.createServer(async (req, res) => {
 
         // GET /api/jobs/:id/files/:index —— 下载真实产物（支持 Range：视频边下边播 / 拖进度都要分段）
         if (api[0] === "jobs" && api[2] === "files" && api.length === 4 && req.method === "GET") {
-            const job = jobs.get(api[1]);
+            const job = jobs.get(api[1]) || recoverJob(api[1]);
             const index = Number(api[3]);
             let file = job?.files?.[index];
-            // 内存里没有（桥接重启过 / 任务早被淘汰）：退回磁盘索引，别让画布上的老节点变成 404
+            // 内存里没有（桥接重启过 / 任务早被淘汰）：退回磁盘索引，再退回按 jobId 扫描下载目录
             if ((!file || !fs.existsSync(file.path)) && Number.isInteger(index)) {
                 const persisted = readJobFiles(api[1]);
                 const fallback = Array.isArray(persisted) ? persisted[index] : null;
                 if (fallback?.path && fs.existsSync(fallback.path)) file = fallback;
+                else {
+                    const restored = recoverJob(api[1])?.files?.[index];
+                    if (restored?.path && fs.existsSync(restored.path)) file = restored;
+                }
             }
             if (!file || !fs.existsSync(file.path)) {
                 // 别让浏览器把 404 缓存住：文件补上之后画布刷新还能正常播

@@ -394,7 +394,10 @@ function InfiniteCanvasPage() {
             } catch (error) {
                 if (isGenerationCanceled(error)) return;
                 const errorDetails = error instanceof Error ? error.message : t("canvas.projectPage.generationFailed");
-                message.error(errorDetails);
+                // 打开画布时自动恢复任务（silent）失败不要弹窗：桥接重启后老任务查不到，
+                // 以前一进画布就弹「任务不存在」。静默把节点标成错误、清掉失效的 taskId 就够。
+                const taskGone = /任务不存在|任务已在桥接重启后失效|file not found/i.test(errorDetails);
+                if (!silent && !taskGone) message.error(errorDetails);
                 setNodes((prev) =>
                     prev.map((item) =>
                         item.id === node.id
@@ -404,7 +407,7 @@ function InfiniteCanvasPage() {
                                       ...item.metadata,
                                       status: item.metadata?.content ? NODE_STATUS_SUCCESS : NODE_STATUS_ERROR,
                                       errorDetails: item.metadata?.content ? undefined : errorDetails,
-                                      ...(isVideoTaskFailed(error) ? { videoTaskId: undefined } : {}),
+                                      ...(isVideoTaskFailed(error) || taskGone ? { videoTaskId: undefined } : {}),
                                   },
                               }
                             : item,

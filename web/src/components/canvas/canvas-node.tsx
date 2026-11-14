@@ -751,7 +751,10 @@ function VideoNodeContent({ node, theme }: NodeContentRendererProps) {
             </div>
         );
     const base = node.metadata.content.split("#")[0];
-    const src = `${base}${base.includes("?") ? "&" : "?"}r=${attempt}#t=0.1`;
+    // 只有本机桥接的地址才能加缓存参数；站点 CDN 的地址是带签名的，多一个参数就会 403/黑屏，
+    // 所以「第一次加载一定用原地址，重试时才给桥接地址加 ?r=」。
+    const isBridgeFile = base.includes("/api/jobs/");
+    const src = attempt > 0 && isBridgeFile ? `${base}${base.includes("?") ? "&" : "?"}r=${attempt}#t=0.1` : `${base}#t=0.1`;
     // preload="auto" + #t=0.1：默认只拉元数据时不会解码画面，节点上就只显示一块黑屏
     return (
         <div className="relative h-full w-full">

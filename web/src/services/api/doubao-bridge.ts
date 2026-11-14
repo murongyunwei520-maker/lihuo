@@ -249,9 +249,17 @@ export async function createVideoJob(input: {
     return data.job;
 }
 
-export async function getJob(id: string) {
-    const data = await request<{ ok: boolean; job: DoubaoJob }>(`/api/jobs/${id}`);
-    return data.job;
+export async function getJob(id: string): Promise<DoubaoJob | null> {
+    try {
+        const data = await request<{ ok: boolean; job: DoubaoJob }>(`/api/jobs/${id}`);
+        return data.job;
+    } catch (error) {
+        // 桥接重启后极老的任务可能连磁盘产物都没了：这不是错误弹窗，是「查不到」，
+        // 交给调用方决定（检查器留空、生成流程重新开始），不要一打开画布就弹「任务不存在」。
+        const message = error instanceof Error ? error.message : String(error);
+        if (/任务不存在/.test(message) || /file not found/i.test(message)) return null;
+        throw error;
+    }
 }
 
 /** 按画布节点找最近一次任务：结果只回这个节点。 */
@@ -275,6 +283,8 @@ export async function waitJob(id: string, onProgress?: (job: DoubaoJob) => void,
     for (;;) {
         if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
         const job = await getJob(id);
+        // 任务真的没了（连磁盘产物都不在）：明确失败，别让界面一直「生成中」
+        if (!job) throw new Error("任务已在桥接重启后失效，请重新生成");
         onProgress?.(job);
         if (job.status === "succeeded" || job.status === "failed") return job;
         if (Date.now() > deadline) throw new Error("等待任务超时");
