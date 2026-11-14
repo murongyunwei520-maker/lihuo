@@ -300,7 +300,7 @@ const ANSWER_HINT = "[data-testid='message_content'], [class*='message-action-ba
 // 还在排队/正在生成的回答不算「成片」
 const PENDING_ANSWER_RE = /预计等待|生成好后|我将为你生成|正在生成|排队中|estimated|generating|i will (create|generate)|will send it/i;
 // 明确拒绝 / 没法生成的说法。注意「消耗每日免费额度」那句是排队消息，不能算拒绝。
-const REFUSAL_RE = /升级正式订阅|体验套餐不可用|不可用于创作|次数已用完|额度不足|(生成|创作)(失败|出错)|无法生成|内容不符合|upgrade|subscription (is )?required|quota|not available in your (plan|region)|failed to generate/i;
+const REFUSAL_RE = /升级正式订阅|体验套餐不可用|不可用于创作|次数已用完|额度不足|(生成|创作)(失败|出错)|无法生成|内容不符合|出了点问题|请稍后重试|稍后再试|服务(器)?(异常|繁忙)|系统繁忙|网络异常|upgrade|subscription (is )?required|quota|not available in your (plan|region)|failed to generate|something went wrong|try again later|please try again|server (is )?busy/i;
 // 额度/订阅用尽这一类「不是内容问题」的拒绝：命中就把账号标成额度不足，并立刻结束任务。
 const QUOTA_RE = /额度|配额|订阅|会员|套餐|升级|余额不足|credit|quota|subscription|upgrade|out of (credits|quota)|(reached|hit) (your|the) (daily )?limit|limit (has been )?reached|insufficient/i;
 // 额度用完的**强特征**：Dola 说的是「今日视频生成免费数量用完了…开通 Dola 会员」，
@@ -360,6 +360,24 @@ async function scanAnswers(page, { fresh = false, pending = "", probePlayer = fa
         .catch(() => ({ total: 0, fresh: 0, pending: 0, text: "", videos: [], images: [], playerBox: null }));
 }
 
+/** 发送后新出现的消息块文字（不要求有正文）：错误卡片就靠它识别。 */
+async function freshMessageTexts(page, limit = 3) {
+    return page
+        .evaluate(
+            ({ selector, max }) => {
+                const visible = (el) => !!el && el.getClientRects().length > 0;
+                return [...document.querySelectorAll(selector)]
+                    .filter((el) => visible(el) && !el.closest("aside, nav, header"))
+                    .filter((el) => el.getAttribute("data-testid") !== "send_message" && el.getAttribute("data-message-role") !== "user")
+                    .filter((el) => el.getAttribute("data-lihuo-msg-seen") !== "1")
+                    .slice(-max)
+                    .map((el) => (el.innerText || "").replace(/\s+/g, " ").trim());
+            },
+            { selector: ANSWER_SELECTOR, max: limit },
+        )
+        .catch(() => []);
+}
+
 /** 读最后一条回答的正文（跳过时间戳和「猜你想问」）。 */
 async function readAnswerText(page, onlyFresh = false) {
     return (await scanAnswers(page, { fresh: onlyFresh })).text;
@@ -389,6 +407,11 @@ async function markAnswers(page) {
                     const role = el.getAttribute("data-message-role") || el.querySelector("[data-message-role]")?.getAttribute("data-message-role") || "";
                     return !role || role === "assistant";
                 };
+                // 所有消息块都记一笔：错误卡片（「出了点问题」）没有正文，不会被当成「回答」，
+                // 但它同样是这次新出现的，得单独识别出来才能快速失败。
+                [...document.querySelectorAll(selector)]
+                    .filter((el) => visible(el) && !el.closest("aside, nav, header") && isAnswer(el))
+                    .forEach((el) => el.setAttribute("data-lihuo-msg-seen", "1"));
                 const all = [...document.querySelectorAll(selector)].filter((el) => visible(el) && !!el.querySelector(hint) && !el.closest("aside, nav, header") && isAnswer(el));
                 const answers = all.filter((el) => !all.some((other) => other !== el && el.contains(other)));
                 answers.forEach((el) => el.setAttribute("data-lihuo-seen", "1"));
@@ -418,6 +441,12 @@ async function detectRefusal(page, onlyFresh) {
     // 1) 最新一条成片回答
     const fromAnswer = classifyRefusal((await scanAnswers(page, { fresh: Boolean(onlyFresh), pending: PENDING_ANSWER_RE.source })).text);
     if (fromAnswer) return fromAnswer;
+
+    // 1.5) 错误卡片（「出了点问题，请稍后重试」）没有正文，走单独的新消息块判断
+    for (const text of await freshMessageTexts(page, 3)) {
+        const hit = classifyRefusal(text);
+        if (hit) return hit;
+    }
 
     // 2) 弹层 / toast：只认「像提示框」的元素，且要在正文区（侧栏/顶栏的营销文案不算）
     const notices = await page
