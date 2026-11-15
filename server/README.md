@@ -38,6 +38,7 @@ server/
 │   │   ├── audit.ts             审计写入（管理员敏感操作）
 │   │   ├── billing.ts           定价、预扣、结算、退款、流水
 │   │   ├── chat.ts              对话接口（含流式）+ 价格与用量路由
+│   │   ├── generate.ts          生成代理（端点白名单、按次计费、原样透传）
 │   │   ├── registry.ts          Model Registry（能力、参数、上架规则）
 │   │   ├── models-api.ts        注册表 HTTP 层（含网关可用性合并）
 │   │   └── gateway.ts           网关代理（模型列表、健康）
@@ -83,7 +84,9 @@ npm start                 # http://127.0.0.1:3100
 
 ## 接口
 
-所有响应统一为 `{ ok: true, data }` 或 `{ ok: false, error: { code, message } }`。
+除「生成代理」成功时原样透传上游响应体外，其余响应统一为
+`{ ok: true, data }` 或 `{ ok: false, error: { code, message } }`；
+生成代理的账单信息放在 `X-Lihuo-*` 响应头。
 
 ### 公开
 
@@ -101,10 +104,12 @@ npm start                 # http://127.0.0.1:3100
 |---|---|---|
 | GET | `/api/gateway/models` | 网关可见模型列表 |
 | GET | `/api/model-prices` | 模型价格表 |
+| GET | `/api/generation-prices` | 生成类按次价格表 |
 | GET | `/api/models` | 模型目录（仅已上架，含可用性） |
 | GET | `/api/models/:modelId` | 模型详情（含能力与参数） |
 | POST | `/api/chat` | 对话（非流式），带计费 |
 | POST | `/api/chat/stream` | 对话（SSE 流式），带计费 |
+| POST | `/api/generate/:endpoint` | 生成代理，服务端持令牌，按次计费 |
 | GET | `/api/usage` | 我的调用流水与余额 |
 
 ### 管理员
@@ -120,8 +125,27 @@ npm start                 # http://127.0.0.1:3100
 | POST | `/api/admin/models` | 新建模型（可同时写价格） |
 | PATCH | `/api/admin/models/:modelId` | 修改 / 上下架 |
 | DELETE | `/api/admin/models/:modelId` | 删除元数据（价格与历史流水保留） |
-| PUT | `/api/admin/model-prices/:model` | 单独设置模型价格 |
+| PUT | `/api/admin/model-prices/:model` | 单独设置 token 价格 |
+| PUT | `/api/admin/generation-prices/:model` | 单独设置按次价格（分/次） |
 | GET | `/api/gateway/health` | 网关健康 |
+
+### 生成代理
+
+`POST /api/generate/:endpoint` 由服务端持上游令牌转发，前端不带任何 API Key。
+`:endpoint` 只接受别名白名单，不接受路径：
+
+| 别名 | 上游路径 | 能力 |
+|---|---|---|
+| `image-generations` | `/v1/images/generations` | image |
+| `image-edits` | `/v1/images/edits` | image |
+| `audio-speech` | `/v1/audio/speech` | audio（二进制透传） |
+| `embeddings` | `/v1/embeddings` | embedding |
+
+请求体需带 `model`（已注册、已上架、能力匹配、已配按次价）、端点必填字段，
+以及仅含该模型 `supportedParameters` 的可选参数。成功时上游响应体原样返回，
+账单信息在 `X-Lihuo-Cost-Cents` / `X-Lihuo-Balance-Cents` /
+`X-Lihuo-Request-Id` / `X-Lihuo-Model` 响应头。
+失败返回统一错误体并全额退款；`Idempotency-Key` 防重复扣费，重放返回 409。
 
 ---
 

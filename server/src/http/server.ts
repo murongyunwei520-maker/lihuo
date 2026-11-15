@@ -7,6 +7,7 @@ import { login, logout, me, register, sessionToken } from "../modules/auth.ts";
 import { createUser, listAuditLogs, listUsers, patchUser } from "../modules/users.ts";
 import { gatewayHealth, gatewayModels, gatewayErrorToResponse } from "../modules/gateway.ts";
 import { allUsage, chat, chatStream, getPrices, myUsage, putPrice } from "../modules/chat.ts";
+import { generate, listGenerationPricesHandler, putGenerationPriceHandler } from "../modules/generate.ts";
 import {
   createModelHandler,
   deleteModelHandler,
@@ -78,6 +79,11 @@ router.post("/api/chat/stream", requireUser((ctx, req, res, user) => chatStream(
 router.get("/api/usage", requireUser((ctx, req, res, user) => myUsage(req, res, user)));
 router.get("/api/model-prices", requireUser((ctx, _req, res) => getPrices(_req, res)));
 
+// 生成代理：上游令牌只在服务端，按次计费，响应体原样透传
+router.post("/api/generate/:endpoint", requireUser((ctx, req, res, user) => generate(ctx, req, res, user)));
+router.get("/api/generation-prices", requireUser((ctx, _req, res) => listGenerationPricesHandler(_req, res)));
+router.put("/api/admin/generation-prices/:model", requireAdmin((ctx, req, res) => putGenerationPriceHandler(ctx, req, res)));
+
 // 管理员：价格与全量用量
 router.put("/api/admin/model-prices/:model", requireAdmin((ctx, req, res) => putPrice(ctx, req, res)));
 router.get("/api/admin/usage", requireAdmin((ctx, req, res) => allUsage(req, res)));
@@ -98,8 +104,12 @@ function applyCors(req: IncomingMessage, res: ServerResponse): boolean {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Access-Control-Allow-Credentials", "true");
     res.setHeader("Vary", "Origin");
-    res.setHeader("Access-Control-Allow-Methods", "GET,POST,PATCH,DELETE,OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Idempotency-Key");
+    res.setHeader(
+      "Access-Control-Expose-Headers",
+      "X-Lihuo-Cost-Cents, X-Lihuo-Balance-Cents, X-Lihuo-Request-Id, X-Lihuo-Model, X-Lihuo-Gateway-Request-Id",
+    );
     res.setHeader("Access-Control-Max-Age", "600");
   }
   return req.method === "OPTIONS";

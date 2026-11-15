@@ -104,6 +104,14 @@ function migrate(d: DatabaseSync): void {
       updated_at        INTEGER NOT NULL
     );
 
+    -- 生成类调用（图片/语音/向量）按次定价，与 token 定价解耦
+    CREATE TABLE IF NOT EXISTS generation_prices (
+      model           TEXT PRIMARY KEY,
+      cents_per_call  INTEGER NOT NULL DEFAULT 0,
+      enabled         INTEGER NOT NULL DEFAULT 1,
+      updated_at      INTEGER NOT NULL
+    );
+
     -- 调用流水：既是账单依据，也是幂等凭据
     CREATE TABLE IF NOT EXISTS usage_records (
       id               INTEGER PRIMARY KEY AUTOINCREMENT,

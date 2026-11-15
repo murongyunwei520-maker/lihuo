@@ -6,7 +6,9 @@ import { createEmptySequence, createSampleSequence } from "@/lib/drama/sample";
 import { localForageStorage } from "@/lib/localforage-storage";
 import type { DramaSequence } from "@/types/drama";
 
-type SequencePatch = Partial<Pick<DramaSequence, "title" | "targetSeconds" | "shots" | "assets" | "projectId">>;
+export type SequencePatch = Partial<
+    Pick<DramaSequence, "title" | "targetSeconds" | "shots" | "assets" | "script" | "settings" | "projectId" | "bible" | "voices" | "exportedAt">
+>;
 
 type DramaStore = {
     hydrated: boolean;

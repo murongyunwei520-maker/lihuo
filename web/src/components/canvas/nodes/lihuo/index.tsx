@@ -1,4 +1,4 @@
-import { ExternalLink, Film, Palette, Sparkles, StickyNote, Wand2 } from "lucide-react";
+import { Clapperboard, ExternalLink, Film, LayoutGrid, Palette, Sparkles, StickyNote, Wand2 } from "lucide-react";
 
 import { registerNodeDefinitions } from "@/lib/canvas/node-registry";
 import type { CanvasNodeDefinition } from "@/types/canvas-plugin";
@@ -6,6 +6,8 @@ import type { CanvasNodeDefinition } from "@/types/canvas-plugin";
 import { PromptLabContent, PromptLabPanel, promptResource, LIHUO_PROMPT_TYPE } from "./prompt-lab";
 import { directorDeskSrc, LihuoDirectorContent, LIHUO_DIRECTOR_TYPE } from "./director-node";
 import { nextNoteColor, noteResource, LihuoNoteContent, LIHUO_NOTE_DEFAULT_COLOR, LIHUO_NOTE_TYPE } from "./lihuo-note";
+import { LihuoDramaContent, LihuoDramaPanel, LIHUO_DRAMA_TYPE } from "./drama-node";
+import { DramaShotContent, DramaShotPanel, generateShotImage, LIHUO_DRAMA_SHOT_TYPE } from "./drama-shot";
 
 // 自研节点统一挂在 lihuo 命名空间下：节点类型写作 "lihuo:<name>"，插件私有存储也按这个 id 隔离。
 export const LIHUO_NODE_PLUGIN_ID = "lihuo";
@@ -81,6 +83,48 @@ export const LIHUO_NODE_DEFINITIONS: CanvasNodeDefinition[] = [
             },
         ],
         Content: LihuoDirectorContent,
+    },
+    {
+        type: LIHUO_DRAMA_TYPE,
+        title: "短剧工作室",
+        icon: <Clapperboard className={iconClass} />,
+        description: "把一集分镜投影成画布节点，逐镜生成画面",
+        defaultSize: { width: 380, height: 200 },
+        defaultMetadata: { sequenceId: "", status: "idle" },
+        minimapColor: "#8b7ac9",
+        // 新建后直接展开面板，省掉「再点一次节点选序列」这一步。
+        autoOpenPanel: true,
+        toolbar: (ctx) => [
+            {
+                id: "lihuo-drama-project",
+                title: "打开投影面板",
+                label: "投影",
+                icon: <LayoutGrid className={iconClass} />,
+                onClick: ctx.openPanel,
+            },
+        ],
+        Content: LihuoDramaContent,
+        Panel: LihuoDramaPanel,
+    },
+    {
+        type: LIHUO_DRAMA_SHOT_TYPE,
+        title: "短剧镜头",
+        icon: <Film className={iconClass} />,
+        description: "单镜画面卡，按镜头参数直接生成画面",
+        defaultSize: { width: 200, height: 300 },
+        defaultMetadata: { sequenceId: "", shotId: "", status: "idle" },
+        minimapColor: "#6b57a8",
+        toolbar: (ctx) => [
+            {
+                id: "lihuo-drama-shot-generate",
+                title: "生成这一镜的画面",
+                label: ctx.node.metadata?.status === "loading" ? "生成中" : "生成画面",
+                icon: <Wand2 className={iconClass} />,
+                onClick: () => void generateShotImage(ctx),
+            },
+        ],
+        Content: DramaShotContent,
+        Panel: DramaShotPanel,
     },
 ];
 

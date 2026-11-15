@@ -1220,7 +1220,9 @@ job: try {
     // 确认参数：豆包 / Dola 有时先说「确认后我再开始生成视频。」，必须回一句「确认，开始生成」才会真的开始。
     // 这里不能只看一眼就过：实测这句话 10~40 秒才出现，原来固定等 4 秒读一次就 break，
     // 漏掉之后一路干等到 15 分钟超时（日志里 931 秒 / 947 秒那两个失败就是它）。
-    {
+    // 只有图片/视频任务需要「确认后开始生成」；对话任务没有生成参数，
+    // 跑这段会在剧本正文出现「请确认 / 是否继续」时误判，然后往对话里插「确认，开始生成」，把剧本打断。
+    if (!expectText) {
         const confirmRe = /确认后.{0,6}(我再|开始|继续)|请.{0,4}确认|是否(开始|继续|确认)|回复.{0,6}确认|点击.{0,8}(开始生成|确认)|如确认|确认无误/i;
         // 已经在排队/生成中的信号：见到就说明不需要再确认，立刻退出等待，别把每个任务都拖慢两分钟
         const startedRe = /预计.{0,6}等待|正在生成|生成中|即将生成|生成好后|会主动发送|已开始生成|排队/i;
@@ -1256,7 +1258,8 @@ job: try {
         let last = "";
         let stable = 0;
         let round = 0;
-        const textDeadline = Date.now() + 5 * 60 * 1000;
+        // 写长剧本（4 场戏 / 几百字）经常超过 5 分钟，原来会在回答写到一半时截止。
+        const textDeadline = Date.now() + 8 * 60 * 1000;
         while (Date.now() < textDeadline) {
             await page.waitForTimeout(2500);
             round += 1;
@@ -1267,7 +1270,12 @@ job: try {
                 emit({ type: "result", ok: false, error: { reason: refusal.quota ? "QUOTA_EXCEEDED" : "DOUBAO_REFUSED", message: refusal.text.slice(0, 200) } });
                 break job;
             }
-            const said = (await readAnswerText(page, true)).trim();
+            let said = (await readAnswerText(page, true)).trim();
+            if (!said) {
+                // 站点是 React 渲染，发送后整条列表会重建、data-lihuo-seen 标记会丢，
+                // 「只认新回答」会被过滤成空，最后明明写完了却报 NO_TEXT。这里回退读最后一条回答。
+                said = (await readAnswerText(page, false)).trim();
+            }
             if (said && said === last) stable += 1;
             else if (said) stable = 0;
             if (said) last = said;

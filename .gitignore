@@ -38,3 +38,13 @@ web/public/director-3d/
 
 # 本地备份快照（不入库）
 .backup/
+
+# AI 工作区（记忆、原型、craft-anything 证据等，仅本地保留）
+.workbuddy/
+
+# 临时探测脚本与临时截图
+_probe/
+_models-db-*.png
+
+# UI 走查截图（体积大，仅本地参考）
+docs/ui-refactor/screenshots/

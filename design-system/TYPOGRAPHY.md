@@ -142,3 +142,9 @@ font-variant-numeric: tabular-nums;
 - ❌ 不要在同一屏混用两种字体家族做标题与正文。
 - ❌ 不要把中文正文做成衬线体或手写体。
 - ❌ 不要在中文文案里手打中英空格制造"高级感"。
+
+---
+
+## 9. 英文品牌签名例外
+
+沉浸式首页的英文标识 `lihuo` 可使用本机已有的 `"Segoe Script" / "Brush Script MT" / "Snell Roundhand"` 手写体回退栈，不下载字体、不引入 `@font-face`。例外只覆盖英文品牌签名，中文标题、正文、按钮和参数仍使用唯一 sans 栈。

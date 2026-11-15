@@ -47,19 +47,23 @@ export function lintSequence(sequence: DramaSequence): DramaIssue[] {
         }
     });
 
-    // 穿帮检查：相邻两镜同场景同景别但光位相反，连播时最容易被看出来。
-    for (let index = 1; index < sequence.shots.length; index += 1) {
-        const previous = sequence.shots[index - 1];
-        const current = sequence.shots[index];
-        if (previous.scene !== current.scene || previous.size !== current.size) continue;
-        if (previous.light === "none" || current.light === "none" || previous.light === current.light) continue;
-        issues.push({
-            id: `light-${current.id}`,
-            level: "warning",
-            shotId: current.id,
-            title: `镜 ${current.no} 与镜 ${previous.no} 同场景同景别，光位相反`,
-            detail: `${LIGHT_LABEL[previous.light]} → ${LIGHT_LABEL[current.light]}，连播会看出方向跳变`,
-        });
+    // 穿帮检查：同场景同景别的镜头按出现顺序比较光位。
+    // 不能只比物理相邻两镜——中间插了别的镜头，观众照样能看出同一场景的光方向跳变。
+    const lastBySceneSize = new Map<string, DramaShot>();
+    for (const current of sequence.shots) {
+        if (!current.scene.trim()) continue;
+        const key = `${current.scene}|${current.size}`;
+        const previous = lastBySceneSize.get(key);
+        if (previous && previous.light !== "none" && current.light !== "none" && previous.light !== current.light) {
+            issues.push({
+                id: `light-${current.id}`,
+                level: "warning",
+                shotId: current.id,
+                title: `镜 ${current.no} 与镜 ${previous.no} 同场景同景别，光位相反`,
+                detail: `${LIGHT_LABEL[previous.light]} → ${LIGHT_LABEL[current.light]}，连播会看出方向跳变`,
+            });
+        }
+        lastBySceneSize.set(key, current);
     }
 
     return issues;

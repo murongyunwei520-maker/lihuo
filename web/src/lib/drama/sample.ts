@@ -2,6 +2,7 @@ import { nanoid } from "nanoid";
 
 import type { DramaAsset, DramaSequence, DramaShot } from "@/types/drama";
 
+import { DEFAULT_DRAMA_SETTINGS } from "./settings";
 import { shotNumber } from "./schema";
 
 // 示例内容：只在第一次打开页面、还没有任何序列时生成一份，方便直接看清结构。
@@ -38,6 +39,7 @@ export function createSampleSequence(title: string): DramaSequence {
         id: nanoid(),
         title,
         targetSeconds: 60,
+        settings: { ...DEFAULT_DRAMA_SETTINGS },
         assets,
         shots: SAMPLE_SHOTS.map((shot, index) => {
             const { cast, ...rest } = shot;
@@ -75,6 +77,7 @@ export function createEmptySequence(title: string): DramaSequence {
         id: nanoid(),
         title,
         targetSeconds: 60,
+        settings: { ...DEFAULT_DRAMA_SETTINGS },
         shots: [],
         assets: [],
         createdAt: now,

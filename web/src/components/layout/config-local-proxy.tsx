@@ -37,6 +37,7 @@ export function ConfigLocalProxy() {
                             {t("config.proxy.title")}
                         </div>
                         <div className="mt-1 text-xs text-stone-500">{t("config.proxy.description")}</div>
+                        <div className="mt-1 text-xs text-stone-500">{t("config.proxy.lihuoHint")}</div>
                     </div>
                     <Switch checked={config.proxyEnabled} onChange={(checked) => updateConfig("proxyEnabled", checked)} />
                 </div>

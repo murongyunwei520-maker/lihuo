@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { NewApiProvider } from "../gateway/newapi/newapi.provider.ts";
+import { NewApiClient } from "../gateway/newapi/newapi.client.ts";
 import { config } from "../config.ts";
 import { fail, ok } from "../http/respond.ts";
 import { GatewayError } from "../gateway/gateway.interface.ts";
@@ -22,6 +23,22 @@ export function getProvider(): NewApiProvider {
     });
   }
   return provider;
+}
+
+/**
+ * 原始转发客户端：给「生成代理」这类需要原样透传响应体的接口用。
+ * 与对话 Provider 共用同一份凭据配置，令牌仍只在服务端。
+ */
+let rawClient: NewApiClient | null = null;
+
+export function getRawClient(): NewApiClient {
+  if (!rawClient) {
+    rawClient = new NewApiClient({
+      baseUrl: config.gatewayBaseUrl,
+      apiKey: config.gatewayApiKey,
+    });
+  }
+  return rawClient;
 }
 
 /** 网关错误 → HTTP 响应，保留 request id 便于排障 */

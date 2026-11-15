@@ -155,9 +155,12 @@ export async function askDoubao(opts: {
         attachments,
         nodeId: opts.nodeId,
     });
-    const done = await waitJob(job.id, undefined, 2000, 6 * 60 * 1000, opts.signal);
+    // 与 bridge 的 8 分钟对话等待对齐，再留出启动与发送的时间。
+    const done = await waitJob(job.id, undefined, 2000, 10 * 60 * 1000, opts.signal);
     if (done.status !== "succeeded") {
-        throw new Error(done.error?.message || siteLabel + "对话失败");
+        // 把 bridge 的最后一条进度带出来，方便判断是卡在登录、发送还是读取回答。
+        const detail = done.progress ? `（${done.progress}）` : "";
+        throw new Error((done.error?.message || siteLabel + "对话失败") + detail);
     }
     const text = (done.text || "").trim();
     if (!text) throw new Error(siteLabel + "没有返回回答内容");

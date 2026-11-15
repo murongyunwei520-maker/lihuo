@@ -23,6 +23,7 @@ import {
     type DoubaoWindowStatus,
     DOUBAO_BRIDGE_URL,
 } from "@/services/api/doubao-bridge";
+import { APP_BRAND } from "@/constant/app";
 import { useDoubaoAccountStore } from "@/stores/use-doubao-account-store";
 
 // 豆包账号中心：账号池由用户管理，系统只负责读取真实状态与推荐。
@@ -227,7 +228,7 @@ export default function DoubaoAccountPage() {
                 <div className="flex flex-wrap items-end justify-between gap-4">
                     <div>
                         <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[#6b57a8] dark:text-[#b9ace8]">LIHUO · DOUBAO</p>
-                        <h1 className="mt-2 text-2xl font-semibold tracking-tight">离火 · 豆包账号中心</h1>
+                        <h1 className="mt-2 text-2xl font-semibold tracking-tight">{APP_BRAND.nameEn} · 豆包账号中心</h1>
                     </div>
                     <Tag color={online === null ? "default" : online ? "green" : "red"} className="!m-0">
                         {online === null ? "检测中" : online ? "桥接服务已连接" : "桥接服务未运行"}

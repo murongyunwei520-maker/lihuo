@@ -103,7 +103,7 @@ export function AppTopNav() {
                 </header>
             ) : null}
 
-            <MobileNavDrawer open={mobileNavOpen} activeToolSlug={activeToolSlug} onClose={() => setMobileNavOpen(false)} />
+            <MobileNavDrawer open={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
             <AppConfigModal />
         </>
     );

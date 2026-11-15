@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "reac
 import { App, Button, Card, Drawer, Empty, Form, Image, Input, Modal, Pagination, Select, Space, Tag, Typography } from "antd";
 import { saveAs } from "file-saver";
 import { useTranslation } from "react-i18next";
+import { useSearchParams } from "react-router-dom";
 
 import { useCopyText } from "@/hooks/use-copy-text";
 import { formatBytes, readFileAsDataUrl } from "@/lib/image-utils";
@@ -31,6 +32,7 @@ export default function AssetsPage() {
     const { t } = useTranslation();
     const copyText = useCopyText();
     const [form] = Form.useForm<AssetFormValues>();
+    const [searchParams] = useSearchParams();
     const coverInputRef = useRef<HTMLInputElement>(null);
     const imageInputRef = useRef<HTMLInputElement>(null);
     const assetInputRef = useRef<HTMLInputElement>(null);
@@ -38,7 +40,7 @@ export default function AssetsPage() {
     const addAsset = useAssetStore((state) => state.addAsset);
     const updateAsset = useAssetStore((state) => state.updateAsset);
     const removeAsset = useAssetStore((state) => state.removeAsset);
-    const [keyword, setKeyword] = useState("");
+    const [keyword, setKeyword] = useState(() => searchParams.get("q") || "");
     const [kindFilter, setKindFilter] = useState<AssetKind | "all">("all");
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
@@ -67,6 +69,11 @@ export default function AssetsPage() {
         const start = (page - 1) * pageSize;
         return filteredAssets.slice(start, start + pageSize);
     }, [filteredAssets, page, pageSize]);
+
+    useEffect(() => {
+        setKeyword(searchParams.get("q") || "");
+        setPage(1);
+    }, [searchParams]);
 
     useEffect(() => {
         const maxPage = Math.max(1, Math.ceil(filteredAssets.length / pageSize));
@@ -194,8 +201,8 @@ export default function AssetsPage() {
     };
 
     return (
-        <div className="flex h-full flex-col overflow-hidden bg-background text-stone-900 dark:text-stone-100">
-            <main className="min-h-0 flex-1 overflow-y-auto bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] px-6 py-8 [background-size:16px_16px] dark:bg-[radial-gradient(rgba(245,245,244,.14)_1px,transparent_1px)]">
+        <div className="flex h-full flex-col overflow-hidden text-stone-900 dark:text-stone-100">
+            <main className="thin-scrollbar min-h-0 flex-1 overflow-y-auto bg-[radial-gradient(rgba(139,124,200,0.16)_1px,transparent_1px)] px-6 py-8 [background-size:18px_18px] dark:bg-[radial-gradient(rgba(185,172,232,0.14)_1px,transparent_1px)]">
                 <div className="pb-8">
                     <div className="mx-auto max-w-5xl text-center">
                         <h1 className="text-4xl font-semibold tracking-tight text-stone-950 dark:text-stone-100">{t("assets.title")}</h1>

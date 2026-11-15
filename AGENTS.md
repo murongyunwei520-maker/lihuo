@@ -33,7 +33,7 @@
 
 - 前端使用 Vite、React、React Router、TypeScript、Ant Design、Tailwind、Zustand。
 - 编写 Ant Design 相关代码时，参考 https://ant.design/llms-full.txt 理解组件 API、示例和设计规范，并优先结合项目当前 antd 版本与既有写法。
-- 外部服务请求统一放在 `web/src/services/api/`，由浏览器前端直连，不假设存在项目后端。
+- 外部服务请求统一放在 `web/src/services/api/`。离火架构下前端应只调用离火业务后端（`web/src/services/api/lihuo-server.ts`），新增能力不得依赖浏览器直连上游；画布尚存的前端直连渠道是过渡态，详见「离火网关约定」。
 - 全局或跨页面状态优先放在 `web/src/stores/`。
 - 已经放在全局 store 或全局 hook 中的状态/动作，组件需要时直接使用对应 store/hook，不要为了“纯组件”层层透传 props；避免一个组件传递过多参数。
 - 全局组件、全局常量、全局配置等全局性质的内容不要作为 props 或参数层层传递；哪里需要就在哪里直接从对应全局入口获取。
@@ -101,9 +101,9 @@
 
 - 新增或调整超时、重试次数、大小限制、并发上限等会改变实际行为的边界值前，必须先向用户说明适用环节、默认值和失败后的处理方式，并取得确认；不要把经验值当成纯内部实现静默加入。
 - 当前画布项目和“我的素材”主要保存在浏览器本地，不要在文档中误写成已支持云同步。
-- 当前 AI API Key 存在浏览器本地，并由前端直接请求 OpenAI 兼容接口；涉及安全说明时要写清楚。
+- 上游 API Key 只存在于当前会话内存，不写入 localStorage、IndexedDB 或导出的配置 JSON；旧版本落过盘的 Key 会在启动时被擦除。画布生成目前仍由前端直连上游，完整服务端代理化尚未完成，安全说明中不要写成「凭证已由服务端托管」。
 - Docker 静态资源路径目前仍是待办项，文档中不要过度承诺生产部署已经完全验证。
-- 本目录当前不含 `.git`，删除文件或大范围重写前必须先确认备份方式；「发版本流程」需要先补建版本库才能执行。
+- 本目录已纳入 Git；删除文件或大范围重写前先看 `git status` 并确认备份方式，不要回滚或覆盖工作区中已有的其他改动。
 - 视频参数的真实取值范围以豆包账号态 `.doubao-accounts/<id>/state/video-caps.json` 为准（当前比例含「自动」，时长 4–15s），不要凭经验写更大范围。
 - Agent 对话消息必须同时按 `threadId`、`turnId` 和 `itemId` 归属；实时事件只用于补充未物化的 turn，历史快照成为权威后不得重复合并同一条消息。
 - Agent 通信协议版本与消息存储版本必须独立管理；消息存储格式升级时必须先备份再迁移，遇到未知版本、损坏清单或冲突备份时拒绝覆盖原文件，不得按记录数量或文件大小静默裁剪历史元数据。
@@ -117,3 +117,15 @@
 - 自研节点默认优先声明 `Content` / `Panel` / `toolbar` / `resource` 这些 `CanvasNodeDefinition` 能力；能通过宿主能力实现的，不要在节点里另起一套状态管理。
 - 写节点内交互时遵守 `DEVELOPMENT.md` 的指针事件约定：交互控件 `stopPropagation`、浮层加 `data-canvas-no-zoom`、点击外部用 `pointerdown` capture、高频状态留在组件本地 state。
 - 二开说明统一写在根目录 `DEVELOPMENT.md`；`README.md` 保持简洁，只放介绍、功能、快速开始和文档入口。
+
+## 离火网关约定
+
+- 普通用户只见「离火」产品；New-API 只作为底层模型网关，其 `/api` 管理端不面向离火用户。
+- 令牌归属采用 A1：单一平台令牌 + 离火记账。`X-Oneapi-Request-Id` 与 `logs.request_id` 做精确归因，账单权威在离火侧，金额用整数「分」。
+- 权限边界只在后端会话校验与 `requireAdmin`；前端 Guard 只是体验层，不能当作安全边界。
+- 上游 API Key 不得写入任何浏览器持久化路径；`use-config-store.ts` 的 `partialize` / `merge` 与 `config-file.ts` 的配置导出都必须经 `withoutCredentials()`，新增持久化入口时同样处理。
+- 画布生成已有服务端代理 `POST /api/generate/:endpoint`（端点别名白名单 + 按次计费 + 原样透传响应体）；新增生成调用一律走它，不要再拼上游 `/v1` 地址或自己带 API Key。
+- 前端统一入口是 `web/src/services/api/lihuo-server.ts` 的 `generate()`（JSON）与 `generateBlob()`（二进制），账单信息从 `X-Lihuo-*` 响应头读取；生成代理成功时**不返回** `{ ok, data }` 包装，不要复用通用 `request()`。
+- `canvas-proxy` 是浏览器直连时代绕 CORS 的过渡组件，代码保留但不作为新功能依赖；新能力一律走离火后端代理。
+- 管理中心 `web/src/pages/admin/` 使用独立 `AdminLayout` 和局部明色 `ConfigProvider`，不套 `UserLayout`、不改全局主题；设计事实源是 `web/src/lib/app-theme.ts` 与 `design-system/`。
+- AGPLv3 与 `NOTICE` 的署名、修改标注义务独立履行，不因隐藏 New-API 品牌而删除。

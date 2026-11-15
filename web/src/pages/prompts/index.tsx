@@ -1,6 +1,7 @@
 import { FolderPlus, Search } from "lucide-react";
 import { type ReactNode, type UIEvent, useEffect, useState } from "react";
 import { App, Button, Empty, Input, Spin, Tag } from "antd";
+import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 import { PromptCard } from "@/components/prompts/prompt-card";
@@ -14,13 +15,22 @@ import { ALL_PROMPTS_OPTION, type Prompt } from "@/services/api/prompts";
 export default function PromptsPage() {
     const { message } = App.useApp();
     const { t } = useTranslation();
-    const [titleKeyword, setTitleKeyword] = useState("");
+    const [searchParams, setSearchParams] = useSearchParams();
+    const [titleKeyword, setTitleKeyword] = useState(() => searchParams.get("q") ?? "");
     const [selectedTags, setSelectedTags] = useState<string[]>([]);
     const [selectedCategory, setSelectedCategory] = useState(ALL_PROMPTS_OPTION);
     const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
     const addAsset = useAssetStore((state) => state.addAsset);
     const copyText = useCopyText();
     const { query, items: promptItems, tags: promptTags, categories: promptCategoryOptions, total: totalPrompts } = usePromptList({ keyword: titleKeyword, tags: selectedTags, category: selectedCategory });
+
+    // 顶栏搜索跳转到本页时会带上 q，进入后同步到本地关键词并清掉地址栏参数
+    useEffect(() => {
+        const incoming = searchParams.get("q");
+        if (incoming === null) return;
+        setTitleKeyword(incoming);
+        setSearchParams({}, { replace: true });
+    }, [searchParams, setSearchParams]);
 
     useEffect(() => {
         if (query.isError) message.error(query.error instanceof Error ? query.error.message : t("prompts.loadFailed"));
@@ -42,8 +52,8 @@ export default function PromptsPage() {
     };
 
     return (
-        <div className="flex h-full flex-col overflow-hidden bg-background text-stone-800 dark:text-stone-100">
-            <main className="min-h-0 flex-1 overflow-y-auto bg-background bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] px-4 py-6 [background-size:16px_16px] sm:px-6 lg:py-8 dark:bg-[radial-gradient(rgba(245,245,244,.16)_1px,transparent_1px)]" onScroll={handleListScroll}>
+        <div className="flex h-full flex-col overflow-hidden text-stone-800 dark:text-stone-100">
+            <main className="thin-scrollbar min-h-0 flex-1 overflow-y-auto bg-[radial-gradient(rgba(139,124,200,0.16)_1px,transparent_1px)] px-4 py-6 [background-size:18px_18px] sm:px-6 lg:py-8 dark:bg-[radial-gradient(rgba(185,172,232,0.14)_1px,transparent_1px)]" onScroll={handleListScroll}>
                 <div className="mx-auto max-w-7xl">
                     <div className="text-center">
                         <h1 className="text-2xl font-semibold text-stone-950 dark:text-stone-100">{t("prompts.title")}</h1>

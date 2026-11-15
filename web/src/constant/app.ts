@@ -2,7 +2,7 @@
 // 换品牌、换仓库、换本地存储命名空间都只改这一个文件。
 export const APP_BRAND = {
     name: "离火",
-    nameEn: "Lihuo",
+    nameEn: "lihuo",
     tagline: "以火为笔，炼万象",
     description: "面向 AI 创作的无限画布工作台",
     slug: "lihuo",

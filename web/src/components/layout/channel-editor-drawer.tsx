@@ -80,6 +80,7 @@ export function ChannelEditorDrawer({ open, channel, onSave, onClose }: { open: 
                 <label className="block md:col-span-2">
                     <span className="mb-1 block text-sm font-medium">API Key</span>
                     <Input.Password value={draft.apiKey} onChange={(event) => patch({ apiKey: event.target.value })} placeholder="sk-..." />
+                    <span className="mt-1 block text-xs text-stone-500">{t("config.channelEditor.apiKeyHint")}</span>
                 </label>
             </div>
 

@@ -1,3 +1,0 @@
-# Handoff
-
-调研对象：LibTV（LiblibAI，www.liblib.tv）与即梦（jimeng.jianying.com）。本轮已完成：brief、plan、静态证据快照 sources/feature-snapshot.md（S1-S10 分级标注）、32 条 native_bytes_find 证据、5 条假设（4 supported / 1 refuted）、12 条 findings、6 条 unknowns、report.md。结论要点：LibTV=无限画布+节点式工作流+多模型聚合+Agent Skill 双入口；即梦=智能画布/生成+Agent CLI（短剧创作 CLI / 全能画布 CLI，含 3D 导演台与时间轴粗剪）+会员积分；两者与离火形态高度相关，可借鉴节点抽象、模板复用、角色一致性、GUI+Agent 双入口，不宜照搬号池/计费。下一步：若用户授权运行站点脚本（web-site-open 需要 consent），补做登录态/工作台被动观察，优先解 U1/U3/U4；再查官方 Skill 文档解 U2。陷阱：①MCP 工具未注入本会话，必须用绝对路径 CLI + --project；②web-site-open 不带 --allow-run 会等待交互批准而挂起，不要用 --allow-run 绕过；③craft-anything 对纯 Markdown 判定 unknown，core-feature-find 报 Unknown file magic，改用 native-bytes-find 做文本取证；④libtv.gongke.net 是第三方汇总，非官方；⑤价格/促销/访问量数字具时效性；⑥证据是『快照文本命中』，不等于产品实测。

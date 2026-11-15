@@ -32,6 +32,8 @@ export default function CanvasPage() {
     const mode = searchParams.get("mode");
     const agentMode = mode === "new" || mode === "recent" || mode === "choose";
     const agentQuery = agentMode ? `?${searchParams.toString()}` : "";
+    const keyword = (searchParams.get("q") || "").trim().toLowerCase();
+    const visibleProjects = keyword ? projects.filter((project) => project.title.toLowerCase().includes(keyword)) : projects;
     const enterProject = (id: string) => {
         const agentHash = hasAgentUrlBootstrap(window.location.hash) ? window.location.hash : "";
         navigate(`/canvas/${id}${agentQuery}${agentHash}`, { replace: Boolean(agentHash) });
@@ -72,7 +74,7 @@ export default function CanvasPage() {
     if (hydrated && (mode === "new" || mode === "recent")) return <main className="flex h-full items-center justify-center bg-background text-sm text-stone-500">{t("canvas.opening")}</main>;
 
     return (
-        <main className="h-full overflow-auto bg-background text-stone-950 dark:text-stone-100">
+        <main className="thin-scrollbar h-full overflow-auto text-stone-950 dark:text-stone-100">
             <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-10">
                 <header className="flex flex-wrap items-end justify-between gap-4 border-b border-stone-200 pb-6 dark:border-stone-800">
                     <div>
@@ -107,11 +109,15 @@ export default function CanvasPage() {
                 {!hydrated ? (
                     <section className="flex min-h-[360px] items-center justify-center border-y border-stone-200 text-sm text-stone-500 dark:border-stone-800">{t("canvas.loading")}</section>
                 ) : projects.length ? (
-                    <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-                        {projects.map((project) => (
-                            <CanvasProjectCard key={project.id} project={project} />
-                        ))}
-                    </div>
+                    visibleProjects.length ? (
+                        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+                            {visibleProjects.map((project) => (
+                                <CanvasProjectCard key={project.id} project={project} />
+                            ))}
+                        </div>
+                    ) : (
+                        <section className="flex min-h-[360px] items-center justify-center border-y border-stone-200 text-sm text-stone-500 dark:border-stone-800">没有匹配的画布项目</section>
+                    )
                 ) : (
                     <section className="flex min-h-[360px] flex-col items-center justify-center border-y border-stone-200 text-center dark:border-stone-800">
                         <h2 className="text-xl font-medium">{t("canvas.empty")}</h2>

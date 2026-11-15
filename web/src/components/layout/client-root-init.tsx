@@ -27,6 +27,7 @@ export function ClientRootInit({ children }: { children: ReactNode }) {
         searchParams.delete("apiKey");
         searchParams.delete("apikey");
         window.history.replaceState(null, "", `${window.location.pathname}${searchParams.size ? `?${searchParams}` : ""}${window.location.hash}`);
+        // 链接导入的凭证只进入内存：useConfigStore 的 persist 会剥离 apiKey，不会写回浏览器存储
         const result = importChannelCredentials({ baseUrl, apiKey });
         openConfigDialog(false, "channels");
         if (result.status === "created") message.success(t("config.importedChannelCreated", { name: result.channelName }));
