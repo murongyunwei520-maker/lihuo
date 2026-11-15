@@ -318,7 +318,8 @@ function aiApiUrl(config: AiConfig, path: string) {
 
 function aiHeaders(config: AiConfig, contentType?: string) {
     return {
-        Authorization: `Bearer ${config.apiKey}`,
+        // 本地/内网渠道通常不校验 Key：空 Key 时不发 "Bearer "（有的服务会因此 401）
+        ...(config.apiKey.trim() ? { Authorization: `Bearer ${config.apiKey}` } : {}),
         ...(contentType ? { "Content-Type": contentType } : {}),
     };
 }
@@ -918,7 +919,7 @@ export async function fetchImageModels(config: Pick<AiConfig, "baseUrl" | "apiKe
         }
         const response = await axios.get<{ data?: Array<{ id?: string }>; error?: { message?: string } }>(buildApiUrl(config.baseUrl, "/models"), {
             headers: {
-                Authorization: `Bearer ${config.apiKey}`,
+                ...(config.apiKey.trim() ? { Authorization: `Bearer ${config.apiKey}` } : {}),
             },
         });
         return (response.data.data || [])
