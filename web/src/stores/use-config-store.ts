@@ -140,6 +140,40 @@ export const defaultWebdavSyncConfig: WebdavSyncConfig = {
     lastSyncedAt: "",
 };
 
+/**
+ * 凭证只保留在运行内存中：写盘、读取历史持久化数据、导出配置文件时都先剥离。
+ * 浏览器 localStorage 与下载的配置 JSON 因此不会残留上游 API Key。
+ */
+export function withoutCredentials(config: AiConfig): AiConfig {
+    return {
+        ...config,
+        apiKey: "",
+        channels: (Array.isArray(config.channels) ? config.channels : []).map((channel) => ({ ...channel, apiKey: "" })),
+    };
+}
+
+/** 旧版本曾把 API Key 写进 localStorage；启动时就地擦除，保留其余偏好。 */
+function purgePersistedCredentials() {
+    if (typeof window === "undefined") return;
+    try {
+        const raw = window.localStorage.getItem(CONFIG_STORE_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw) as { state?: { config?: Partial<AiConfig> } };
+        const config = parsed.state?.config;
+        if (!config) return;
+        const channels = Array.isArray(config.channels) ? config.channels : [];
+        if (!config.apiKey && !channels.some((channel) => channel.apiKey)) return;
+        const scrubbed = {
+            ...config,
+            apiKey: "",
+            channels: channels.map((channel) => ({ ...channel, apiKey: "" })),
+        };
+        window.localStorage.setItem(CONFIG_STORE_KEY, JSON.stringify({ ...parsed, state: { ...parsed.state, config: scrubbed } }));
+    } catch {
+        // 存储损坏或被禁用时忽略；merge 仍会剥离进入内存的凭证
+    }
+}
+
 type ConfigStore = {
     config: AiConfig;
     webdav: WebdavSyncConfig;
@@ -219,13 +253,43 @@ export function resolveModelScript(config: AiConfig, value: string) {
     return findChannelModel(config, value)?.model.script?.trim() || "";
 }
 
-function isAiConfigReady(config: AiConfig, model: string) {
+/**
+ * 本机 / 内网地址：本地部署的 OpenAI 兼容服务（vLLM、LM Studio、Ollama、one-api 自建实例）通常不校验 Key。
+ * 以前的判定硬要求 apiKey 非空，于是选到这类渠道点生成只会弹「配置与用户偏好」，看起来像"不能用"。
+ * 只覆盖回环与私有网段，公网域名仍然要求填 Key（真缺凭证时请求会 401，不该被静默放过去）。
+ */
+export function isLoopbackBaseUrl(baseUrl: string) {
+    try {
+        const host = new URL(baseUrl.trim()).hostname.toLowerCase();
+        if (host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0" || host === "::1" || host === "[::1]" || host.endsWith(".localhost")) return true;
+        if (host === "host.docker.internal") return true;
+        return /^10\./.test(host) || /^192\.168\./.test(host) || /^172\.(1[6-9]|2\d|3[01])\./.test(host);
+    } catch {
+        return false;
+    }
+}
+
+export function isAiConfigReady(config: AiConfig, model: string) {
     const match = findChannelModel(config, model);
     if (!match) return false;
     // 内置站点（豆包 / Dola）：凭证来自 bridge 账号池，这里不要求 baseUrl/apiKey。
     // 之前只放过了 builtin-doubao，导致画布上选 Dola 模型时被判定「没配置 API」，直接拦掉、发不出任务。
     if (match.channel.id === DOUBAO_BUILTIN_CHANNEL_ID || match.channel.id === DOLA_BUILTIN_CHANNEL_ID) return true;
-    return Boolean(match.channel.baseUrl.trim() && match.channel.apiKey.trim());
+    const baseUrl = match.channel.baseUrl.trim();
+    if (!baseUrl) return false;
+    // 本地服务允许空 Key；远程渠道仍然要求填 Key，避免把"没配好"悄悄放过去变成 401
+    return Boolean(match.channel.apiKey.trim()) || isLoopbackBaseUrl(baseUrl);
+}
+
+/** 未就绪的具体原因，用来在弹配置对话框前提示一句，避免用户只看到弹窗不知道缺什么。 */
+export function describeConfigGap(config: AiConfig, model: string) {
+    const match = findChannelModel(config, model);
+    if (!match) return model.trim() ? `模型「${modelOptionName(model)}」不在任何渠道里，请重新选一次模型` : "还没选择模型";
+    if (match.channel.id === DOUBAO_BUILTIN_CHANNEL_ID || match.channel.id === DOLA_BUILTIN_CHANNEL_ID) return "";
+    const baseUrl = match.channel.baseUrl.trim();
+    if (!baseUrl) return `渠道「${match.channel.name}」缺 Base URL`;
+    if (!match.channel.apiKey.trim() && !isLoopbackBaseUrl(baseUrl)) return `渠道「${match.channel.name}」缺 API Key`;
+    return "";
 }
 
 export const useConfigStore = create<ConfigStore>()(
@@ -263,12 +327,14 @@ export const useConfigStore = create<ConfigStore>()(
         }),
         {
             name: CONFIG_STORE_KEY,
-            partialize: (state) => ({ config: state.config, webdav: state.webdav }),
+            // 凭证不落盘：只持久化配置结构与偏好
+            partialize: (state) => ({ config: withoutCredentials(state.config), webdav: state.webdav }),
             merge: (persisted, current) => {
                 const persistedState = (persisted || {}) as Partial<ConfigStore>;
                 const persistedConfig = (persistedState.config || {}) as Partial<AiConfig>;
                 const persistedWebdav = (persistedState.webdav || {}) as Partial<WebdavSyncConfig>;
-                const config = { ...defaultConfig, ...persistedConfig };
+                // 旧版本落过盘的 Key 不重新带回内存
+                const config = withoutCredentials({ ...defaultConfig, ...persistedConfig });
                 if (!Array.isArray(persistedConfig.channels)) config.channels = [];
                 const channels = normalizeChannels(config);
                 const models = modelOptionsFromChannels(channels);
@@ -307,6 +373,8 @@ export const useConfigStore = create<ConfigStore>()(
         },
     ),
 );
+
+purgePersistedCredentials();
 
 export function useEffectiveConfig() {
     const config = useConfigStore((state) => state.config);

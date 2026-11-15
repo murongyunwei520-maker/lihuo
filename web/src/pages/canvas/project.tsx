@@ -8,7 +8,7 @@ import { useTranslation } from "react-i18next";
 import { requestEdit, requestGeneration, requestImageQuestion } from "@/services/api/image";
 import { requestAudioGeneration, storeGeneratedAudio } from "@/services/api/audio";
 import { createVideoGenerationTask, isVideoTaskFailed, storeGeneratedVideo, waitForVideoGenerationTask, type VideoGenerationTask } from "@/services/api/video";
-import { defaultConfig, useConfigStore, useEffectiveConfig } from "@/stores/use-config-store";
+import { defaultConfig, describeConfigGap, useConfigStore, useEffectiveConfig } from "@/stores/use-config-store";
 import { ensureImagePreview, uploadImage } from "@/services/image-storage";
 import { uploadMediaFile, type UploadedFile } from "@/services/file-storage";
 import { nanoid } from "nanoid";
@@ -2026,6 +2026,8 @@ function InfiniteCanvasPage() {
             if (!node.metadata?.content) return;
             const generationConfig = { ...buildGenerationConfig(effectiveConfig, node, "image"), count: "1", size: node.metadata?.size || "auto" };
             if (payload.generate && !isAiConfigReady(generationConfig, generationConfig.model)) {
+                const gap = describeConfigGap(generationConfig, generationConfig.model);
+                if (gap) message.warning(gap);
                 openConfigDialog(true);
                 return;
             }
@@ -2120,6 +2122,9 @@ function InfiniteCanvasPage() {
             if (!node.metadata?.content) return;
             const generationConfig = { ...buildGenerationConfig(effectiveConfig, node, "image"), count: "1" };
             if (!isAiConfigReady(generationConfig, generationConfig.model)) {
+                // 只说「去配置」用户不知道缺什么：把具体原因（没选模型 / 缺 Base URL / 缺 Key）说出来
+                const gap = describeConfigGap(generationConfig, generationConfig.model);
+                if (gap) message.warning(gap);
                 openConfigDialog(true);
                 return;
             }
@@ -2358,6 +2363,9 @@ function InfiniteCanvasPage() {
             const sourceNode = nodesRef.current.find((node) => node.id === nodeId);
             const generationConfig = buildGenerationConfig(effectiveConfig, sourceNode, mode);
             if (!isAiConfigReady(generationConfig, generationConfig.model)) {
+                // 只说「去配置」用户不知道缺什么：把具体原因（没选模型 / 缺 Base URL / 缺 Key）说出来
+                const gap = describeConfigGap(generationConfig, generationConfig.model);
+                if (gap) message.warning(gap);
                 openConfigDialog(true);
                 return;
             }
@@ -2817,6 +2825,9 @@ function InfiniteCanvasPage() {
                       }
                     : { ...buildGenerationConfig(effectiveConfig, sourceNode, node.type === CanvasNodeType.Text ? "text" : node.type === CanvasNodeType.Video ? "video" : node.type === CanvasNodeType.Audio ? "audio" : "image"), count: "1" };
             if (!isAiConfigReady(generationConfig, generationConfig.model)) {
+                // 只说「去配置」用户不知道缺什么：把具体原因（没选模型 / 缺 Base URL / 缺 Key）说出来
+                const gap = describeConfigGap(generationConfig, generationConfig.model);
+                if (gap) message.warning(gap);
                 openConfigDialog(true);
                 return;
             }
