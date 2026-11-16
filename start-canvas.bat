@@ -14,6 +14,26 @@ if not exist "%WEB_DIR%\package.json" (
 
 pushd "%WEB_DIR%"
 
+rem 3000 已经在监听（多半是已经开着的画布）：直接开浏览器，不要再起一个。
+rem 千万别让 vite 顺延端口——换端口就等于换 origin，浏览器里的画布数据存在 IndexedDB 里，
+rem 按 origin 隔离，3001 上看到的会是一个空画布，看起来像「之前的任务全没了」。
+set "PORT_TAKEN="
+for /f "tokens=*" %%L in ('netstat -ano ^| findstr /r /c:":%PORT% .*LISTENING"') do set "PORT_TAKEN=1"
+if defined PORT_TAKEN (
+    echo.
+    echo   [Lihuo] Port %PORT% is already in use - opening the running canvas at %URL%
+    echo.
+    set "BRIDGE_RUNNING="
+    for /f "tokens=*" %%L in ('netstat -ano ^| findstr /r /c:":9091 .*LISTENING"') do set "BRIDGE_RUNNING=1"
+    if not defined BRIDGE_RUNNING if exist "%ROOT%doubao-bridge\server.mjs" (
+        start "Lihuo bridge" /min "%NODE_CMD%" "%ROOT%doubao-bridge\server.mjs"
+        ping -n 3 127.0.0.1 >nul
+    )
+    start "" "%URL%"
+    popd
+    exit /b 0
+)
+
 rem Use the Node.js already on PATH first, then the runtime bundled with DeepSeek Harness.
 set "NODE_CMD=node"
 where node >nul 2>nul
@@ -62,7 +82,7 @@ echo   The browser will open automatically.
 echo   Keep this window open while using the canvas; closing it stops the server.
 echo.
 
-"%NODE_CMD%" "node_modules\vite\bin\vite.js" dev --host 127.0.0.1 --port 3000 --open /canvas
+"%NODE_CMD%" "node_modules\vite\bin\vite.js" dev --host 127.0.0.1 --port 3000 --strictPort --open /canvas
 set "EXIT_CODE=%ERRORLEVEL%"
 
 popd
