@@ -1,23 +1,26 @@
 import { APP_BRAND } from "@/constant/app";
-import { App, Button, Form, Input, Modal, Progress, Radio, Select, Switch, Tabs } from "antd";
+import { Alert, App, Button, Form, Input, Modal, Progress, Radio, Select, Switch, Tabs } from "antd";
 import type { TFunction } from "i18next";
 import { Cloud, Download, Pencil, Plus, RefreshCw, Trash2, Upload, Wifi } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ModelPicker } from "@/components/model-picker";
 import { videoResolutionOptions } from "@/components/video-settings-panel";
+import { ByokChannelsSection } from "@/components/layout/byok-channels";
 import { ChannelEditorDrawer } from "@/components/layout/channel-editor-drawer";
 import { ConfigLocalProxy } from "@/components/layout/config-local-proxy";
 import { ConfigPromptSources } from "@/components/layout/config-prompt-sources";
 import { ConfigLocalStorage } from "@/components/layout/config-local-storage";
 import type { AppLocale } from "@/i18n";
+import { byokApi } from "@/services/api/byok";
+import { listModels } from "@/services/api/lihuo-server";
 import { exportAppConfig, importAppConfig } from "@/services/config-file";
 import { syncAppDataToWebdav, type AppSyncDomainKey, type AppSyncProgressEvent } from "@/services/app-sync";
 import { testWebdavConnection, WEBDAV_MANIFEST_FILE_NAME } from "@/services/webdav-sync";
 import { audioFormatOptions, audioVoiceOptions, normalizeAudioSpeedValue } from "@/lib/audio-generation";
 import { computeMediaSize, inferMediaRatio, inferMediaScale, mediaScaleOptions, parseVideoResolution } from "@/lib/media-size";
-import { createModelChannel, modelOptionsFromChannels, normalizeModelOptionValue, selectableModelsByCapability, useConfigStore, type AiConfig, type ApiCallFormat, type ConfigTabKey, type ModelCapability, type ModelChannel } from "@/stores/use-config-store";
+import { CLOUD_CHANNEL_ID, createModelChannel, modelOptionsFromChannels, normalizeModelOptionValue, selectableModelsByCapability, useConfigStore, type AiConfig, type ApiCallFormat, type ConfigTabKey, type ModelCapability, type ModelChannel } from "@/stores/use-config-store";
 
 type ModelGroup = {
     capability: ModelCapability;
@@ -52,6 +55,21 @@ function createWebdavDomainProgress(): Record<AppSyncDomainKey, WebdavDomainProg
 
 export function AppConfigPanel({ showDoneButton = false, initialTab = "channels" }: { showDoneButton?: boolean; initialTab?: ConfigTabKey }) {
     const { message } = App.useApp();
+    const syncCloudModels = useConfigStore((state) => state.syncCloudModels);
+    /** 渠道变更后重新拉平台模型 + BYOK 渠道，刷新模型选择器 */
+    const refreshCloudChannels = useCallback(async () => {
+        try {
+            const [{ items }, byok] = await Promise.all([listModels(), byokApi.channels()]);
+            syncCloudModels(
+                items
+                    .filter((item) => item.capability !== "embedding")
+                    .map((item) => ({ modelId: item.modelId, capability: item.capability, enabled: item.enabled })),
+                byok.items,
+            );
+        } catch {
+            // 拉取失败时保留现有选择，不阻塞配置面板
+        }
+    }, [syncCloudModels]);
     const { i18n, t } = useTranslation();
     const configInputRef = useRef<HTMLInputElement>(null);
     const [activeTab, setActiveTab] = useState<ConfigTabKey>(initialTab);
@@ -63,6 +81,7 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
     const config = useConfigStore((state) => state.config);
     const webdav = useConfigStore((state) => state.webdav);
     const updateConfig = useConfigStore((state) => state.updateConfig);
+    const setChannelMode = useConfigStore((state) => state.setChannelMode);
     const updateWebdavConfig = useConfigStore((state) => state.updateWebdavConfig);
     const shouldPromptContinue = useConfigStore((state) => state.shouldPromptContinue);
     const setConfigDialogOpen = useConfigStore((state) => state.setConfigDialogOpen);
@@ -168,7 +187,7 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
 
     return (
         <>
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-stone-200 pb-3 dark:border-stone-800">
+            <div className="flex flex-wrap items-center justify-between gap-3 pb-1">
                 <div className="text-xs text-stone-500">{t("config.fileSecurity")}</div>
                 <div className="flex gap-2">
                     <Button icon={<Upload className="size-4" />} onClick={() => configInputRef.current?.click()}>
@@ -181,13 +200,33 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
                 </div>
             </div>
             <Tabs
+                className="studio-config-tabs"
                 activeKey={activeTab}
                 onChange={(key) => setActiveTab(key as ConfigTabKey)}
                 items={[
                     {
                         key: "channels",
                         label: t("config.tabs.channels"),
-                        children: (
+                        children: config.channelMode === "cloud" ? (
+                            <div className="space-y-3">
+                                <Alert
+                                    type="info"
+                                    showIcon
+                                    message="云端模式"
+                                    description="模型与上游密钥由离火后端统一托管，浏览器不保存任何 API Key。可用模型由平台注册表下发，登录后自动同步。"
+                                />
+                                <div className="studio-config-channel flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+                                    <div>
+                                        <div className="text-sm font-semibold text-stone-800 dark:text-stone-100">平台渠道（平台额度）</div>
+                                        <div className="text-xs text-stone-500">
+                                            可用模型 {config.channels.find((channel) => channel.id === CLOUD_CHANNEL_ID)?.models.length || 0} 个 · 按平台定价扣费
+                                        </div>
+                                    </div>
+                                    <Button onClick={() => setChannelMode("local")}>切换到本地渠道（仅开发）</Button>
+                                </div>
+                                <ByokChannelsSection onChanged={refreshCloudChannels} />
+                            </div>
+                        ) : (
                             <div>
                                 <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                                     <div className="text-xs text-stone-500">{t("config.channels.description")}</div>
@@ -197,7 +236,7 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
                                 </div>
                                 <div className="space-y-2">
                                     {config.channels.map((channel) => (
-                                        <div key={channel.id} className="flex items-center justify-between gap-3 rounded-lg border border-stone-200 px-4 py-3 dark:border-stone-800">
+                                        <div key={channel.id} className="studio-config-channel flex items-center justify-between gap-3 px-4 py-3">
                                             <div className="min-w-0">
                                                 <div className="truncate text-sm font-semibold">{channel.name || t("config.channels.unnamed")}</div>
                                                 <div className="mt-1 truncate text-xs text-stone-500">
@@ -219,6 +258,7 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
                     {
                         key: "local-proxy",
                         label: t("config.tabs.localProxy"),
+                        disabled: config.channelMode === "cloud",
                         children: <ConfigLocalProxy />,
                     },
                     {

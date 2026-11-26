@@ -11,7 +11,7 @@ import {
     Spin,
     theme as antdTheme,
 } from "antd";
-import { Boxes, FileText, LayoutDashboard, LogOut, Settings, Users } from "lucide-react";
+import { Boxes, Coins, FileText, Gauge, LayoutDashboard, LogOut, Network, Settings, ShieldCheck, Users, Wallet } from "lucide-react";
 
 import { getAntThemeConfig } from "@/lib/app-theme";
 import { logout, me, type SessionUser } from "@/services/api/lihuo-server";
@@ -30,8 +30,13 @@ import { logout, me, type SessionUser } from "@/services/api/lihuo-server";
 
 const NAV = [
     { key: "/admin", icon: <LayoutDashboard size={16} />, label: "总览" },
+    { key: "/admin/channels", icon: <Network size={16} />, label: "渠道管理" },
+    { key: "/admin/provider-governance", icon: <ShieldCheck size={16} />, label: "Provider 治理" },
+    { key: "/admin/usage-reviews", icon: <Wallet size={16} />, label: "待核对预扣" },
     { key: "/admin/models", icon: <Boxes size={16} />, label: "模型中心" },
     { key: "/admin/users", icon: <Users size={16} />, label: "用户中心" },
+    { key: "/admin/points", icon: <Coins size={16} />, label: "积分管理" },
+    { key: "/admin/quotas", icon: <Gauge size={16} />, label: "BYOK 配额" },
     { key: "/admin/logs", icon: <FileText size={16} />, label: "运行日志" },
     { key: "/admin/settings", icon: <Settings size={16} />, label: "系统设置" },
 ] as const;

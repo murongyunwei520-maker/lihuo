@@ -5,6 +5,7 @@ import { nanoid } from "nanoid";
 import i18n from "@/i18n";
 import { withLocalProxy } from "@/stores/use-config-store";
 import { createImageThumbnail } from "@/lib/image-thumbnail";
+import { cloudMediaActive, cloudMediaConfigured, getCloudBlob, resolveCloudUrl, uploadBlob } from "@/services/cloud-media";
 
 export type UploadedImage = {
     url: string;
@@ -51,6 +52,17 @@ export async function uploadImage(input: string | Blob, options?: ImageReadOptio
 }
 
 async function storeImage(blob: Blob, options?: ImageReadOptions): Promise<UploadedImage> {
+    // 云端模式：原图直接进对象存储，节点只留 key（payload 不再内联 base64）
+    if (cloudMediaActive()) {
+        const uploaded = await uploadBlob(blob, "image/png");
+        const meta = await loadImageMeta(uploaded.url, options);
+        if (!meta) throw new Error(i18n.t("common.imageReadFailed"));
+        throwIfAborted(options?.signal);
+        objectUrls.set(uploaded.key, uploaded.url);
+        await storeImagePreview(uploaded.key, blob);
+        return { url: uploaded.url, storageKey: uploaded.key, width: meta.width, height: meta.height, bytes: blob.size, mimeType: blob.type.startsWith("image/") ? blob.type : "" };
+    }
+
     const storageKey = `image:${nanoid()}`;
     const url = URL.createObjectURL(blob);
     try {
@@ -145,6 +157,13 @@ export async function resolveImageUrl(storageKey?: string, fallback = "") {
     if (!storageKey) return fallback;
     const cached = objectUrls.get(storageKey);
     if (cached) return cached;
+    if (cloudMediaConfigured()) {
+        const remote = await resolveCloudUrl(storageKey);
+        if (remote) {
+            objectUrls.set(storageKey, remote);
+            return remote;
+        }
+    }
     const blob = await store.getItem<Blob>(storageKey);
     if (!blob) return fallback;
     const url = URL.createObjectURL(blob);
@@ -153,6 +172,10 @@ export async function resolveImageUrl(storageKey?: string, fallback = "") {
 }
 
 export async function getImageBlob(storageKey: string) {
+    if (cloudMediaConfigured()) {
+        const remote = await getCloudBlob(storageKey);
+        if (remote) return remote;
+    }
     return store.getItem<Blob>(storageKey);
 }
 

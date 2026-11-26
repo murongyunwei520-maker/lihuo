@@ -2,6 +2,7 @@
 // 参数值的唯一权威来源是全局 AiConfig，参数通过 configKey 绑定到对应配置字段。
 
 import { inferVideoRatio } from "@/lib/media-size";
+import { DOUBAO_VIDEO_SECONDS_MAX, DOUBAO_VIDEO_SECONDS_MIN, isDoubaoBuiltinModel, normalizeBuiltinRatio } from "@/constants/doubao-builtin";
 import type { AiConfig } from "./use-config-store";
 
 /** 参数类型 */
@@ -414,12 +415,15 @@ export function schemaParamPatch(field: ParameterSchema, value: unknown): Partia
  * 不再折算成 16:9（豆包面板上的选项文案就是「自动」，Runner 按文案点选）。
  */
 export function readVideoRequestParams(config: AiConfig): { ratio: string; duration?: number } {
-    const schema = resolveVideoParamSchema(config.videoModel || config.model);
+    const selectedModel = config.videoModel || config.model;
+    const builtin = isDoubaoBuiltinModel(selectedModel);
+    const schema = resolveVideoParamSchema(selectedModel);
     const durationField = schema.find((field) => field.configKey === "videoSeconds");
-    const min = durationField?.min ?? 4;
-    const max = durationField?.max ?? 30;
+    // 豆包网页端只接受 4–15s；没有 Schema 时不能用画布的 30s 上限直接提交，否则会被桥接静默改成 15s。
+    const min = builtin ? DOUBAO_VIDEO_SECONDS_MIN : durationField?.min ?? 4;
+    const max = builtin ? DOUBAO_VIDEO_SECONDS_MAX : durationField?.max ?? 30;
     const raw = Number(config.videoSeconds);
     const duration = Number.isFinite(raw) && raw > 0 ? Math.max(min, Math.min(max, Math.round(raw))) : undefined;
     const ratio = inferVideoRatio(config.size || "auto");
-    return { ratio: ratio === "auto" ? "自动" : ratio, duration };
+    return { ratio: builtin && ratio !== "auto" ? normalizeBuiltinRatio(ratio, "video") : ratio === "auto" ? "自动" : ratio, duration };
 }

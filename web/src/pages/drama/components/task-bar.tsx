@@ -1,8 +1,9 @@
-import { ChevronDown, ChevronUp, Image as ImageIcon, Mic, Video } from "lucide-react";
+import { ChevronDown, ChevronUp, Image as ImageIcon, Mic, Video, X } from "lucide-react";
 
 import { productionProgress } from "@/lib/drama/workflow";
 import { cn } from "@/lib/utils";
-import type { DramaSequence, DramaShot } from "@/types/drama";
+import { useDramaTasks, type DramaTaskKind } from "@/stores/use-drama-tasks";
+import type { DramaSequence } from "@/types/drama";
 
 type Props = {
     sequence: DramaSequence;
@@ -12,65 +13,53 @@ type Props = {
     onSelectShot: (id: string) => void;
 };
 
-type TaskKind = "image" | "audio" | "video";
-
-type TaskRow = {
-    key: string;
-    kind: TaskKind;
-    shot: DramaShot;
-    status: "pending" | "running" | "done" | "failed";
-    step: number;
+const KIND_META: Record<DramaTaskKind, { label: string; icon: typeof ImageIcon; step: number }> = {
+    asset: { label: "资产", icon: ImageIcon, step: 4 },
+    image: { label: "图片", icon: ImageIcon, step: 6 },
+    audio: { label: "声音", icon: Mic, step: 7 },
+    video: { label: "视频", icon: Video, step: 8 },
 };
 
-function tasksOf(sequence: DramaSequence): TaskRow[] {
-    const rows: TaskRow[] = [];
-    for (const shot of sequence.shots) {
-        rows.push({ key: `image-${shot.id}`, kind: "image", shot, status: shot.imageRef ? "done" : shot.status === "failed" ? "failed" : shot.status === "running" ? "running" : "pending", step: 6 });
-        if (shot.line.trim()) rows.push({ key: `audio-${shot.id}`, kind: "audio", shot, status: shot.audioRef ? "done" : "pending", step: 7 });
-        rows.push({ key: `video-${shot.id}`, kind: "video", shot, status: shot.videoRef ? "done" : "pending", step: 8 });
-    }
-    return rows;
-}
+const STATUS_TEXT = {
+    running: "进行中",
+    done: "完成",
+    failed: "失败",
+    canceled: "已取消",
+    interrupted: "已中断",
+} as const;
 
-const KIND_META: Record<TaskKind, { label: string; icon: typeof ImageIcon }> = {
-    image: { label: "图片", icon: ImageIcon },
-    audio: { label: "声音", icon: Mic },
-    video: { label: "视频", icon: Video },
-};
-
-const STATUS_TEXT: Record<TaskRow["status"], string> = { pending: "待生成", running: "生成中", done: "已完成", failed: "失败" };
-
-/** 底部任务栏：读的是镜头上的真实生成状态，不是模拟进度。 */
+/** 底部任务栏：读真实任务队列（谁在跑、谁失败、可取消），同时保留镜头级进度统计。 */
 export function TaskBar({ sequence, collapsed, onToggle, onJumpStep, onSelectShot }: Props) {
-    const rows = tasksOf(sequence);
+    const tasks = useDramaTasks((state) => state.tasks);
+    const cancel = useDramaTasks((state) => state.cancel);
+    const remove = useDramaTasks((state) => state.remove);
+    const mine = tasks.filter((task) => task.sequenceId === sequence.id);
+    const running = mine.filter((task) => task.status === "running");
     const progress = productionProgress(sequence);
-    const counts = (kind: TaskKind) => {
-        const list = rows.filter((row) => row.kind === kind);
-        return { total: list.length, done: list.filter((row) => row.status === "done").length, failed: list.filter((row) => row.status === "failed").length };
-    };
 
     return (
         <div className={cn("drama-taskbar", collapsed ? "is-collapsed" : "is-open")}>
             <div className="flex shrink-0 items-center gap-3 px-4 py-2">
                 <span className="text-[13px] font-medium">任务</span>
-                {(["image", "audio", "video"] as TaskKind[]).map((kind) => {
+                {(["image", "audio", "video"] as DramaTaskKind[]).map((kind) => {
                     const meta = KIND_META[kind];
-                    const stat = counts(kind);
                     const Icon = meta.icon;
+                    const stat = kind === "image" ? progress.images : kind === "audio" ? progress.audios : progress.videos;
+                    const total = kind === "image" ? progress.shots : kind === "audio" ? progress.voices : progress.shots;
+                    const failed = kind === "image" ? progress.imageFailed : kind === "audio" ? progress.audioFailed : progress.videoFailed;
                     return (
                         <span key={kind} className="flex items-center gap-1.5 text-[13px] text-stone-500 dark:text-stone-400">
                             <Icon className="size-4" />
                             {meta.label}
                             <span className="tabular-nums text-stone-700 dark:text-stone-200">
-                                {stat.done}/{stat.total}
+                                {stat}/{total}
                             </span>
-                            {stat.failed ? <span className="text-red-500">· {stat.failed} 失败</span> : null}
+                            {failed ? <span className="text-red-500">· {failed} 失败</span> : null}
                         </span>
                     );
                 })}
-                <span className="ml-auto hidden text-[13px] text-stone-400 sm:inline">
-                    {progress.shots} 镜 · 画面 {progress.images} · 声音 {progress.audios}/{progress.voices} · 视频 {progress.videos}
-                </span>
+                {running.length ? <span className="text-[13px] text-amber-600 dark:text-amber-400">· {running.length} 个任务进行中</span> : null}
+                <span className="ml-auto hidden text-[13px] text-stone-400 sm:inline">{mine.length ? `最近 ${Math.min(mine.length, 6)} 条任务` : "还没有生成任务"}</span>
                 <button type="button" className="drama-taskbar__toggle" onClick={onToggle}>
                     {collapsed ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
                     {collapsed ? "展开" : "收起"}
@@ -78,38 +67,43 @@ export function TaskBar({ sequence, collapsed, onToggle, onJumpStep, onSelectSho
             </div>
 
             {collapsed ? null : (
-                <div className="grid min-h-0 flex-1 grid-cols-3 gap-3 overflow-hidden px-4 pb-3">
-                    {(["image", "audio", "video"] as TaskKind[]).map((kind) => {
-                        const meta = KIND_META[kind];
-                        const Icon = meta.icon;
-                        const list = rows.filter((row) => row.kind === kind);
-                        return (
-                            <div key={kind} className="flex min-h-0 flex-col rounded-lg border border-[var(--studio-border-soft)]">
-                                <div className="flex items-center gap-1.5 border-b border-[var(--studio-border-soft)] px-2.5 py-1.5 text-[13px] font-medium">
-                                    <Icon className="size-4 text-stone-400" />
-                                    {meta.label}任务
-                                </div>
-                                <div className="min-h-0 flex-1 overflow-y-auto p-1">
-                                    {list.length === 0 ? <div className="px-2 py-3 text-[13px] text-stone-400">还没有镜头</div> : null}
-                                    {list.map((row) => (
-                                        <button
-                                            key={row.key}
-                                            type="button"
-                                            className="drama-task-row"
-                                            onClick={() => {
-                                                onSelectShot(row.shot.id);
-                                                onJumpStep(row.step);
-                                            }}
-                                        >
-                                            <span className={cn("size-1.5 shrink-0 rounded-full", row.status === "done" ? "bg-emerald-500" : row.status === "failed" ? "bg-red-500" : row.status === "running" ? "bg-amber-500" : "bg-stone-300 dark:bg-stone-600")} />
-                                            <span className="min-w-0 flex-1 truncate text-left">镜 {row.shot.no} · {row.shot.scene || "未填场景"}</span>
-                                            <span className={cn("shrink-0 text-[12px]", row.status === "failed" ? "text-red-500" : row.status === "done" ? "text-emerald-600 dark:text-emerald-400" : "text-stone-400")}>{STATUS_TEXT[row.status]}</span>
+                <div className="min-h-0 flex-1 overflow-hidden px-4 pb-3">
+                    {mine.length === 0 ? (
+                        <div className="grid h-full place-items-center text-[13px] text-stone-400">生成资产图、画面、配音或视频后，任务会在这里出现；可取消进行中的任务。</div>
+                    ) : (
+                        <div className="grid h-full min-h-0 grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-2 overflow-y-auto">
+                            {mine.slice(0, 12).map((task) => {
+                                const meta = KIND_META[task.kind];
+                                const Icon = meta.icon;
+                                return (
+                                    <div key={task.id} className="drama-task-card">
+                                        <button type="button" className="flex min-w-0 flex-1 items-center gap-2 text-left" onClick={() => {
+                                            if (task.shotId) onSelectShot(task.shotId);
+                                            onJumpStep(meta.step);
+                                        }}>
+                                            <Icon className="size-4 shrink-0 text-stone-400" />
+                                            <span className="min-w-0 flex-1">
+                                                <span className="block truncate text-[13px]">{task.label}</span>
+                                                <span className="block truncate text-[12px] text-stone-400">
+                                                    {task.model || "默认模型"} · {STATUS_TEXT[task.status]}
+                                                    {task.error ? ` · ${task.error}` : ""}
+                                                </span>
+                                            </span>
                                         </button>
-                                    ))}
-                                </div>
-                            </div>
-                        );
-                    })}
+                                        {task.status === "running" ? (
+                                            <button type="button" className="drama-task-cancel" title="取消任务" onClick={() => cancel(task.id)}>
+                                                <X className="size-3.5" />
+                                            </button>
+                                        ) : (
+                                            <button type="button" className="drama-task-cancel" title="从列表移除" onClick={() => remove(task.id)}>
+                                                <X className="size-3.5" />
+                                            </button>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
             )}
         </div>

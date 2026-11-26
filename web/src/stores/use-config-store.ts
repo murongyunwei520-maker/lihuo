@@ -15,6 +15,8 @@ export type ChannelModel = {
     name: string;
     capability: ModelCapability;
     script?: string;
+    /** 展示名（BYOK 自定义模型用；name 仍是解析用的稳定 ID） */
+    label?: string;
 };
 
 export type ModelChannel = {
@@ -27,7 +29,7 @@ export type ModelChannel = {
 };
 
 export type AiConfig = {
-    channelMode: "remote" | "local";
+    channelMode: "cloud" | "remote" | "local";
     baseUrl: string;
     apiKey: string;
     apiFormat: ApiCallFormat;
@@ -71,12 +73,31 @@ export type WebdavSyncConfig = {
 };
 export type ConfigTabKey = "channels" | "local-proxy" | "preferences" | "prompt-sources" | "webdav" | "local-storage";
 
+/** 登录后从后端同步的 BYOK 渠道摘要（只保留渲染模型选择器所需字段） */
+export type CloudByokChannel = {
+    id: string;
+    name: string;
+    isDefault?: boolean;
+    models: Array<{
+        modelId: string;
+        capability: string;
+        enabled: boolean;
+        displayName?: string;
+        source?: "platform" | "user";
+        providerType?: string;
+        protocol?: string;
+    }>;
+};
+
 export type ChannelCredentialsImportResult = {
     status: "created" | "updated" | "missing-base-url" | "invalid-base-url";
     channelName?: string;
 };
 
 export const CONFIG_STORE_KEY = storageKey("ai_config_store");
+/** 云端模式的虚拟渠道：模型清单来自离火后端的注册表 */
+export { BYOK_CHANNEL_PREFIX, CLOUD_CHANNEL_ID, cloudChannelSource, isCloudChannelId } from "@/lib/cloud-channel";
+import { BYOK_CHANNEL_PREFIX, CLOUD_CHANNEL_ID, isCloudChannelId } from "@/lib/cloud-channel";
 const CHANNEL_MODEL_SEPARATOR = "::";
 const OPENAI_BASE_URL = "https://api.openai.com";
 const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com";
@@ -84,7 +105,7 @@ export const LOCAL_PROXY_PACKAGE = "@basketikun/canvas-proxy";
 export const DEFAULT_LOCAL_PROXY_URL = "http://127.0.0.1:23210";
 
 export const defaultConfig: AiConfig = {
-    channelMode: "local",
+    channelMode: "cloud",
     baseUrl: OPENAI_BASE_URL,
     apiKey: "",
     apiFormat: "openai",
@@ -158,17 +179,31 @@ function purgePersistedCredentials() {
     try {
         const raw = window.localStorage.getItem(CONFIG_STORE_KEY);
         if (!raw) return;
-        const parsed = JSON.parse(raw) as { state?: { config?: Partial<AiConfig> } };
+        const parsed = JSON.parse(raw) as { state?: { config?: Partial<AiConfig>; webdav?: Partial<WebdavSyncConfig> } };
         const config = parsed.state?.config;
-        if (!config) return;
-        const channels = Array.isArray(config.channels) ? config.channels : [];
-        if (!config.apiKey && !channels.some((channel) => channel.apiKey)) return;
-        const scrubbed = {
-            ...config,
-            apiKey: "",
-            channels: channels.map((channel) => ({ ...channel, apiKey: "" })),
-        };
-        window.localStorage.setItem(CONFIG_STORE_KEY, JSON.stringify({ ...parsed, state: { ...parsed.state, config: scrubbed } }));
+        const webdav = parsed.state?.webdav;
+        const channels = Array.isArray(config?.channels) ? config.channels : [];
+        const hasConfigSecret = Boolean(config?.apiKey) || channels.some((channel) => channel.apiKey);
+        const hasWebdavSecret = Boolean(webdav?.password);
+        if (!hasConfigSecret && !hasWebdavSecret) return;
+        const scrubbed = config
+            ? {
+                  ...config,
+                  apiKey: "",
+                  channels: channels.map((channel) => ({ ...channel, apiKey: "" })),
+              }
+            : undefined;
+        window.localStorage.setItem(
+            CONFIG_STORE_KEY,
+            JSON.stringify({
+                ...parsed,
+                state: {
+                    ...parsed.state,
+                    ...(scrubbed ? { config: scrubbed } : {}),
+                    ...(webdav ? { webdav: { ...webdav, password: "" } } : {}),
+                },
+            }),
+        );
     } catch {
         // 存储损坏或被禁用时忽略；merge 仍会剥离进入内存的凭证
     }
@@ -176,11 +211,21 @@ function purgePersistedCredentials() {
 
 type ConfigStore = {
     config: AiConfig;
+    cloudChannel: ModelChannel | null;
+    /** 云端模式下的全部渠道：平台渠道 + 各 BYOK 渠道 */
+    cloudChannels: ModelChannel[];
+    /** 切到云端前的本地渠道快照：切回本地模式时恢复，避免丢配置 */
+    localChannels: ModelChannel[];
     webdav: WebdavSyncConfig;
     isConfigOpen: boolean;
     configTab: ConfigTabKey;
     shouldPromptContinue: boolean;
     updateConfig: <K extends keyof AiConfig>(key: K, value: AiConfig[K]) => void;
+    syncCloudModels: (
+        items: Array<{ modelId: string; capability: ModelCapability | "embedding"; enabled?: boolean }>,
+        byokChannels?: CloudByokChannel[],
+    ) => void;
+    setChannelMode: (mode: "cloud" | "local" | "remote") => void;
     importChannelCredentials: (input: { baseUrl?: string | null; apiKey?: string | null }) => ChannelCredentialsImportResult;
     updateWebdavConfig: <K extends keyof WebdavSyncConfig>(key: K, value: WebdavSyncConfig[K]) => void;
     isAiConfigReady: (config: AiConfig, model: string) => boolean;
@@ -272,6 +317,8 @@ export function isLoopbackBaseUrl(baseUrl: string) {
 export function isAiConfigReady(config: AiConfig, model: string) {
     const match = findChannelModel(config, model);
     if (!match) return false;
+    // 云端模式：凭证在服务端，平台渠道或 BYOK 渠道都算就绪
+    if (config.channelMode === "cloud") return isCloudChannelId(match.channel.id);
     // 内置站点（豆包 / Dola）：凭证来自 bridge 账号池，这里不要求 baseUrl/apiKey。
     // 之前只放过了 builtin-doubao，导致画布上选 Dola 模型时被判定「没配置 API」，直接拦掉、发不出任务。
     if (match.channel.id === DOUBAO_BUILTIN_CHANNEL_ID || match.channel.id === DOLA_BUILTIN_CHANNEL_ID) return true;
@@ -285,6 +332,7 @@ export function isAiConfigReady(config: AiConfig, model: string) {
 export function describeConfigGap(config: AiConfig, model: string) {
     const match = findChannelModel(config, model);
     if (!match) return model.trim() ? `模型「${modelOptionName(model)}」不在任何渠道里，请重新选一次模型` : "还没选择模型";
+    if (config.channelMode === "cloud") return isCloudChannelId(match.channel.id) ? "" : "当前不是云端模型，请重新选择";
     if (match.channel.id === DOUBAO_BUILTIN_CHANNEL_ID || match.channel.id === DOLA_BUILTIN_CHANNEL_ID) return "";
     const baseUrl = match.channel.baseUrl.trim();
     if (!baseUrl) return `渠道「${match.channel.name}」缺 Base URL`;
@@ -296,10 +344,166 @@ export const useConfigStore = create<ConfigStore>()(
     persist(
         (set, get) => ({
             config: defaultConfig,
+            cloudChannel: null,
+            cloudChannels: [],
+            localChannels: [],
             webdav: defaultWebdavSyncConfig,
             isConfigOpen: false,
             configTab: "channels",
             shouldPromptContinue: false,
+            /**
+             * 登录/渠道变更后同步云端模型。
+             * 平台渠道只读；BYOK 渠道由用户维护，模型编码进各自渠道，选择模型即选择计费来源。
+             */
+            syncCloudModels: (items, byokChannels = []) => {
+                const platformModels = items
+                    .filter((item) => item.enabled !== false && item.capability !== "embedding")
+                    .map((item) => ({ name: item.modelId, capability: item.capability as ModelCapability }));
+                const platformChannel: ModelChannel = {
+                    id: CLOUD_CHANNEL_ID,
+                    name: "平台额度",
+                    baseUrl: "",
+                    apiKey: "",
+                    apiFormat: "openai",
+                    models: platformModels,
+                };
+
+                const byokModelChannels: ModelChannel[] = [];
+                for (const channel of byokChannels) {
+                    const models = (channel.models ?? [])
+                        // BYOK 暂时不支持视频任务；embedding 不进模型选择器；unknown 说明模型已被删除
+                        .filter((model) => model.enabled && ["text", "image", "audio"].includes(model.capability))
+                        .map((model) => ({
+                            name: model.modelId,
+                            capability: model.capability as ModelCapability,
+                            label: model.displayName && model.displayName !== model.modelId ? model.displayName : undefined,
+                        }));
+                    if (!models.length) continue;
+                    byokModelChannels.push({
+                        id: `${BYOK_CHANNEL_PREFIX}${channel.id}`,
+                        name: `我的 Key · ${channel.name}`,
+                        baseUrl: "",
+                        apiKey: "",
+                        apiFormat: "openai",
+                        models,
+                    });
+                }
+
+                const channels = [platformChannel, ...byokModelChannels];
+                const all = channels.flatMap((channel) =>
+                    channel.models.map((model) => ({
+                        encoded: encodeChannelModel(channel.id, model.name),
+                        name: model.name,
+                        capability: model.capability,
+                    })),
+                );
+                const options = all.map((item) => item.encoded);
+                const ensure = (current: string, capability: ModelCapability) => {
+                    if (current && options.includes(current)) return current;
+                    const name = modelOptionName(current);
+                    const hit =
+                        all.find((item) => item.name === name && item.capability === capability) ??
+                        all.find((item) => item.capability === capability && item.encoded.startsWith(`${CLOUD_CHANNEL_ID}::`)) ??
+                        all.find((item) => item.capability === capability);
+                    return hit?.encoded ?? "";
+                };
+
+                set((state) => {
+                    const localSnapshot = state.config.channels.filter((channel) => !isCloudChannelId(channel.id));
+                    if (state.config.channelMode !== "cloud") {
+                        return { cloudChannel: platformChannel, cloudChannels: channels };
+                    }
+                    return {
+                        cloudChannel: platformChannel,
+                        cloudChannels: channels,
+                        localChannels: localSnapshot.length ? localSnapshot : state.localChannels,
+                        config: {
+                            ...state.config,
+                            channels,
+                            models: options,
+                            imageModel: ensure(state.config.imageModel, "image"),
+                            videoModel: ensure(state.config.videoModel, "video"),
+                            textModel: ensure(state.config.textModel, "text"),
+                            audioModel: ensure(state.config.audioModel, "audio"),
+                        },
+                    };
+                });
+            },
+            setChannelMode: (mode) =>
+                set((state) => {
+                    if (mode !== "cloud") {
+                        const local = state.localChannels.length
+                            ? state.localChannels
+                            : state.config.channels.filter((channel) => !isCloudChannelId(channel.id));
+                        const channels = local.length ? local : state.config.channels;
+                        const all = channels.flatMap((channel) =>
+                            channel.models.map((model) => ({
+                                encoded: encodeChannelModel(channel.id, model.name),
+                                name: model.name,
+                                capability: model.capability,
+                            })),
+                        );
+                        const options = all.map((item) => item.encoded);
+                        const ensure = (current: string, capability: ModelCapability) => {
+                            if (current && options.includes(current)) return current;
+                            const name = modelOptionName(current);
+                            const hit =
+                                all.find((item) => item.name === name && item.capability === capability) ??
+                                all.find((item) => item.capability === capability);
+                            return hit?.encoded ?? "";
+                        };
+                        return {
+                            localChannels: local,
+                            config: {
+                                ...state.config,
+                                channelMode: mode,
+                                channels,
+                                models: options,
+                                imageModel: ensure(state.config.imageModel, "image"),
+                                videoModel: ensure(state.config.videoModel, "video"),
+                                textModel: ensure(state.config.textModel, "text"),
+                                audioModel: ensure(state.config.audioModel, "audio"),
+                            },
+                        };
+                    }
+                    const channels = state.cloudChannels.length
+                        ? state.cloudChannels
+                        : state.cloudChannel
+                          ? [state.cloudChannel]
+                          : [];
+                    if (!channels.length) return { config: { ...state.config, channelMode: mode } };
+                    const localSnapshot = state.config.channels.filter((channel) => !isCloudChannelId(channel.id));
+                    const all = channels.flatMap((channel) =>
+                        channel.models.map((model) => ({
+                            encoded: encodeChannelModel(channel.id, model.name),
+                            name: model.name,
+                            capability: model.capability,
+                        })),
+                    );
+                    const options = all.map((item) => item.encoded);
+                    const ensure = (current: string, capability: ModelCapability) => {
+                        if (current && options.includes(current)) return current;
+                        const name = modelOptionName(current);
+                        const hit =
+                            all.find((item) => item.name === name && item.capability === capability) ??
+                            all.find((item) => item.capability === capability && item.encoded.startsWith(`${CLOUD_CHANNEL_ID}::`)) ??
+                            all.find((item) => item.capability === capability);
+                        return hit?.encoded ?? "";
+                    };
+                    return {
+                        localChannels: localSnapshot.length ? localSnapshot : state.localChannels,
+                        config: {
+                            ...state.config,
+                            channelMode: mode,
+                            channels,
+                            models: options,
+                            imageModel: ensure(state.config.imageModel, "image"),
+                            videoModel: ensure(state.config.videoModel, "video"),
+                            textModel: ensure(state.config.textModel, "text"),
+                            audioModel: ensure(state.config.audioModel, "audio"),
+                        },
+                    };
+                }),
             updateConfig: (key, value) =>
                 set((state) => ({
                     config: {
@@ -328,7 +532,12 @@ export const useConfigStore = create<ConfigStore>()(
         {
             name: CONFIG_STORE_KEY,
             // 凭证不落盘：只持久化配置结构与偏好
-            partialize: (state) => ({ config: withoutCredentials(state.config), webdav: state.webdav }),
+            partialize: (state) => ({
+                config: withoutCredentials(state.config),
+                // WebDAV 密码同样是凭证：只留在本次会话内存，不写 localStorage。
+                webdav: { ...state.webdav, password: "" },
+                localChannels: state.localChannels.map((channel) => ({ ...channel, apiKey: "" })),
+            }),
             merge: (persisted, current) => {
                 const persistedState = (persisted || {}) as Partial<ConfigStore>;
                 const persistedConfig = (persistedState.config || {}) as Partial<AiConfig>;
@@ -337,13 +546,18 @@ export const useConfigStore = create<ConfigStore>()(
                 const config = withoutCredentials({ ...defaultConfig, ...persistedConfig });
                 if (!Array.isArray(persistedConfig.channels)) config.channels = [];
                 const channels = normalizeChannels(config);
+                const persistedLocal = (persistedState as { localChannels?: unknown }).localChannels;
+                const localChannels = Array.isArray(persistedLocal)
+                    ? (persistedLocal as ModelChannel[]).map((channel) => ({ ...channel, apiKey: "" }))
+                    : [];
                 const models = modelOptionsFromChannels(channels);
                 return {
                     ...current,
-                    webdav: { ...defaultWebdavSyncConfig, ...persistedWebdav },
+                    localChannels,
+                    webdav: { ...defaultWebdavSyncConfig, ...persistedWebdav, password: "" },
                     config: {
                         ...config,
-                        channelMode: "local",
+                        channelMode: persistedConfig.channelMode === "local" || persistedConfig.channelMode === "remote" ? persistedConfig.channelMode : "cloud",
                         apiFormat: normalizeApiFormat(config.apiFormat),
                         channels,
                         models,
@@ -378,7 +592,7 @@ purgePersistedCredentials();
 
 export function useEffectiveConfig() {
     const config = useConfigStore((state) => state.config);
-    return useMemo(() => ({ ...config, channelMode: "local" as const }), [config]);
+    return useMemo(() => ({ ...config }), [config]);
 }
 
 /** Normalize a mixed list of raw model names or model objects into deduped ChannelModel entries. */
@@ -391,7 +605,8 @@ export function normalizeChannelModels(models: Array<string | ChannelModel> | un
         seen.add(name);
         const capability = typeof item === "string" ? guessCapability(name) : item.capability || guessCapability(name);
         const script = typeof item === "string" ? undefined : item.script?.trim() || undefined;
-        result.push({ name, capability, script });
+        const label = typeof item === "string" ? undefined : item.label?.trim() || undefined;
+        result.push({ name, capability, script, label });
     }
     return result;
 }
@@ -494,7 +709,9 @@ export function modelOptionLabel(config: AiConfig, value: string) {
     const decoded = decodeChannelModel(value);
     if (!decoded) return value;
     const channel = allChannels(config).find((item) => item.id === decoded.channelId);
-    return channel ? `${decoded.model}（${channel.name}）` : decoded.model;
+    if (!channel) return decoded.model;
+    const model = channel.models.find((item) => item.name === decoded.model);
+    return `${model?.label || decoded.model}（${channel.name}）`;
 }
 
 export function modelOptionsFromChannels(channels: ModelChannel[]) {

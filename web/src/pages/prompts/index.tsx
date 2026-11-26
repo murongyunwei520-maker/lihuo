@@ -52,7 +52,7 @@ export default function PromptsPage() {
     };
 
     return (
-        <div className="flex h-full flex-col overflow-hidden text-stone-800 dark:text-stone-100">
+        <div className="studio-prompt-page flex h-full flex-col overflow-hidden text-stone-800 dark:text-stone-100">
             <main className="thin-scrollbar min-h-0 flex-1 overflow-y-auto bg-[radial-gradient(rgba(139,124,200,0.16)_1px,transparent_1px)] px-4 py-6 [background-size:18px_18px] sm:px-6 lg:py-8 dark:bg-[radial-gradient(rgba(185,172,232,0.14)_1px,transparent_1px)]" onScroll={handleListScroll}>
                 <div className="mx-auto max-w-7xl">
                     <div className="text-center">
@@ -60,7 +60,7 @@ export default function PromptsPage() {
                         <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">{t("prompts.total", { count: totalPrompts })}</p>
                     </div>
                     <div className="mt-5 grid items-start gap-5 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-6">
-                        <aside className="thin-scrollbar max-h-72 overflow-y-auto border-b border-stone-200 pb-5 lg:sticky lg:top-0 lg:max-h-[calc(100dvh-6rem)] lg:border-b-0 lg:border-r lg:pb-8 lg:pr-5 dark:border-stone-800">
+                        <aside className="thin-scrollbar max-h-72 overflow-y-auto pb-5 lg:sticky lg:top-0 lg:max-h-[calc(100dvh-6rem)] lg:pb-8 lg:pr-5">
                             <PromptFilter label={t("prompts.category")} options={promptCategoryOptions} selected={selectedCategory} onChange={setSelectedCategory} />
                             <div className="mt-6">
                                 <div className="mb-2 text-xs font-semibold uppercase tracking-widest text-stone-400 dark:text-stone-500">{t("prompts.tags")}</div>

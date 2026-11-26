@@ -19,7 +19,7 @@ const FPS_OPTIONS = ["24", "25", "30"];
  * 合成用的是 canvas + MediaRecorder 的重编码流水线，不是把几段视频当成一个文件。
  */
 export function ComposeStep({ sequence, patch, go, selectShot, selectedShotId }: StepProps) {
-    const { message } = App.useApp();
+    const { message, modal } = App.useApp();
     const videoRef = useRef<HTMLVideoElement | null>(null);
     const [playing, setPlaying] = useState(false);
     const [exporting, setExporting] = useState(false);
@@ -98,12 +98,30 @@ export function ComposeStep({ sequence, patch, go, selectShot, selectedShotId }:
             return;
         }
         const ready = shots.filter((shot) => shot.videoRef);
+        const missing = shots.filter((shot) => !shot.videoRef);
         if (!ready.length) {
             message.warning("还没有任何镜头视频，先在「视频生成」出片");
             return;
         }
+        // 默认不允许静默跳过：缺视频必须先让用户明确确认。
+        if (missing.length) {
+            const proceed = await new Promise<boolean>((resolve) => {
+                modal.confirm({
+                    title: `${missing.length} 个镜头没有视频`,
+                    content: `镜 ${missing.map((shot) => shot.no).join("、")} 缺视频。继续导出会跳过这些镜头，成片不完整。`,
+                    okText: "仍然导出",
+                    okButtonProps: { danger: true },
+                    cancelText: "返回补齐",
+                    onOk: () => resolve(true),
+                    onCancel: () => resolve(false),
+                });
+            });
+            if (!proceed) return;
+        }
+
         setExporting(true);
         setProgress(0);
+        let audioContext: AudioContext | null = null;
         try {
             const [rw, rh] = RATIOS[ratio] ?? RATIOS["9:16"];
             const height = QUALITIES[quality] ?? 1080;
@@ -115,7 +133,7 @@ export function ComposeStep({ sequence, patch, go, selectShot, selectedShotId }:
             if (!ctx) throw new Error("无法创建画布上下文");
 
             const stream = canvas.captureStream(Number(fps) || 30);
-            const audioContext = new AudioContext();
+            audioContext = new AudioContext();
             const destination = audioContext.createMediaStreamDestination();
             for (const track of destination.stream.getAudioTracks()) stream.addTrack(track);
 
@@ -135,34 +153,48 @@ export function ComposeStep({ sequence, patch, go, selectShot, selectedShotId }:
                 ctx.drawImage(source, (width - drawWidth) / 2, (height - drawHeight) / 2, drawWidth, drawHeight);
             };
 
-            for (let index = 0; index < shots.length; index += 1) {
-                const shot = shots[index];
+            let processed = 0;
+            for (const shot of shots) {
                 const videoUrl = urls[shot.videoRef ?? ""];
                 if (!videoUrl) continue;
                 const video = document.createElement("video");
                 video.src = videoUrl;
-                video.muted = true;
                 video.crossOrigin = "anonymous";
-                await new Promise<void>((resolve) => {
-                    video.onloadeddata = () => resolve();
-                    video.onerror = () => resolve();
+                await new Promise<void>((resolve, reject) => {
+                    const timer = setTimeout(() => reject(new Error(`镜 ${shot.no} 视频加载超时（15s）`)), 15000);
+                    video.onloadeddata = () => {
+                        clearTimeout(timer);
+                        resolve();
+                    };
+                    video.onerror = () => {
+                        clearTimeout(timer);
+                        reject(new Error(`镜 ${shot.no} 视频加载失败，已停止导出`));
+                    };
                 });
-                audioContext.createMediaElementSource(video).connect(destination);
 
+                // 有独立音轨时只混入独立音轨并静音视频，避免原生声与配音重复叠加。
                 let audio: HTMLAudioElement | null = null;
                 if (shot.audioRef && urls[shot.audioRef]) {
+                    video.muted = true;
                     audio = new Audio(urls[shot.audioRef]);
                     audio.crossOrigin = "anonymous";
-                    const node = audioContext.createMediaElementSource(audio);
-                    node.connect(destination);
+                    audioContext.createMediaElementSource(audio).connect(destination);
                     const offset = Math.max(0, shot.audioOffsetMs ?? 0);
                     setTimeout(() => void audio?.play().catch(() => undefined), offset);
+                } else {
+                    video.muted = false;
+                    audioContext.createMediaElementSource(video).connect(destination);
                 }
-                await video.play().catch(() => undefined);
 
+                await video.play().catch(() => {
+                    throw new Error(`镜 ${shot.no} 无法开始播放，导出已停止`);
+                });
+
+                // 时间线以视频实际时长为准，缺失时长才退回分镜秒数。
+                const duration = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : shot.seconds;
                 await new Promise<void>((resolve) => {
                     const started = performance.now();
-                    const limit = shot.seconds * 1000;
+                    const limit = duration * 1000;
                     const tick = () => {
                         drawFrame(video, video.videoWidth || width, video.videoHeight || height);
                         if (performance.now() - started >= limit || video.ended) {
@@ -176,26 +208,33 @@ export function ComposeStep({ sequence, patch, go, selectShot, selectedShotId }:
                     requestAnimationFrame(tick);
                 });
 
-                setProgress(Math.round(((index + 1) / shots.length) * 100));
+                processed += 1;
+                setProgress(Math.round((processed / Math.max(1, ready.length)) * 100));
             }
 
+            if (!processed) throw new Error("没有任何镜头成功进入合成，已取消导出");
             recorder.stop();
             await stopped;
             stream.getTracks().forEach((track) => track.stop());
             await audioContext.close();
+            audioContext = null;
 
             const blob = new Blob(chunks, { type: mimeType || "video/webm" });
+            if (!blob.size) throw new Error("合成结果为空，导出失败");
             const extension = (mimeType || "video/webm").includes("mp4") ? "mp4" : "webm";
             const anchor = document.createElement("a");
             anchor.href = URL.createObjectURL(blob);
             anchor.download = `${fileName || "短剧成片"}.${extension}`;
             anchor.click();
             setTimeout(() => URL.revokeObjectURL(anchor.href), 4000);
+            // 只有真正产出文件才记录导出时间。
             patch({ exportedAt: new Date().toISOString() });
-            message.success(`已导出 ${(blob.size / 1024 / 1024).toFixed(1)}MB ${extension.toUpperCase()} 成片`);
+            const tail = missing.length ? `，跳过 ${missing.length} 镜（缺视频）` : "";
+            message.success(`已导出 ${(blob.size / 1024 / 1024).toFixed(1)}MB ${extension.toUpperCase()} 成片${tail}`);
         } catch (error) {
             message.error(error instanceof Error ? error.message : "导出失败");
         } finally {
+            if (audioContext) await audioContext.close().catch(() => undefined);
             setExporting(false);
         }
     };

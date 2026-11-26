@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { App, Button, Empty, Input, Select } from "antd";
+import { nanoid } from "nanoid";
 import { ArrowRight, Copy, Plus, Sparkles, Trash2 } from "lucide-react";
 
 import { StepShell } from "../components/step-shell";
@@ -31,7 +32,24 @@ export function StoryboardStep({ sequence, settings, config, patch, go, selectSh
     };
 
     const duplicate = (shot: DramaShot) => {
-        const next = { ...shot, id: `shot-${Date.now()}`, imageRef: undefined, videoRef: undefined, audioRef: undefined, imageVersions: [], videoVersions: [], audioVersions: [], status: "pending" as const };
+        // 新 id 用 nanoid，避免连点同一毫秒生成重复 key；只保留描述与资产关系，清掉生成结果与审核状态。
+        const next: DramaShot = {
+            ...shot,
+            id: nanoid(),
+            imageRef: undefined,
+            videoRef: undefined,
+            audioRef: undefined,
+            imagePrompt: undefined,
+            videoPrompt: undefined,
+            imageVersions: [],
+            videoVersions: [],
+            audioVersions: [],
+            generation: undefined,
+            approved: undefined,
+            audioOffsetMs: 0,
+            status: "pending",
+            progress: undefined,
+        };
         const index = sequence.shots.findIndex((item) => item.id === shot.id);
         const shots = [...sequence.shots];
         shots.splice(index + 1, 0, next);
@@ -114,13 +132,29 @@ export function StoryboardStep({ sequence, settings, config, patch, go, selectSh
                                     onChange={(event) => patchShot(shot.id, { scene: event.target.value })}
                                     onClick={(event) => event.stopPropagation()}
                                 />
+                                <Input
+                                    variant="borderless"
+                                    className="px-1 text-[13px]"
+                                    value={shot.line}
+                                    placeholder={shot.speaker ? `台词 · ${shot.speaker}` : "台词（无则留空）"}
+                                    onChange={(event) => patchShot(shot.id, { line: event.target.value })}
+                                    onClick={(event) => event.stopPropagation()}
+                                />
+                                <Input
+                                    variant="borderless"
+                                    className="px-1 text-[13px]"
+                                    value={shot.action ?? ""}
+                                    placeholder="人物动作"
+                                    onChange={(event) => patchShot(shot.id, { action: event.target.value })}
+                                    onClick={(event) => event.stopPropagation()}
+                                />
                                 <Input.TextArea
                                     variant="borderless"
                                     autoSize={{ minRows: 2, maxRows: 4 }}
                                     className="px-1 text-[13px]"
-                                    value={shot.line || shot.prompt}
-                                    placeholder="台词 / 画面"
-                                    onChange={(event) => patchShot(shot.id, shot.line ? { line: event.target.value } : { prompt: event.target.value })}
+                                    value={shot.prompt}
+                                    placeholder="画面描述"
+                                    onChange={(event) => patchShot(shot.id, { prompt: event.target.value })}
                                     onClick={(event) => event.stopPropagation()}
                                 />
                                 <div className="mt-1 flex items-center gap-1">

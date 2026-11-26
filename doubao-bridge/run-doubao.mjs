@@ -1051,7 +1051,13 @@ job: try {
             await page.mouse.click(opened.x, opened.y);
             await page.waitForTimeout(1200);
             if (spec.ratio) {
-                const picked = await pickOption(page, spec.ratio);
+                // 两个站点对「自动」的文案不同（豆包「自动」/ Dola「Auto」），依次尝试，避免静默沿用旧比例。
+                const ratioTargets = /^(自动|auto)$/i.test(String(spec.ratio)) ? ["自动", "Auto"] : [String(spec.ratio)];
+                let picked = { ok: false, options: [] };
+                for (const target of ratioTargets) {
+                    picked = await pickOption(page, target);
+                    if (picked.ok) break;
+                }
                 if (picked.ok) progress(`比例已设为 ${picked.text}`);
                 else progress(`比例 ${spec.ratio} 未找到，可选：${picked.options.join(" / ") || "未识别"}`);
             }
@@ -1089,9 +1095,9 @@ job: try {
             const active = await site.readActiveCapability(page).catch(() => null);
             throw new Error(`${SITE_NAME}没有进入「${SITE_CAPABILITY}」面板（读回为空，当前能力：${active || "未识别"}），已中止，未提交提示词`);
         }
-        const wantRatio = spec.ratio && spec.ratio !== "自动";
         const modelOk = !spec.model || panelText.includes(spec.model);
-        const ratioOk = !wantRatio || panelText.includes(spec.ratio);
+        // 「自动」也要读回校验：如果点不到自动按钮，页面会静默沿用上一次比例。
+        const ratioOk = !spec.ratio || (/^(自动|auto)$/i.test(String(spec.ratio)) ? /(自动|auto)/i.test(panelText) : panelText.includes(spec.ratio));
         const durationOk = !spec.duration || panelText.includes(`${spec.duration}s`);
         if (!modelOk || !ratioOk || !durationOk) {
             // 不中断：豆包面板结构可能变化，图片/提示词仍要提交；但把差异写清楚

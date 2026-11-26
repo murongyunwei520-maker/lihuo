@@ -35,6 +35,12 @@ export const config = {
   /** 生产环境上 HTTPS 后置为 true */
   cookieSecure: env("LIHUO_COOKIE_SECURE", "false") === "true",
 
+  /** 可信反代地址/IP 段：只有来自这些地址的 X-Forwarded-For 才被信任（留空表示直连） */
+  trustProxy: env("LIHUO_TRUST_PROXY", "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean),
+
   /** 允许的前端来源（CORS），逗号分隔；默认允许本地开发端口 */
   corsOrigins: env("LIHUO_CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
     .split(",")
@@ -48,5 +54,9 @@ export function assertConfig(): void {
   if (!config.gatewayApiKey) problems.push("NEW_API_KEY 未设置（网关调用会失败）");
   if (problems.length) {
     console.warn("[config] 警告：\n  - " + problems.join("\n  - "));
+  }
+  // 公网部署常见错误：已经对外监听，却还发非 Secure 的会话 Cookie
+  if (!["127.0.0.1", "localhost", "::1"].includes(config.host) && !config.cookieSecure) {
+    console.warn("[config] 警告：服务不是只监听本机，但 LIHUO_COOKIE_SECURE 不是 true；公网 HTTPS 部署必须开启。");
   }
 }

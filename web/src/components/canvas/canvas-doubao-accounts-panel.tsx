@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { App, Button, Modal, Tooltip } from "antd";
-import { ChevronLeft, ChevronRight, Loader2, Plus, RefreshCw, UsersRound } from "lucide-react";
+import { ChevronLeft, Loader2, Plus, RefreshCw, UsersRound } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { fetchQrStatus, listAccounts, openAccountWindow, qrImageUrl, startQrLogin, type BridgeProvider, type DoubaoAccount } from "@/services/api/doubao-bridge";
+import { useCanvasLayoutStore } from "@/stores/use-canvas-layout-store";
+import { useConfigStore } from "@/stores/use-config-store";
 import { useDoubaoAccountStore } from "@/stores/use-doubao-account-store";
 
 // 账号池：豆包和 Dola 的号都放在这里，按站点分组并各自带颜色标识。
@@ -50,8 +52,10 @@ export function CanvasDoubaoAccountsPanel({ embedded = false }: { provider?: Bri
     const navigate = useNavigate();
     const currentAccountId = useDoubaoAccountStore((state) => state.currentAccountId);
     const setCurrentAccount = useDoubaoAccountStore((state) => state.setCurrentAccount);
+    const updateConfig = useConfigStore((state) => state.updateConfig);
+    const collapsed = !useCanvasLayoutStore((state) => state.accountsOpen);
+    const setAccountsOpen = useCanvasLayoutStore((state) => state.setAccountsOpen);
     const [accounts, setAccounts] = useState<DoubaoAccount[]>([]);
-    const [collapsed, setCollapsed] = useState(false);
     const [initialLoading, setInitialLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState("");
@@ -62,6 +66,12 @@ export function CanvasDoubaoAccountsPanel({ embedded = false }: { provider?: Bri
     const [qrMessage, setQrMessage] = useState("");
     const lastSignature = useRef("");
 
+    // 号池里点账号是用户的明确选择：同时写当前账号和全局配置，所有生成入口都读同一个选择。
+    const selectAccount = (accountId: string | null) => {
+        setCurrentAccount(accountId);
+        updateConfig("doubaoAccountId", accountId || "");
+    };
+
     const refresh = useCallback(
         async (manual = false) => {
             if (manual) setRefreshing(true);
@@ -70,10 +80,20 @@ export function CanvasDoubaoAccountsPanel({ embedded = false }: { provider?: Bri
                 setError("");
                 // 选中号只在「真的不存在了」才清空：不要按站点各管一段，否则两个面板会互相把对方清掉
                 const { currentAccountId: selected, setCurrentAccount: setSelected } = useDoubaoAccountStore.getState();
-                if (selected && !next.some((item) => item.id === selected)) setSelected(null);
+                if (selected && !next.some((item) => item.id === selected)) {
+                    setSelected(null);
+                    useConfigStore.getState().updateConfig("doubaoAccountId", "");
+                } else if (selected) {
+                    // 当前账号与生成配置必须指向同一个号，否则画布会用旧配置去跑新选中的号
+                    useConfigStore.getState().updateConfig("doubaoAccountId", selected);
+                }
                 if (!selected) {
-                    const preferred = next.find((item) => providerOf(item) === "doubao" && item.state.loggedIn === true) || next.find((item) => item.state.loggedIn === true) || next[0];
-                    if (preferred) setSelected(preferred.id);
+                    // 只有一个已登录账号时才自动选中；有多个时保持未选择，避免「擅自用第一个号」。
+                    const loggedIn = next.filter((item) => item.state.loggedIn === true);
+                    if (loggedIn.length === 1) {
+                        setSelected(loggedIn[0].id);
+                        useConfigStore.getState().updateConfig("doubaoAccountId", loggedIn[0].id);
+                    }
                 }
                 const nextSignature = signature(next);
                 if (nextSignature !== lastSignature.current) {
@@ -130,33 +150,7 @@ export function CanvasDoubaoAccountsPanel({ embedded = false }: { provider?: Bri
         .filter((group) => group.items.length > 0);
 
     if (collapsed) {
-        return (
-            <aside className="flex w-11 shrink-0 flex-col items-center gap-2 border-r border-black/5 py-3 dark:border-white/10">
-                <Tooltip title="展开账号池" placement="right">
-                    <button type="button" onClick={() => setCollapsed(false)} className="grid size-8 cursor-pointer place-items-center rounded-lg text-slate-400 hover:bg-black/5 dark:hover:bg-white/10">
-                        <ChevronRight className="size-4" />
-                    </button>
-                </Tooltip>
-                <div className="mt-1 flex flex-col items-center gap-1.5">
-                    {accounts.map((account) => {
-                        const meta = PROVIDER_META[providerOf(account)];
-                        const active = account.id === currentAccountId;
-                        return (
-                            <Tooltip key={account.id} title={`${account.name}（${meta.name}）${account.state.quotaBlock ? " · 额度不足" : ""}`} placement="right">
-                                <button
-                                    type="button"
-                                    onClick={() => setCurrentAccount(account.id === currentAccountId ? null : account.id)}
-                                    className={`relative grid size-7 cursor-pointer place-items-center rounded-full text-[10px] font-medium ${active ? "bg-[#6b57a8] text-white" : "bg-black/5 text-slate-500 dark:bg-white/10 dark:text-white/60"} ${account.state.quotaBlock ? "ring-2 ring-red-400/70" : active ? `ring-2 ${meta.ring}` : ""}`}
-                                >
-                                    {account.name.slice(-1)}
-                                    <span className={`absolute -right-0.5 -bottom-0.5 size-2 rounded-full border border-white dark:border-[#1b1b1f] ${meta.dot}`} />
-                                </button>
-                            </Tooltip>
-                        );
-                    })}
-                </div>
-            </aside>
-        );
+        return null;
     }
 
     return (
@@ -169,7 +163,7 @@ export function CanvasDoubaoAccountsPanel({ embedded = false }: { provider?: Bri
                     <button type="button" onClick={() => void refresh(true)} className="ml-auto cursor-pointer rounded p-1 text-slate-400 hover:bg-black/5 dark:hover:bg-white/10" title="刷新">
                         {refreshing ? <Loader2 className="size-3 animate-spin" /> : <RefreshCw className="size-3" />}
                     </button>
-                    <button type="button" onClick={() => setCollapsed(true)} className="cursor-pointer rounded p-1 text-slate-400 hover:bg-black/5 dark:hover:bg-white/10" title="收起">
+                    <button type="button" onClick={() => setAccountsOpen(false)} className="cursor-pointer rounded p-1 text-slate-400 hover:bg-black/5 dark:hover:bg-white/10" title="收起">
                         <ChevronLeft className="size-3" />
                     </button>
                 </div>
@@ -208,7 +202,7 @@ export function CanvasDoubaoAccountsPanel({ embedded = false }: { provider?: Bri
                                     tabIndex={0}
                                     onClick={() => {
                                         // 点账号 = 选中它 + 打开（或前置）它自己那个窗口（豆包打开 doubao.com，Dola 打开 dola.com）
-                                        setCurrentAccount(account.id);
+                                        selectAccount(account.id);
                                         void openAccountWindow(account.id)
                                             .then((result) => {
                                                 if (result.reused) message.info(`「${account.name}」的窗口已在运行，已为你前置`);
@@ -218,7 +212,7 @@ export function CanvasDoubaoAccountsPanel({ embedded = false }: { provider?: Bri
                                     onKeyDown={(event) => {
                                         if (event.key === "Enter" || event.key === " ") {
                                             event.preventDefault();
-                                            setCurrentAccount(account.id);
+                                            selectAccount(account.id);
                                         }
                                     }}
                                     className={`w-full cursor-pointer rounded-lg border-l-2 px-2 py-1.5 text-left transition ${

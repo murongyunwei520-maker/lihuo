@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ChevronDown, ChevronUp, ListChecks } from "lucide-react";
 
 import { listJobs, type DoubaoJob } from "@/services/api/doubao-bridge";
+import { useCanvasLayoutStore } from "@/stores/use-canvas-layout-store";
 
 const STATUS_STYLE: Record<string, string> = {
     succeeded: "text-emerald-500",
@@ -12,7 +13,8 @@ const STATUS_STYLE: Record<string, string> = {
 
 // 底部任务栏：所有豆包生成任务的统一队列与结果。
 export function CanvasTaskBar() {
-    const [open, setOpen] = useState(true);
+    const open = useCanvasLayoutStore((state) => state.taskBarOpen);
+    const setTaskBarOpen = useCanvasLayoutStore((state) => state.setTaskBarOpen);
     const [jobs, setJobs] = useState<DoubaoJob[]>([]);
     const [error, setError] = useState("");
 
@@ -39,28 +41,43 @@ export function CanvasTaskBar() {
 
     const running = jobs.filter((job) => job.status === "running" || job.status === "queued").length;
 
+    if (!open) {
+        return (
+            <button
+                type="button"
+                data-canvas-no-zoom
+                onClick={() => setTaskBarOpen(true)}
+                className="absolute bottom-5 right-5 z-[95] flex h-9 cursor-pointer items-center gap-1.5 rounded-full border border-black/10 bg-white/90 px-3 text-[11px] shadow-lg backdrop-blur transition hover:bg-white dark:border-white/15 dark:bg-[#1b1b1f]/90 dark:hover:bg-[#24242a]"
+                title="展开任务队列"
+            >
+                <ListChecks className="size-3.5 text-[#6b57a8] dark:text-[#c4b8ef]" />
+                <span className="font-medium">任务队列</span>
+                <span className="text-slate-400 dark:text-white/35">{jobs.length} 条{running ? ` · ${running} 进行中` : ""}</span>
+                {error ? <span className="text-red-500">{error}</span> : null}
+            </button>
+        );
+    }
+
     return (
-        <section className="shrink-0 border-t border-black/5 dark:border-white/10">
-            <button type="button" onClick={() => setOpen((value) => !value)} className="flex h-8 w-full cursor-pointer items-center gap-2 px-3 text-[11px]">
+        <section className="relative shrink-0 border-t border-black/5 dark:border-white/10">
+            <button type="button" onClick={() => setTaskBarOpen(false)} className="flex h-8 w-full cursor-pointer items-center gap-2 px-3 text-[11px]">
                 <ListChecks className="size-3.5 text-[#6b57a8] dark:text-[#c4b8ef]" />
                 <span className="font-medium">任务队列</span>
                 <span className="text-slate-400 dark:text-white/30">{jobs.length} 条{running ? ` · ${running} 进行中` : ""}</span>
                 {error ? <span className="text-red-500">{error}</span> : null}
-                {open ? <ChevronDown className="ml-auto size-3.5 text-slate-400" /> : <ChevronUp className="ml-auto size-3.5 text-slate-400" />}
+                <ChevronDown className="ml-auto size-3.5 text-slate-400" />
             </button>
-            {open ? (
-                <div className="max-h-[132px] space-y-0.5 overflow-y-auto px-2 pb-1.5">
-                    {!jobs.length ? <p className="py-2 text-center text-[11px] text-slate-400 dark:text-white/30">还没有任务</p> : null}
-                    {jobs.map((job) => (
-                        <div key={job.id} className="flex items-center gap-2 rounded px-1.5 py-1 text-[11px] hover:bg-black/[0.03] dark:hover:bg-white/[0.04]">
-                            <span className={`w-14 shrink-0 font-medium ${STATUS_STYLE[job.status] || ""}`}>{job.status}</span>
-                            <span className="w-20 shrink-0 truncate text-slate-500 dark:text-white/45">{job.accountName}</span>
-                            <span className="min-w-0 flex-1 truncate">{job.prompt}</span>
-                            <span className="w-24 shrink-0 truncate text-right text-slate-400 dark:text-white/30">{job.progress || (job.files.length ? `${job.files.length} 个文件` : "—")}</span>
-                        </div>
-                    ))}
-                </div>
-            ) : null}
+            <div className="max-h-[132px] space-y-0.5 overflow-y-auto px-2 pb-1.5">
+                {!jobs.length ? <p className="py-2 text-center text-[11px] text-slate-400 dark:text-white/30">还没有任务</p> : null}
+                {jobs.map((job) => (
+                    <div key={job.id} className="flex items-center gap-2 rounded px-1.5 py-1 text-[11px] hover:bg-black/[0.03] dark:hover:bg-white/[0.04]">
+                        <span className={`w-14 shrink-0 font-medium ${STATUS_STYLE[job.status] || ""}`}>{job.status}</span>
+                        <span className="w-20 shrink-0 truncate text-slate-500 dark:text-white/45">{job.accountName}</span>
+                        <span className="min-w-0 flex-1 truncate">{job.prompt}</span>
+                        <span className="w-24 shrink-0 truncate text-right text-slate-400 dark:text-white/30">{job.progress || (job.files.length ? `${job.files.length} 个文件` : "—")}</span>
+                    </div>
+                ))}
+            </div>
         </section>
     );
 }

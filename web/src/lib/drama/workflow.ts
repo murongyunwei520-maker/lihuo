@@ -55,22 +55,33 @@ export function stepStates(sequence: DramaSequence | null): StepState[] {
     if (!sequence) return DRAMA_STEPS.map(() => "todo");
     const { assets, shots } = sequence;
     const withLine = shots.filter((shot) => shot.line.trim());
-    const failed = shots.some((shot) => shot.status === "failed");
+    const imageFailed = shots.some((shot) => shot.generation?.image?.status === "failed" || (!shot.generation?.image && shot.status === "failed"));
+    const audioFailed = shots.some((shot) => shot.generation?.audio?.status === "failed");
+    const videoFailed = shots.some((shot) => shot.generation?.video?.status === "failed");
+    const bible = sequence.bible;
+    // 剧本改过、素材内容对不上的镜头不算完成：批量按钮会把它们重新做一遍。
+    const imageReady = shots.every((shot) => shot.imageRef && !shot.generation?.image?.stale);
+    const audioReady = withLine.every((shot) => shot.audioRef && !shot.generation?.audio?.stale);
+    const videoReady = shots.every((shot) => shot.videoRef && !shot.generation?.video?.stale);
     const checks: boolean[] = [
         Boolean(sequence.script?.premise?.trim() || sequence.script?.text.trim()),
         Boolean(sequence.script?.text.trim()),
-        Boolean(sequence.bible && (sequence.bible.world.trim() || sequence.bible.visual.trim())),
+        Boolean(bible && (bible.world.trim() || bible.visual.trim() || (bible.era ?? "").trim())),
         shots.length > 0,
-        assets.length > 0 && assets.every((asset) => asset.refs.length > 0),
-        shots.length > 0 && shots.every((shot) => shot.scene.trim() && shot.prompt.trim()),
-        shots.length > 0 && shots.every((shot) => shot.imageRef),
-        withLine.length > 0 && withLine.every((shot) => shot.audioRef),
-        shots.length > 0 && shots.every((shot) => shot.videoRef),
+        // 不只 refs 非空：必须是有内容的引用字符串，避免空 key 也算完成。
+        assets.length > 0 && assets.every((asset) => asset.refs.some((ref) => Boolean(ref && ref.trim()))),
+        shots.length > 0 && shots.every((shot) => shot.scene.trim() && (shot.prompt.trim() || shot.action?.trim())),
+        shots.length > 0 && imageReady,
+        // 没有台词的剧集不要求配音，直接视为完成。
+        withLine.length === 0 || audioReady,
+        shots.length > 0 && videoReady,
         Boolean(sequence.exportedAt),
     ];
     return checks.map((done, index) => {
         if (done) return "done";
-        if (failed && index >= 6 && index <= 8) return "error";
+        if (index === 6 && imageFailed) return "error";
+        if (index === 7 && audioFailed) return "error";
+        if (index === 8 && videoFailed) return "error";
         return "todo";
     });
 }
@@ -115,12 +126,19 @@ export function deriveScenes(sequence: DramaSequence): DramaScene[] {
 export function productionProgress(sequence: DramaSequence | null) {
     const shots = sequence?.shots ?? [];
     const withLine = shots.filter((shot) => shot.line.trim());
+    const failedOf = (kind: "image" | "audio" | "video") =>
+        shots.filter((shot) => (kind === "image" ? shot.generation?.image?.status === "failed" || (!shot.generation?.image && shot.status === "failed") : shot.generation?.[kind]?.status === "failed")).length;
     return {
         shots: shots.length,
-        images: shots.filter((shot) => shot.imageRef).length,
-        audios: withLine.filter((shot) => shot.audioRef).length,
+        // 内容对不上新剧本的素材不算「已完成」，和导航的完成度保持一致。
+        images: shots.filter((shot) => shot.imageRef && !shot.generation?.image?.stale).length,
+        audios: withLine.filter((shot) => shot.audioRef && !shot.generation?.audio?.stale).length,
         voices: withLine.length,
-        videos: shots.filter((shot) => shot.videoRef).length,
-        failed: shots.filter((shot) => shot.status === "failed").length,
+        videos: shots.filter((shot) => shot.videoRef && !shot.generation?.video?.stale).length,
+        /** 图片失败数（任务栏「图片」列用）。 */
+        failed: failedOf("image"),
+        imageFailed: failedOf("image"),
+        audioFailed: failedOf("audio"),
+        videoFailed: failedOf("video"),
     };
 }

@@ -4,12 +4,14 @@ import { ArrowRight, Image as ImageIcon, LoaderCircle, Plus } from "lucide-react
 
 import { Panel, StepShell } from "./step-shell";
 import { buildGenerationConfig } from "@/lib/canvas/canvas-generation-helpers";
+import { buildAssetPrompt } from "@/lib/drama/asset-prompt";
 import { ASSET_KIND_LABEL, frameGradient } from "@/lib/drama/schema";
 import { ASSET_QUALITY_OPTIONS, SETTING_OPTIONS } from "@/lib/drama/settings";
 import { requestGeneration } from "@/services/api/image";
 import { resolveMediaUrl, uploadMediaFile } from "@/services/file-storage";
 import { allChannels, decodeChannelModel, modelOptionName, selectableModelsByCapability } from "@/stores/use-config-store";
 import { useDramaStore } from "@/stores/use-drama-store";
+import { useDramaTasks } from "@/stores/use-drama-tasks";
 import type { DramaAsset, DramaAssetKind, DramaMediaVersion } from "@/types/drama";
 import type { StepProps } from "../steps/step-props";
 
@@ -19,6 +21,9 @@ const ASSET_KINDS: DramaAssetKind[] = ["character", "scene", "costume", "prop", 
 export function AssetStep({ sequence, settings, config, patch, patchSetting, go, selectAsset, selectedAssetId }: StepProps) {
     const { message } = App.useApp();
     const [busy, setBusy] = useState<string | null>(null);
+    const startTask = useDramaTasks((state) => state.start);
+    const finishTask = useDramaTasks((state) => state.finish);
+    const failTask = useDramaTasks((state) => state.fail);
     const [urls, setUrls] = useState<Record<string, string>>({});
 
     // 批量循环里 props 是旧快照，读写都以 store 最新数据为准。
@@ -49,6 +54,8 @@ export function AssetStep({ sequence, settings, config, patch, patchSetting, go,
     }, [sequence.assets, urls]);
 
     const generateOne = async (asset: DramaAsset, quiet = false) => {
+        let taskId = "";
+        let signal: AbortSignal | undefined;
         try {
             const base = buildGenerationConfig(config, undefined, "image");
             const generationConfig = {
@@ -57,19 +64,32 @@ export function AssetStep({ sequence, settings, config, patch, patchSetting, go,
                 ...(settings.ratio !== "自动" ? { size: settings.ratio } : {}),
                 ...(settings.assetQuality !== "自动" ? { quality: settings.assetQuality } : {}),
             };
-            const prompt = [settings.style !== "自动" ? settings.style : "", asset.name, ASSET_KIND_LABEL[asset.kind], asset.description].filter(Boolean).join("，");
-            const items = await requestGeneration(generationConfig, prompt);
+            // 统一资产提示词：项目视觉 + 摄影参数 + 类型模板 + 材质 + 画幅 + 负面词。
+            const prompt = buildAssetPrompt(sequence, asset, settings);
+            const task = startTask({ sequenceId: sequence.id, kind: "asset", label: `${asset.name} · 资产图`, model: generationConfig.model, prompt });
+            taskId = task.id;
+            signal = task.signal;
+            const items = await requestGeneration(generationConfig, prompt, { signal: task.signal });
             const dataUrl = items[0]?.dataUrl;
             if (!dataUrl) throw new Error("模型没有返回图片");
             const blob = await (await fetch(dataUrl)).blob();
             const file = await uploadMediaFile(blob, "drama-asset");
-            const version: DramaMediaVersion = { storageKey: file.storageKey, model: generationConfig.model, prompt, createdAt: new Date().toISOString() };
+            const version: DramaMediaVersion = {
+                storageKey: file.storageKey,
+                model: generationConfig.model,
+                prompt,
+                parameters: { ratio: settings.ratio, quality: settings.assetQuality, kind: asset.kind },
+                createdAt: new Date().toISOString(),
+            };
             const latest = latestAssets().find((item) => item.id === asset.id) ?? asset;
+            finishTask(taskId, file.storageKey);
             patchAsset(asset.id, { refs: [file.storageKey], versions: [version, ...(latest.versions ?? [])].slice(0, 8), model: generationConfig.model });
             if (!quiet) message.success(`${asset.name} 已生成`);
             return true;
         } catch (error) {
-            if (!quiet) message.error(error instanceof Error ? error.message : "生成失败");
+            const reason = error instanceof Error ? error.message : "生成失败";
+            if (taskId && !signal?.aborted) failTask(taskId, reason);
+            if (!quiet) message.error(reason);
             return false;
         }
     };
@@ -83,11 +103,15 @@ export function AssetStep({ sequence, settings, config, patch, patchSetting, go,
         }
         setBusy("all");
         let failed = 0;
-        for (const asset of pending) {
-            if (!(await generateOne(asset, true))) failed += 1;
+        try {
+            for (const asset of pending) {
+                // 单张失败不打断整批。
+                if (!(await generateOne(asset, true))) failed += 1;
+            }
+        } finally {
+            setBusy(null);
         }
-        setBusy(null);
-        message[failed ? "warning" : "success"](failed ? `批量生成完成，${failed} 张失败` : `批量生成完成 · ${pending.length} 张`);
+        message[failed ? "warning" : "success"](failed ? `批量完成：${pending.length - failed} 成功 / ${failed} 失败` : `批量生成完成 · ${pending.length} 张`);
     };
 
     const addAsset = (kind: DramaAssetKind) => {

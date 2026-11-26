@@ -1,4 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { isIP } from "node:net";
+import { config } from "../config.ts";
 
 /** 统一响应体：成功 { ok:true, data }，失败 { ok:false, error:{ code, message } } */
 export interface ApiError {
@@ -59,11 +61,42 @@ export function parseCookies(header: string | undefined): Record<string, string>
   return out;
 }
 
+function normalizeIp(value: string | undefined): string {
+  return String(value ?? "").trim().replace(/^::ffff:/i, "");
+}
+
+function ipv4ToInt(ip: string): number {
+  return ip.split(".").reduce((sum, part) => (sum << 8) + (Number(part) || 0), 0) >>> 0;
+}
+
+function inCidr(ip: string, cidr: string): boolean {
+  const normalized = normalizeIp(ip);
+  const entry = normalizeIp(cidr);
+  if (!entry.includes("/")) return normalized === entry;
+  const [base, bitsRaw] = entry.split("/");
+  const bits = Math.max(0, Math.min(32, Number(bitsRaw)));
+  if (isIP(normalized) !== 4 || isIP(base) !== 4) return false;
+  const mask = bits === 0 ? 0 : (0xffffffff << (32 - bits)) >>> 0;
+  return (ipv4ToInt(normalized) & mask) === (ipv4ToInt(base) & mask);
+}
+
+function trustedProxy(ip: string): boolean {
+  return config.trustProxy.some((entry) => inCidr(ip, entry));
+}
+
 export function clientIp(req: IncomingMessage): string {
-  // 生产环境经反代时，应由可信代理覆盖该头；此处仅取第一跳
+  // 只有直连对端是已配置的可信反代时，才采信 X-Forwarded-For；
+  // 否则任何客户端都能伪造该头，登录限流和审计 IP 会形同虚设。
+  const remote = normalizeIp(req.socket.remoteAddress);
   const xff = req.headers["x-forwarded-for"];
-  if (typeof xff === "string" && xff.length > 0) return xff.split(",")[0].trim();
-  return req.socket.remoteAddress ?? "";
+  if (typeof xff === "string" && xff && trustedProxy(remote)) {
+    const chain = xff.split(",").map((value) => normalizeIp(value)).filter(Boolean);
+    for (let index = chain.length - 1; index >= 0; index -= 1) {
+      if (!trustedProxy(chain[index])) return chain[index];
+    }
+    return chain[0] || remote;
+  }
+  return remote;
 }
 
 export function isObject(v: unknown): v is Record<string, unknown> {

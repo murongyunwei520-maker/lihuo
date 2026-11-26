@@ -1,13 +1,16 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { ChevronRight, Copy, Download, Group, Image as ImageIcon, Music2, Puzzle, RefreshCw, Star, Trash2, Video } from "lucide-react";
 
 import { canvasThemes } from "@/lib/canvas-theme";
 import { formatBytes } from "@/lib/image-utils";
 import { pickImageSource } from "@/lib/image-thumbnail";
+import { computeNodePanelLayout, type NodePanelLayout } from "@/lib/canvas/node-panel-layout";
 import { previewUrlFor, subscribeImagePreviews, getImagePreviewRevision } from "@/services/image-storage";
 import { getNodeDefinition } from "@/lib/canvas/node-registry";
 import { buildNodeContext } from "@/lib/canvas/plugin-node-context";
+import { useCanvasLayoutStore } from "@/stores/use-canvas-layout-store";
 import { useThemeStore } from "@/stores/use-theme-store";
 import { CanvasResourceMentionTextarea } from "./canvas-resource-mention-textarea";
 import { CanvasNodeType, type CanvasNodeData, type CanvasNodeImage, type CanvasNodeText, type Position } from "@/types/canvas";
@@ -446,45 +449,109 @@ export const CanvasNode = React.memo(function CanvasNode({
             {!referenceSelectionState && (definition?.hasSourceHandle ?? true) && data.type !== CanvasNodeType.Config ? <ConnectionHandleDot side="right" visible={hovered || isSelected || isConnecting} onMouseDown={(event) => onConnectStart(event, data.id, "source")} /> : null}
 
             {/* Counter-scale the panel so its on-screen size stays constant while the canvas zooms. */}
-            {showPanel && !isGroup && renderPanel ? <NodePanelShell nodeId={data.id} scale={scale}>{renderPanel(data)}</NodePanelShell> : null}
+            {showPanel && !isGroup && renderPanel ? <NodePanelShell nodeId={data.id}>{renderPanel(data)}</NodePanelShell> : null}
         </div>
     );
 });
 
-/** 面板外壳：默认挂在节点下方，靠近屏幕底部时自动翻到上方，避免被画布裁掉。 */
-function NodePanelShell({ nodeId, scale, children }: { nodeId: string; scale: number; children: ReactNode }) {
+/** 面板外壳：渲染到 body，用屏幕坐标做智能定位，避免被画布缩放、overflow 和固定 600px 宽度限制。 */
+function NodePanelShell({ nodeId, children }: { nodeId: string; children: ReactNode }) {
     const ref = useRef<HTMLDivElement | null>(null);
-    const [flipUp, setFlipUp] = useState(false);
+    const [layout, setLayout] = useState<NodePanelLayout | null>(null);
+    const topBarOpen = useCanvasLayoutStore((state) => state.topBarOpen);
 
-    useEffect(() => {
-        const element = ref.current;
-        if (!element) return;
-        const check = () => {
-            const rect = element.getBoundingClientRect();
-            setFlipUp(rect.bottom > window.innerHeight - 12);
+    useLayoutEffect(() => {
+        if (typeof document === "undefined") return;
+        const node = [...document.querySelectorAll<HTMLElement>("[data-node-id]")].find((item) => item.dataset.nodeId === nodeId);
+        const viewport = node?.closest<HTMLElement>("[data-canvas-viewport]");
+        const panel = ref.current;
+        if (!node || !viewport || !panel) return;
+
+        let frame = 0;
+        let lastKey = "";
+        const update = () => {
+            const nodeRect = node.getBoundingClientRect();
+            const viewportRect = viewport.getBoundingClientRect();
+            const topBar = document.querySelector<HTMLElement>("[data-canvas-top-bar]");
+            const bottomToolbar = document.querySelector<HTMLElement>("[data-canvas-bottom-toolbar]");
+            const panelHeight = Math.max(1, panel.scrollHeight);
+            const topInset = topBar ? Math.max(0, topBar.getBoundingClientRect().bottom - viewportRect.top + 8) : 52;
+            const bottomInset = bottomToolbar ? Math.max(0, viewportRect.bottom - bottomToolbar.getBoundingClientRect().top + 8) : 16;
+            const next = computeNodePanelLayout({
+                node: { left: nodeRect.left, top: nodeRect.top, right: nodeRect.right, bottom: nodeRect.bottom, width: nodeRect.width, height: nodeRect.height },
+                viewport: { left: viewportRect.left, top: viewportRect.top, right: viewportRect.right, bottom: viewportRect.bottom, width: viewportRect.width, height: viewportRect.height },
+                panelHeight,
+                preferredWidth: 600,
+                topInset,
+                bottomInset,
+            });
+            const key = `${next.left}:${next.top}:${next.width}:${next.maxHeight}`;
+            if (key !== lastKey) {
+                lastKey = key;
+                setLayout(next);
+            }
         };
-        check();
-        const timer = window.setTimeout(check, 200);
-        // 面板内容是异步长出来的，尺寸一变就重新判断是否需要翻到上方
-        const observer = new ResizeObserver(check);
-        observer.observe(element);
-        window.addEventListener("resize", check);
+
+        // 只在拖动、缩放、节点移动等真实变化时合并到下一帧执行，避免常驻 rAF 持续占 CPU。
+        const schedule = () => {
+            if (frame) return;
+            frame = window.requestAnimationFrame(() => {
+                frame = 0;
+                update();
+            });
+        };
+
+        update();
+        const nodeObserver = new ResizeObserver(schedule);
+        nodeObserver.observe(node);
+        const panelObserver = new ResizeObserver(schedule);
+        panelObserver.observe(panel);
+        const viewportObserver = new ResizeObserver(schedule);
+        viewportObserver.observe(viewport);
+
+        // 画布平移/缩放和节点移动通常只改 transform，不触发 resize；监听样式变化即可覆盖。
+        const mutationObserver = new MutationObserver(schedule);
+        let mutable: HTMLElement | null = node;
+        while (mutable && mutable !== viewport.parentElement) {
+            mutationObserver.observe(mutable, { attributes: true, attributeFilter: ["style", "class"] });
+            if (mutable === viewport) break;
+            mutable = mutable.parentElement;
+        }
+        window.addEventListener("resize", schedule);
+        document.addEventListener("scroll", schedule, true);
         return () => {
-            window.clearTimeout(timer);
-            observer.disconnect();
-            window.removeEventListener("resize", check);
+            if (frame) cancelAnimationFrame(frame);
+            nodeObserver.disconnect();
+            panelObserver.disconnect();
+            viewportObserver.disconnect();
+            mutationObserver.disconnect();
+            window.removeEventListener("resize", schedule);
+            document.removeEventListener("scroll", schedule, true);
         };
-    }, []);
+    }, [nodeId, topBarOpen]);
 
-    return (
+    if (typeof document === "undefined") return null;
+    return createPortal(
         <div
             ref={ref}
-            className={`absolute left-1/2 z-[70] w-[600px] ${flipUp ? "bottom-full pb-3" : "top-full pt-4"}`}
-            style={{ transform: `translateX(-50%) scale(${1 / scale})`, transformOrigin: flipUp ? "bottom center" : "top center" }}
             data-node-panel={nodeId}
+            data-canvas-no-zoom
+            className="fixed z-[120] overflow-y-auto overscroll-contain"
+            style={{
+                left: layout?.left ?? 0,
+                top: layout?.top ?? 0,
+                width: layout?.width ?? 600,
+                maxHeight: layout?.maxHeight,
+                borderRadius: 16,
+                boxShadow: "0 18px 60px rgba(20, 16, 38, 0.22)",
+                visibility: layout ? "visible" : "hidden",
+            }}
+            onMouseDown={(event) => event.stopPropagation()}
+            onPointerDown={(event) => event.stopPropagation()}
         >
             {children}
-        </div>
+        </div>,
+        document.body,
     );
 }
 

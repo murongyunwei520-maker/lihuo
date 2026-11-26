@@ -334,6 +334,8 @@ export default {
         doubao: "豆包账号",
         prompts: "提示词库",
         assets: "我的资产",
+        account: "账户中心",
+        points: "积分充值",
         config: "配置",
     },
     director: {

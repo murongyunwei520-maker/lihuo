@@ -6,6 +6,17 @@ infinite-canvas is in active development. Security fixes are accepted for the
 `main` branch and the latest tagged release. Older versions may be handled on a
 best-effort basis.
 
+## 公网部署前必做（离火）
+
+- **不要把豆包账号池打进镜像或上传到服务器**。`.doubao-accounts/`、`.doubao-venv/`、`.doubao-session.json` 只属于本机，已在 `.gitignore` 和 `.dockerignore` 排除；构建前运行 `node scripts/security-check.mjs` 复核。
+- **doubao-bridge 只允许监听回环地址**。它持有豆包登录态；公网服务器上不要启动，也不要把 `9091` 端口映射出去。需要远程使用时走 SSH 隧道。桥接的二维码 / 产物接口只对白名单 Origin 返回 CORS 头，禁止改回 `*`。
+- **上游 API Key 只在服务端 `.env.docker` / 环境变量里**，不要写进前端 `VITE_*`、`config.js`、localStorage 或导出的配置 JSON。前端导出的配置会剥离 API Key 与 WebDAV 密码。
+- **真实部署的后端工程（默认 `../lihuo后端`）也要保留 `.dockerignore` / `.gitignore` 里的 `.env*` 与 `data/`**；`docker-compose.stack.yml` 通过 `env_file` 注入密钥，不要把 `.env.docker` 或 `data/` 放进构建上下文。
+- **不要把带账号 / 二维码 / Key 的 UI 截图提交到仓库**。`scripts/security-check.mjs` 会扫描未跟踪文件并提示未跟踪图片；提交前人工确认画面中没有敏感信息。
+- **HTTPS 部署必须设置 `LIHUO_COOKIE_SECURE=true`**，并配置可信反代的 `LIHUO_TRUST_PROXY`，否则登录限流会按伪造的 `X-Forwarded-For` 统计。
+- **首次启动生成的管理员密码只写在 `/data/.bootstrap-admin.txt`**，登录后立即修改密码并删除该文件；不要提交 `server/data/` 或把该文件打进镜像。
+- 如果曾经把 `.env`、账号目录或带 Key 的配置提交/推送过，视为已泄露：先轮换 Key、退出豆包账号，再清理历史，不要只删当前文件。后端 `.env.docker` 进过 Git 时，除清理历史外还必须轮换 `LIHUO_ADMIN_PASSWORD`、`STORAGE_SECRET` 和 `LIHUO_INVITE_CODE`，否则旧值仍可从历史恢复。
+
 ## Reporting a Vulnerability
 
 Please do not open a public issue with exploit details, credentials, private

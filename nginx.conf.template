@@ -1,0 +1,53 @@
+# 同域部署：静态前端 + /api 反代到后端容器
+# ${API_UPSTREAM} 由容器启动时的 envsubst 替换（默认 http://api:3100）
+server {
+    listen 3000;
+    server_name _;
+    root /usr/share/nginx/html;
+    index index.html;
+    server_tokens off;
+
+    # HSTS 只在 HTTPS 入口有意义，浏览器在 http 下会忽略；由边缘统一设置，应用不再重复
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+    # 画布快照是 MB 级，默认 1m 会在反代层就被 413 掉
+    client_max_body_size 16m;
+
+    location /api/ {
+        proxy_pass ${API_UPSTREAM};
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        # 限流与风控依赖真实来源 IP，不透传等于按反代 IP 统计
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        # 生成请求可能跑满几分钟
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+        proxy_buffering off;
+    }
+
+    location = /health {
+        proxy_pass ${API_UPSTREAM};
+        proxy_set_header Host $host;
+    }
+
+    # 静态资源（HTML/JS/CSS）的安全头由边缘统一负责；/api 由后端自己设置，避免重复
+    location / {
+        # nginx 规则：location 里出现 add_header 后不再继承 server 级，HSTS 必须在这里重复声明一次
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header X-Frame-Options "DENY" always;
+        add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()" always;
+        # 主题初始化脚本已抽成 /theme-init.js，因此可以禁用内联脚本
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' https:; font-src 'self' data:; frame-ancestors 'none'; base-uri 'self'" always;
+        try_files $uri $uri/ /index.html;
+    }
+
+    # 运行期配置由容器启动时生成，禁止缓存，确保改环境变量后即时生效。
+    location = /config.js {
+        add_header Cache-Control "no-store";
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    }
+}

@@ -11,6 +11,7 @@ import { requestAudioGeneration, storeGeneratedAudio } from "@/services/api/audi
 import { uploadMediaFile } from "@/services/file-storage";
 import { allChannels, decodeChannelModel, modelOptionName, selectableModelsByCapability } from "@/stores/use-config-store";
 import { useDramaStore } from "@/stores/use-drama-store";
+import { useDramaTasks } from "@/stores/use-drama-tasks";
 import type { DramaAsset, DramaMediaVersion, DramaShot } from "@/types/drama";
 import type { StepProps } from "./step-props";
 
@@ -21,6 +22,9 @@ import type { StepProps } from "./step-props";
 export function VoiceStep({ sequence, settings, config, patch, patchSetting, go, selectShot }: StepProps) {
     const { message } = App.useApp();
     const [busy, setBusy] = useState<string | null>(null);
+    const startTask = useDramaTasks((state) => state.start);
+    const finishTask = useDramaTasks((state) => state.finish);
+    const failTask = useDramaTasks((state) => state.fail);
     const fileRef = useRef<HTMLInputElement>(null);
     const [sampleTarget, setSampleTarget] = useState<string | null>(null);
 
@@ -47,9 +51,12 @@ export function VoiceStep({ sequence, settings, config, patch, patchSetting, go,
     const patchShot = (shotId: string, part: Partial<DramaShot>) => patch({ shots: latestSequences().shots.map((shot) => (shot.id === shotId ? { ...shot, ...part } : shot)) });
 
     const voiceOfShot = (shot: DramaShot) => {
+        // 优先用这句台词的说话人；旁白/未指定时退回该镜第一个已绑定人物。
         // 人物唯一标识用资产 id，不按名字——改名后音色绑定不会丢。
         const charactersOfShot = sequence.assets.filter((asset) => shot.assetIds.includes(asset.id) && asset.kind === "character");
-        for (const character of charactersOfShot) {
+        const speaker = shot.speaker && shot.speaker !== "旁白" ? charactersOfShot.find((asset) => asset.name === shot.speaker) : undefined;
+        const ordered = speaker ? [speaker, ...charactersOfShot.filter((asset) => asset.id !== speaker.id)] : charactersOfShot;
+        for (const character of ordered) {
             const bound = sequence.voices?.[character.id];
             if (bound) return bound;
         }
@@ -57,21 +64,45 @@ export function VoiceStep({ sequence, settings, config, patch, patchSetting, go,
     };
 
     const generate = async (shot: DramaShot, quiet = false) => {
+        // 无台词镜头不强行生成对白音频。
         if (!shot.line.trim()) return false;
         setBusy(shot.id);
+        const startedAt = new Date().toISOString();
+        patchShot(shot.id, { generation: { ...shot.generation, audio: { status: "running", updatedAt: startedAt } } });
+        let taskId = "";
+        let signal: AbortSignal | undefined;
         try {
             const base = buildGenerationConfig(config, undefined, "audio");
             const voice = voiceOfShot(shot);
             const audioConfig = { ...base, model: settings.audioModel || base.model, ...(voice ? { audioVoice: voice } : {}) };
-            const blob = await requestAudioGeneration(audioConfig, shot.line.trim());
+            const task = startTask({ sequenceId: sequence.id, shotId: shot.id, kind: "audio", label: `镜 ${shot.no} · 配音`, model: audioConfig.model, prompt: shot.line.trim() });
+            taskId = task.id;
+            signal = task.signal;
+            const blob = await requestAudioGeneration(audioConfig, shot.line.trim(), { signal: task.signal });
             const file = await storeGeneratedAudio(blob);
-            const version: DramaMediaVersion = { storageKey: file.storageKey, model: audioConfig.model, prompt: shot.line.trim(), createdAt: new Date().toISOString() };
+            const version: DramaMediaVersion = {
+                storageKey: file.storageKey,
+                model: audioConfig.model,
+                prompt: shot.line.trim(),
+                parameters: { voice: voice || "默认", speaker: shot.speaker || "未指定" },
+                createdAt: new Date().toISOString(),
+            };
             const latest = latestSequences().shots.find((item) => item.id === shot.id) ?? shot;
-            patchShot(shot.id, { audioRef: file.storageKey, audioVersions: [version, ...(latest.audioVersions ?? [])].slice(0, 8) });
+            finishTask(taskId, file.storageKey);
+            patchShot(shot.id, {
+                audioRef: file.storageKey,
+                audioVersions: [version, ...(latest.audioVersions ?? [])].slice(0, 8),
+                generation: { ...latest.generation, audio: { status: "done", stale: false, updatedAt: new Date().toISOString() } },
+            });
             if (!quiet) message.success(`镜 ${shot.no} 配音完成`);
             return true;
         } catch (error) {
-            if (!quiet) message.error(error instanceof Error ? error.message : "配音失败");
+            const reason = error instanceof Error ? error.message : "配音失败";
+            if (taskId && !signal?.aborted) failTask(taskId, reason);
+            const latest = latestSequences().shots.find((item) => item.id === shot.id) ?? shot;
+            // 失败保留已有 audioRef 与历史版本。
+            patchShot(shot.id, { generation: { ...latest.generation, audio: { status: "failed", error: reason, updatedAt: new Date().toISOString() } } });
+            if (!quiet) message.error(reason);
             return false;
         } finally {
             setBusy(null);
@@ -79,7 +110,8 @@ export function VoiceStep({ sequence, settings, config, patch, patchSetting, go,
     };
 
     const runAll = async () => {
-        const pending = latestSequences().shots.filter((shot) => shot.line.trim() && !shot.audioRef);
+        // 剧本改过、台词不再对得上的配音一起重配，否则「全部配音」会跳过它们。
+        const pending = latestSequences().shots.filter((shot) => shot.line.trim() && (!shot.audioRef || shot.generation?.audio?.stale));
         if (!pending.length) {
             message.info("没有需要配音的镜头");
             return;
@@ -111,11 +143,12 @@ export function VoiceStep({ sequence, settings, config, patch, patchSetting, go,
 
     const voices = sequence.shots.filter((shot) => shot.line.trim());
     const done = voices.filter((shot) => shot.audioRef).length;
+    const stale = voices.filter((shot) => shot.audioRef && shot.generation?.audio?.stale).length;
 
     return (
         <StepShell
             title="声音制作"
-            subtitle={`${done}/${voices.length} 条对白已配音。人物绑定音色后，全片默认沿用，不用每次重选。`}
+            subtitle={`${done}/${voices.length} 条对白已配音${stale ? ` · ${stale} 条台词已改待重配` : ""}。人物绑定音色后，全片默认沿用，不用每次重选。`}
             actions={
                 <>
                     <input ref={fileRef} type="file" accept="audio/*" className="hidden" onChange={(event) => event.target.files?.[0] && void onSample(event.target.files[0])} />
@@ -184,6 +217,7 @@ export function VoiceStep({ sequence, settings, config, patch, patchSetting, go,
                                         <span>{shot.scene || "未填场景"}</span>
                                         <span>·</span>
                                         <span>{voiceOfShot(shot) ? audioVoiceOptions.find((item) => item.value === voiceOfShot(shot))?.label : "音色自动"}</span>
+                                        {shot.audioRef && shot.generation?.audio?.stale ? <span className="drama-chip is-warn">内容已改</span> : null}
                                     </div>
                                 </div>
                                 {urls[shot.audioRef ?? ""] ? <audio controls src={urls[shot.audioRef ?? ""]} className="h-8 w-40 shrink-0" onClick={(event) => event.stopPropagation()} /> : null}

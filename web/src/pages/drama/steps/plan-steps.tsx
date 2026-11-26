@@ -1,15 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { App, Button, Input, Select } from "antd";
-import { ArrowRight, Clapperboard, FileUp, LoaderCircle, Sparkles, Wand2 } from "lucide-react";
+import { ArrowRight, CircleAlert, Clapperboard, FileUp, LoaderCircle, Plus, Sparkles, Trash2, Wand2 } from "lucide-react";
+import { nanoid } from "nanoid";
 
 import { DramaParamSelect } from "../components/drama-param-select";
 import { Panel, StepShell } from "../components/step-shell";
 import { generateOutline, generateScript } from "@/lib/drama/ai";
+import { aiBibleDraft, bibleHashOf, bibleReady, bibleState, EMPTY_BIBLE, mergeBibleDraft, ruleBibleDraft } from "@/lib/drama/bible";
 import { frameGradient } from "@/lib/drama/schema";
 import { makeScript, readScriptFile, SCRIPT_ACCEPT } from "@/lib/drama/script";
 import { SETTING_OPTIONS, episodeCountOf } from "@/lib/drama/settings";
 import { DRAMA_TEMPLATES } from "@/lib/drama/templates";
 import { audioVoiceOptions } from "@/lib/audio-generation";
+import { useDramaStore } from "@/stores/use-drama-store";
 import type { DramaAsset, DramaBible, DramaScript } from "@/types/drama";
 import type { StepProps } from "./step-props";
 
@@ -19,6 +22,10 @@ const BIBLE_FIELDS: { key: keyof DramaBible; title: string; placeholder: string 
     { key: "background", title: "故事背景", placeholder: "故事开始前发生了什么，主角为什么被卷进来。" },
     { key: "relations", title: "人物关系", placeholder: "谁和谁是什么关系，谁在利用谁。" },
     { key: "visual", title: "画面视觉规范", placeholder: "色调、光线、镜头质感、服化道基准。" },
+    { key: "era", title: "时代与地域", placeholder: "民国江南 / 近未来湾区，建筑与器物要符合这个年代。" },
+    { key: "palette", title: "色彩基调", placeholder: "冷青灰为主，暖灯作点缀；饱和度偏低。" },
+    { key: "material", title: "材质质感", placeholder: "实木、青石、粗麻、雨湿反光；避免塑料感。" },
+    { key: "negative", title: "负面提示词", placeholder: "全项目都不希望出现的内容，例如：现代电器、卡通化、过曝。" },
 ];
 
 function savedLabel(updatedAt: string) {
@@ -37,7 +44,7 @@ export function InspirationStep({ sequence, patch, go }: StepProps) {
     const upload = async (file: File) => {
         try {
             const text = await readScriptFile(file);
-            patch({ script: makeScript(text, "upload", { fileName: file.name, premise: script?.premise }) });
+            patch({ script: makeScript(text, "upload", { ...script, fileName: file.name }) });
             message.success("故事文档已导入，可到「生成剧本」继续改");
         } catch (error) {
             message.error(error instanceof Error ? error.message : "导入失败");
@@ -154,12 +161,24 @@ export function ScriptStep({ sequence, settings, config, patch, go }: StepProps)
         if (draft === (script?.text ?? "")) return;
         setSaveState("saving");
         const timer = setTimeout(() => {
-            patch({ script: { text: draft, source: script?.source ?? "paste", ...script, outline } });
+            patch({ script: { ...script, text: draft, source: script?.source ?? "paste", outline } });
             setSaveState("saved");
         }, 800);
         return () => clearTimeout(timer);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [draft]);
+
+    // 防抖还没到就离开这一步时补存一次：否则「改完剧本立刻去拆镜」会拆到旧剧本。
+    const draftRef = useRef(draft);
+    draftRef.current = draft;
+    useEffect(() => {
+        return () => {
+            const store = useDramaStore.getState();
+            const current = store.sequences.find((item) => item.id === sequence.id);
+            if (!current || draftRef.current === (current.script?.text ?? "")) return;
+            store.updateSequence(sequence.id, { script: { ...current.script, text: draftRef.current, source: current.script?.source ?? "paste" } });
+        };
+    }, [sequence.id]);
 
     const brief = {
         premise: script?.premise ?? "",
@@ -181,7 +200,7 @@ export function ScriptStep({ sequence, settings, config, patch, go }: StepProps)
             if (mode === "outline") {
                 const text = await generateOutline({ config, ...brief, model: settings.textModel, settings, onDelta: setStream });
                 setOutline(text);
-                patch({ script: { text: draft, source: script?.source ?? "none", ...script, outline: text } });
+                patch({ script: { ...script, text: draft, source: script?.source ?? "none", outline: text } });
                 message.success("大纲已生成");
             } else {
                 const text = await generateScript({
@@ -194,7 +213,7 @@ export function ScriptStep({ sequence, settings, config, patch, go }: StepProps)
                 });
                 const next = mode === "continue" ? `${draft.trim()}\n\n${text}`.trim() : text;
                 setDraft(next);
-                patch({ script: { text: next, source: "generated", ...script, outline, premise: brief.premise } });
+                patch({ script: { ...script, text: next, source: "generated", outline, premise: brief.premise } });
                 setSaveState("saved");
                 message.success(mode === "continue" ? "已续写" : "剧本已生成");
             }
@@ -235,7 +254,7 @@ export function ScriptStep({ sequence, settings, config, patch, go }: StepProps)
                         if (!file) return;
                         const text = await readScriptFile(file);
                         setDraft(text);
-                        patch({ script: makeScript(text, "upload", { fileName: file.name, outline }) });
+                        patch({ script: makeScript(text, "upload", { ...script, outline, fileName: file.name }) });
                     }} />
                     <Button icon={<FileUp className="size-4" />} onClick={() => fileRef.current?.click()}>
                         上传替换
@@ -261,7 +280,7 @@ export function ScriptStep({ sequence, settings, config, patch, go }: StepProps)
 
                 <div className="space-y-4">
                     <Panel title="故事大纲" hint="产生硬约束">
-                        <Input.TextArea autoSize={{ minRows: 10, maxRows: 22 }} value={outline} placeholder="点上方「生成大纲」，或自己写：一句话故事 / 主要人物 / 分集大纲" onChange={(event) => setOutline(event.target.value)} onBlur={() => patch({ script: { text: draft, source: script?.source ?? "none", ...script, outline } })} />
+                        <Input.TextArea autoSize={{ minRows: 10, maxRows: 22 }} value={outline} placeholder="点上方「生成大纲」，或自己写：一句话故事 / 主要人物 / 分集大纲" onChange={(event) => setOutline(event.target.value)} onBlur={() => patch({ script: { ...script, text: draft, source: script?.source ?? "none", outline } })} />
                     </Panel>
                     <Panel title="分集结构" hint={`${episodes} 集 · 每集约 ${sequence.targetSeconds}s`}>
                         <div className="grid grid-cols-2 gap-2">
@@ -280,9 +299,17 @@ export function ScriptStep({ sequence, settings, config, patch, go }: StepProps)
     );
 }
 
-/** 03 确认设定：世界观、人物、视觉规范与生成参数。 */
-export function SettingsStep({ sequence, settings, patch, patchSetting, go }: StepProps) {
-    const bible: DramaBible = sequence.bible ?? { world: "", background: "", relations: "", visual: "" };
+/** 03 确认设定：世界观、人物、视觉规范与生成参数。设定由前两步自动补全，用户确认或改。 */
+export function SettingsStep({ sequence, settings, config, patch, patchSetting, go }: StepProps) {
+    const { message } = App.useApp();
+    const bible: DramaBible = sequence.bible ?? EMPTY_BIBLE;
+    const state = bibleState(sequence);
+    const [busy, setBusy] = useState(false);
+    const [note, setNote] = useState("");
+    const [progress, setProgress] = useState(0);
+    const autoRanRef = useRef<string | null>(null);
+    const abortRef = useRef<AbortController | null>(null);
+
     const patchBible = (part: Partial<DramaBible>) => patch({ bible: { ...bible, ...part } });
     const characters = sequence.assets.filter((asset) => asset.kind === "character");
     const scenes = sequence.assets.filter((asset) => asset.kind === "scene");
@@ -290,11 +317,104 @@ export function SettingsStep({ sequence, settings, patch, patchSetting, go }: St
     const patchVoice = (name: string, voice: string) => patch({ voices: { ...(sequence.voices ?? {}), [name]: voice } });
     const patchAsset = (id: string, part: Partial<DramaAsset>) => patch({ assets: sequence.assets.map((asset) => (asset.id === id ? { ...asset, ...part } : asset)) });
 
+    const addCharacter = () => {
+        patch({ assets: [...sequence.assets, { id: `asset-${nanoid(8)}`, name: `新人物 ${characters.length + 1}`, kind: "character", description: "", refs: [] }] });
+    };
+
+    const removeCharacter = (id: string) => {
+        patch({
+            assets: sequence.assets.filter((asset) => asset.id !== id),
+            shots: sequence.shots.map((shot) => (shot.assetIds.includes(id) ? { ...shot, assetIds: shot.assetIds.filter((item) => item !== id) } : shot)),
+        });
+    };
+
+    /**
+     * 补全设定：先落地规则初稿（不花额度、立刻有内容可确认），
+     * 配了文本模型再用它补人物关系与外观；replace 只在用户显式点「重新生成」时用。
+     */
+    const fill = async (mode: "fill" | "replace") => {
+        const text = sequence.script?.text ?? "";
+        if (!text.trim()) {
+            message.warning("剧本还是空的，先回「生成剧本」");
+            return;
+        }
+        const rule = ruleBibleDraft(sequence);
+        const ruleMerged = mergeBibleDraft(sequence, rule, mode);
+        patch({ bible: ruleMerged.bible, assets: ruleMerged.assets });
+
+        if (!bibleReady(config, settings)) {
+            patch({ bibleHash: bibleHashOf(sequence) });
+            setNote("未配置文本模型：已按前两步的信息填好能填的字段，人物关系与外观需要你补。");
+            return;
+        }
+
+        abortRef.current?.abort();
+        const controller = new AbortController();
+        abortRef.current = controller;
+        setBusy(true);
+        setProgress(0);
+        setNote("");
+        try {
+            const draft = await aiBibleDraft({
+                config,
+                settings,
+                sequence: { ...sequence, bible: ruleMerged.bible, assets: ruleMerged.assets },
+                signal: controller.signal,
+                onProgress: setProgress,
+            });
+            // 用 store 最新数据做合并：AI 跑的时候用户可能已经改了设定或人物，不能被旧快照覆盖。
+            const latest = useDramaStore.getState().sequences.find((item) => item.id === sequence.id) ?? sequence;
+            const merged = mergeBibleDraft(latest, draft, mode);
+            patch({ bible: merged.bible, assets: merged.assets, bibleHash: bibleHashOf(latest) });
+            setNote(`已根据前两步补全设定：${draft.characters.length} 个人物 · ${draft.scenes.length} 个场景。可直接改，也可以点「重新生成设定」。`);
+        } catch (error) {
+            if (controller.signal.aborted) {
+                if (abortRef.current === controller) setNote("已停止 AI 补全，保留按剧本推算的初稿，可以再点一次「AI 补全设定」。");
+                return;
+            }
+            setNote(`AI 补全失败：${error instanceof Error ? error.message : "未知原因"}。已保留按剧本推算的初稿，可以再点一次「AI 补全」。`);
+        } finally {
+            // 只有「当前这一次」请求负责收尾：停止后 busy 必须释放，被新请求顶替的旧请求不能把状态关掉。
+            if (abortRef.current === controller) {
+                abortRef.current = null;
+                setBusy(false);
+            }
+        }
+    };
+
+    // 进来的第一件事就是补全：用户只需要确认或修改，不用先点按钮。
+    // 只要有剧本、且设定还不是「按这一版剧本生成的」，就补一次（fill 模式不会覆盖用户写过的内容）。
+    useEffect(() => {
+        if (autoRanRef.current === sequence.id) return;
+        if (!(sequence.script?.text ?? "").trim()) return;
+        if (state === "ready" && sequence.bibleHash) return;
+        autoRanRef.current = sequence.id;
+        void fill("fill");
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [sequence.id]);
+
+    const stateLabel = state === "empty" ? "待补全" : state === "stale" ? "剧本已改，设定是上一版" : "已按前两步补全";
+
     return (
         <StepShell
             title="确认设定"
-            subtitle="世界观、人物与视觉规范会写进后续所有提示词；人物名是跨镜头的唯一标识，不要随意改。"
-            actions={<span className="drama-sub">{savedLabel(sequence.updatedAt)}</span>}
+            subtitle={`世界观、故事背景与人物由前两步自动补全（${stateLabel}），确认或直接改即可；人物名是跨镜头的唯一标识，不要随意改。`}
+            actions={
+                <>
+                    <span className="drama-sub">{savedLabel(sequence.updatedAt)}</span>
+                    {busy ? (
+                        <Button onClick={() => abortRef.current?.abort()}>停止</Button>
+                    ) : null}
+                    <Button
+                        type={state === "ready" ? "default" : "primary"}
+                        icon={busy ? <LoaderCircle className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+                        disabled={busy}
+                        onClick={() => void fill(state === "ready" ? "replace" : "fill")}
+                    >
+                        {busy ? `AI 补全中${progress ? ` · ${progress} 字` : "…"}` : state === "ready" ? "重新生成设定" : "AI 补全设定"}
+                    </Button>
+                </>
+            }
             footer={
                 <>
                     <Button onClick={() => go(1)}>上一步</Button>
@@ -307,23 +427,43 @@ export function SettingsStep({ sequence, settings, patch, patchSetting, go }: St
                 </>
             }
         >
+            {state === "stale" && !busy ? (
+                <div className="drama-notice mb-3">
+                    <CircleAlert className="size-4 shrink-0" />
+                    <span className="min-w-0 flex-1">剧本改过之后设定没有更新，世界观与人物描述可能已经对不上。</span>
+                    <Button size="small" type="primary" onClick={() => void fill("replace")}>
+                        按新剧本重新生成
+                    </Button>
+                </div>
+            ) : null}
+
+            {note ? <div className="drama-card mb-3 text-[13px] leading-6">{note}</div> : null}
+
             <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
                 <div className="space-y-4">
                     <div className="grid gap-3 md:grid-cols-2">
                         {BIBLE_FIELDS.map((field) => (
                             <Panel key={field.key} title={field.title}>
-                                <Input.TextArea autoSize={{ minRows: 4, maxRows: 8 }} value={bible[field.key]} placeholder={field.placeholder} onChange={(event) => patchBible({ [field.key]: event.target.value })} />
+                                <Input.TextArea autoSize={{ minRows: 4, maxRows: 8 }} value={bible[field.key] ?? ""} placeholder={field.placeholder} onChange={(event) => patchBible({ [field.key]: event.target.value })} />
                             </Panel>
                         ))}
                     </div>
 
-                    <Panel title="人物设定" hint="同名人物在拆镜、出图、配音里共用这一条">
+                    <Panel
+                        title="人物设定"
+                        hint={`${characters.length} 人 · 同名人物在拆镜、出图、配音里共用这一条`}
+                        actions={
+                            <Button size="small" icon={<Plus className="size-3.5" />} onClick={addCharacter}>
+                                新增人物
+                            </Button>
+                        }
+                    >
                         {characters.length === 0 ? (
-                            <p className="drama-empty">还没有人物。剧本拆解后会自动生成，也可以点右侧「新建」。</p>
+                            <p className="drama-empty">还没有人物。剧本里有人物表或对白时，上面「AI 补全设定」会自动建卡；也可以点「新增人物」。</p>
                         ) : (
                             <div className="space-y-2">
                                 {characters.map((asset) => (
-                                    <div key={asset.id} className="grid items-center gap-2 rounded-lg border border-[var(--studio-border-soft)] p-2 md:grid-cols-[120px_minmax(0,1fr)_140px]">
+                                    <div key={asset.id} className="grid items-center gap-2 rounded-lg border border-[var(--studio-border-soft)] p-2 md:grid-cols-[120px_minmax(0,1fr)_140px_auto]">
                                         <Input value={asset.name} onChange={(event) => patchAsset(asset.id, { name: event.target.value })} />
                                         <Input value={asset.description} placeholder="身份 / 性格 / 外观 / 服装" onChange={(event) => patchAsset(asset.id, { description: event.target.value })} />
                                         <Select
@@ -331,10 +471,14 @@ export function SettingsStep({ sequence, settings, patch, patchSetting, go }: St
                                             onChange={(value) => patchVoice(asset.id, value)}
                                             options={[{ value: "", label: "音色：自动" }, ...audioVoiceOptions.map((item) => ({ value: item.value, label: `音色：${item.label}` }))]}
                                         />
+                                        <Button size="small" type="text" danger icon={<Trash2 className="size-3.5" />} title="删除人物" onClick={() => removeCharacter(asset.id)} />
                                     </div>
                                 ))}
                             </div>
                         )}
+                        <p className="drama-sub mt-2">
+                            {scenes.length ? `已认出的场景：${scenes.map((asset) => asset.name).join("、")}（参考图在「资产生成」里出）` : "剧本里的场景标题会自动建成场景资产，参考图在「资产生成」里出。"}
+                        </p>
                     </Panel>
                 </div>
 
@@ -348,6 +492,17 @@ export function SettingsStep({ sequence, settings, patch, patchSetting, go }: St
                         <DramaParamSelect label="选角" value={settings.casting} options={SETTING_OPTIONS.casting} onChange={(value) => patchSetting("casting", value)} customPlaceholder="输入选角方式" />
                     </div>
                     <p className="drama-sub mt-3">全剧 {episodeCountOf(settings)} 集 · 单集目标 {sequence.targetSeconds}s · 每个下拉都可「+ 自定义…」</p>
+
+                    <div className="mt-3 border-t border-[var(--studio-border-soft)] pt-3">
+                        <div className="drama-label">项目默认摄影（单镜可在右侧检查器覆盖）</div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <DramaParamSelect label="焦段" value={settings.lens} options={SETTING_OPTIONS.lens} onChange={(value) => patchSetting("lens", value)} customPlaceholder="如 40mm 变形宽银幕" />
+                            <DramaParamSelect label="光圈/景深" value={settings.aperture} options={SETTING_OPTIONS.aperture} onChange={(value) => patchSetting("aperture", value)} customPlaceholder="如 f/2 浅景深" />
+                            <DramaParamSelect label="主光方向" value={settings.keyLight} options={SETTING_OPTIONS.keyLight} onChange={(value) => patchSetting("keyLight", value)} customPlaceholder="如 右上侧逆光" />
+                            <DramaParamSelect label="辅光" value={settings.fillLight} options={SETTING_OPTIONS.fillLight} onChange={(value) => patchSetting("fillLight", value)} customPlaceholder="如 冷调环境补光" />
+                            <DramaParamSelect label="默认构图" value={settings.composition} options={SETTING_OPTIONS.composition} onChange={(value) => patchSetting("composition", value)} customPlaceholder="如 框中框构图" />
+                        </div>
+                    </div>
                 </Panel>
             </div>
         </StepShell>

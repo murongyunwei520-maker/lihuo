@@ -1,29 +1,21 @@
-import { useState, type CSSProperties } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import { Alert, Button, ConfigProvider, Form, Input, theme as antdTheme, Typography } from "antd";
+import { useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Alert, Button, Form, Input } from "antd";
 
-import { getAntThemeConfig } from "@/lib/app-theme";
-import { ServerApiError, login as apiLogin } from "@/services/api/lihuo-server";
+import { AuthShell } from "@/components/auth/auth-shell";
+import { ServerApiError } from "@/services/api/lihuo-server";
+import { useAuthStore } from "@/stores/use-auth-store";
 
 /**
- * 离火管理中心 · 登录页
+ * 登录 / 注册
  * ------------------------------------------------------------
- * 设计依据：design-system/components/admin-console.md
- *   - 后台明色优先，且与画布使用独立 Router 分支 / Layout
- *   - 不与画布共享布局组件，只共享 app-theme.ts 的色彩与字体令牌
- *
- * 主题：全局 AppProviders 用 getAntThemeConfig(dark) 且跟随用户偏好，
- * 所以这里必须用自己的 ConfigProvider **局部覆盖为明色**，
- * 否则用户切到深色时后台会跟着变暗（admin-console.md 不允许）。
- * 待 admin-theme.ts 并入仓库后，改用 getAdminThemeConfig(false)。
- *
- * 安全：
- *   - 会话凭据是后端下发的 HttpOnly Cookie，前端不接触、不存储任何密钥
- *   - next 参数做站内白名单校验，防开放重定向
+ * - 普通用户入口：登录后回到 next（默认 /canvas）
+ * - 管理员同样从这里进，登录后可直接访问 /admin
+ * - 会话凭据是后端下发的 HttpOnly Cookie，前端不存储任何密钥
+ * - next 参数做站内白名单校验，防开放重定向
  */
 
-/** 后台首页尚未建成，联调页作为登录后的落点 */
-const DEFAULT_NEXT = "/server-check";
+const DEFAULT_NEXT = "/canvas";
 
 function safeNext(raw: string | null): string {
     if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return DEFAULT_NEXT;
@@ -35,83 +27,65 @@ interface LoginValues {
     password: string;
 }
 
-function LoginCard() {
-    const { token } = antdTheme.useToken();
+interface RegisterValues extends LoginValues {
+    confirm: string;
+    email: string;
+    inviteCode?: string;
+}
+
+function AuthForm({ mode, onSwitch }: { mode: "login" | "register"; onSwitch: (mode: "login" | "register") => void }) {
     const navigate = useNavigate();
     const [params] = useSearchParams();
+    const signIn = useAuthStore((state) => state.signIn);
+    const signUp = useAuthStore((state) => state.signUp);
+
     const [error, setError] = useState<string | null>(null);
     const [pending, setPending] = useState(false);
 
-    const onFinish = async (values: LoginValues) => {
+    const handleError = (e: unknown) => {
+        if (e instanceof ServerApiError) {
+            if (e.code === "register_disabled") {
+                setError("当前未开放自助注册，请联系管理员开通账号");
+                return;
+            }
+            setError(e.message);
+            return;
+        }
+        setError((e as Error).message);
+    };
+
+    const onLogin = async (values: LoginValues) => {
         setError(null);
         setPending(true);
         try {
-            await apiLogin(values.username.trim(), values.password);
+            await signIn(values.username.trim(), values.password.trim());
             navigate(safeNext(params.get("next")), { replace: true });
         } catch (e) {
-            setError(e instanceof ServerApiError ? e.message : (e as Error).message);
+            handleError(e);
         } finally {
             setPending(false);
         }
     };
 
-    const shell: CSSProperties = {
-        minHeight: "100vh",
-        display: "grid",
-        placeItems: "center",
-        padding: 24,
-        background: token.colorBgLayout,
-        color: token.colorText,
-    };
-    const card: CSSProperties = {
-        width: 400,
-        maxWidth: "100%",
-        padding: 32,
-        background: token.colorBgContainer,
-        border: `1px solid ${token.colorBorderSecondary}`,
-        borderRadius: token.borderRadiusLG,
-        // 规范：靠边框分层，不加阴影
-    };
-    const brandMark: CSSProperties = {
-        width: 32,
-        height: 32,
-        borderRadius: 8,
-        background: token.colorPrimary,
-        color: "#fff",
-        display: "grid",
-        placeItems: "center",
-        fontSize: 16,
-        fontWeight: 600,
+    const onRegister = async (values: RegisterValues) => {
+        setError(null);
+        setPending(true);
+        try {
+            await signUp({ username: values.username.trim(), password: values.password.trim(), email: values.email.trim(), inviteCode: values.inviteCode?.trim() });
+            navigate(safeNext(params.get("next")), { replace: true });
+        } catch (e) {
+            handleError(e);
+        } finally {
+            setPending(false);
+        }
     };
 
     return (
-        <div style={shell}>
-            <div style={card}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 28 }}>
-                    <div style={brandMark}>离</div>
-                    <div>
-                        <div style={{ fontSize: 16, fontWeight: 600, lineHeight: 1.2 }}>离火</div>
-                        <div style={{ fontSize: 11, color: token.colorTextTertiary, letterSpacing: ".12em" }}>
-                            LIHUO
-                        </div>
-                    </div>
-                </div>
+        <>
+            {error && <Alert type="error" message={error} showIcon style={{ marginBottom: 16 }} />}
 
-                <Typography.Title level={4} style={{ margin: "0 0 4px", fontWeight: 500 }}>
-                    登录管理中心
-                </Typography.Title>
-                <Typography.Paragraph type="secondary" style={{ fontSize: 13, margin: "0 0 24px" }}>
-                    使用离火账号继续
-                </Typography.Paragraph>
-
-                {error && <Alert type="error" message={error} showIcon style={{ marginBottom: 16 }} />}
-
-                <Form<LoginValues>
-                    layout="vertical"
-                    requiredMark={false}
-                    onFinish={onFinish}
-                    initialValues={{ username: "", password: "" }}
-                >
+            {mode === "login" ? (
+                <Form<LoginValues> layout="vertical" requiredMark={false} onFinish={onLogin} initialValues={{ username: "", password: "" }}>
                     <Form.Item name="username" label="用户名" rules={[{ required: true, message: "请输入用户名" }]}>
                         <Input autoComplete="username" autoFocus disabled={pending} />
                     </Form.Item>
@@ -121,36 +95,92 @@ function LoginCard() {
                     <Button type="primary" htmlType="submit" block loading={pending}>
                         登录
                     </Button>
+                    <div className="mt-2 flex items-center justify-between">
+                        <Button
+                            type="link"
+                            size="small"
+                            style={{ paddingInline: 0 }}
+                            onClick={() => {
+                                onSwitch("register");
+                                setError(null);
+                            }}
+                        >
+                            没有账号？注册
+                        </Button>
+                        <Link to="/forgot-password" className="text-xs">
+                            忘记密码？
+                        </Link>
+                    </div>
                 </Form>
-
-                {/* AGPLv3 §7(b)(c)：保守保留署名与来源链接，落地位置待合规报告确认 */}
-                <div
-                    style={{
-                        marginTop: 24,
-                        fontSize: 11,
-                        lineHeight: 1.7,
-                        color: token.colorTextTertiary,
-                    }}
-                >
-                    Frontend design and development by New API contributors.{" "}
-                    <a
-                        href="https://github.com/QuantumNous/new-api"
-                        target="_blank"
-                        rel="noreferrer"
-                        style={{ color: token.colorPrimary }}
+            ) : (
+                <Form<RegisterValues> layout="vertical" requiredMark={false} onFinish={onRegister}>
+                    <Form.Item name="username" label="用户名" rules={[{ required: true, message: "请输入用户名" }, { min: 3, message: "至少 3 个字符" }]}>
+                        <Input autoComplete="username" autoFocus disabled={pending} />
+                    </Form.Item>
+                    <Form.Item
+                        name="password"
+                        label="密码"
+                        rules={[{ required: true, message: "请输入密码" }, { min: 10, message: "至少 10 位" }]}
+                        extra="至少 10 位，且包含大小写、数字、符号中的三类"
                     >
-                        github.com/QuantumNous/new-api
-                    </a>
-                </div>
-            </div>
-        </div>
+                        <Input.Password autoComplete="new-password" disabled={pending} />
+                    </Form.Item>
+                    <Form.Item
+                        name="email"
+                        label="邮箱"
+                        rules={[
+                            { required: true, message: "请填写邮箱，用于找回密码" },
+                            { type: "email", message: "邮箱格式不正确" },
+                        ]}
+                    >
+                        <Input autoComplete="email" disabled={pending} placeholder="you@example.com" />
+                    </Form.Item>
+                    <Form.Item
+                        name="confirm"
+                        label="确认密码"
+                        dependencies={["password"]}
+                        rules={[
+                            { required: true, message: "请再次输入密码" },
+                            ({ getFieldValue }) => ({
+                                validator: (_, value) =>
+                                    value && value.trim() !== String(getFieldValue("password") ?? "").trim() ? Promise.reject(new Error("两次输入不一致")) : Promise.resolve(),
+                            }),
+                        ]}
+                    >
+                        <Input.Password autoComplete="new-password" disabled={pending} />
+                    </Form.Item>
+                    <Form.Item name="inviteCode" label="邀请码">
+                        <Input disabled={pending} placeholder="如已开放注册会提示获取方式" />
+                    </Form.Item>
+                    <Button type="primary" htmlType="submit" block loading={pending}>
+                        注册并登录
+                    </Button>
+                    <Button
+                        type="link"
+                        block
+                        style={{ marginTop: 8 }}
+                        onClick={() => {
+                            onSwitch("login");
+                            setError(null);
+                        }}
+                    >
+                        已有账号？去登录
+                    </Button>
+                </Form>
+            )}
+        </>
     );
 }
 
 export default function LoginPage() {
+    const [mode, setMode] = useState<"login" | "register">("login");
+
     return (
-        <ConfigProvider theme={getAntThemeConfig(false)}>
-            <LoginCard />
-        </ConfigProvider>
+        <AuthShell
+            title={mode === "login" ? "登录离火" : "创建账号"}
+            description={mode === "login" ? "登录后创作、保存与生成都在云端完成" : "注册后即可获得平台模型额度"}
+        >
+            <AuthForm mode={mode} onSwitch={setMode} />
+        </AuthShell>
     );
 }

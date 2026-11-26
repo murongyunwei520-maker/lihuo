@@ -24,6 +24,37 @@ node doubao-bridge/server.mjs            # 豆包桥接 :9091
 | 想改的东西 | 从哪进 |
 | --- | --- |
 | 路由 / 页面总表 | `web/src/router.tsx` |
+| **短剧工作室阶段 1（五步导航 / 项目模型隔离 / 旧项目兼容）** | `docs/ai-handover/DRAMA_STUDIO_STAGE1.md`、`docs/ai-handover/DRAMA_STUDIO_STAGE1.diff` |
+| **短剧工作室阶段 2A（原著导入 / 结构化分析 / 人工修正）** | `docs/ai-handover/DRAMA_STUDIO_STAGE2A.md`、`web/src/pages/drama/studio/analysis-workspace.tsx`、`web/src/lib/studio/novel-*.ts`、`web/src/types/novel.ts` |
+| **短剧工作室阶段 2B（改编 / 全剧蓝图 / 全剧分集 / 人物弧光 / 伏笔 / 自检）** | `docs/ai-handover/DRAMA_STUDIO_STAGE2B.md`、`docs/ai-handover/DRAMA_STUDIO_STAGE2B_PREFLIGHT.md`、`web/src/pages/drama/studio/adaptation/index.tsx`、`web/src/lib/studio/adaptation-*.ts`、`web/src/types/studio-adaptation.ts` |
+| **短剧工作室阶段 3（分集剧本 / 分镜设计）** | `docs/ai-handover/DRAMA_STUDIO_STAGE3.md`、`web/src/pages/drama/studio/production/`、`web/src/lib/studio/production-*.ts`、`web/src/types/studio-production.ts` |
+| **短剧工作室阶段 3.1（队列可靠性 / 模型快照 / 分镜并发）** | `docs/ai-handover/DRAMA_STUDIO_STAGE3_1.md`、`docs/ai-handover/DRAMA_STUDIO_STAGE3_1.diff`、`web/scripts/stage3_1-core-check.ts` |
+| **短剧工作室阶段 3.2（剧本覆盖保护 / 快照身份 / 分镜 stale）** | `docs/ai-handover/DRAMA_STUDIO_STAGE3_2.md`、`docs/ai-handover/DRAMA_STUDIO_STAGE3_2.diff`、`web/scripts/stage3_2-core-check.ts` |
+| 3 分集剧本 / 分镜生成编排 / 串行队列 / 人工核对 | `web/src/lib/studio/production-actions.ts` |
+| 3.2 剧本队列跳过 / 覆盖 guard / 场景版本 / stale 依赖 | `web/src/lib/studio/production-protection.ts` |
+| 3.2 分镜快照身份 / 类型 / 旧数据规范化 / 应用恢复计划 | `web/src/lib/studio/storyboard-snapshots.ts` |
+| 3 分镜整集 / 单场 / 单镜互斥锁与版本冲突 | `web/src/lib/studio/production-locks.ts` |
+| 3 刷新收口 / 可继续 / 可重试 / 核对决策 | `web/src/lib/studio/production-workspace.ts` |
+| 3 剧本 / 分镜 schema、稳定 ID、镜号重排 | `web/src/lib/studio/production-schema.ts` |
+| 3 handoff 准入 / 时长估算 / 连续性检查 | `web/src/lib/studio/production-engine.ts` |
+| 3 项目级文本模型调用与 trace | `web/src/lib/studio/production-ai.ts` |
+| 改编方案 / 蓝图 / 分集 / 弧光 / 伏笔 / 自检 UI | `web/src/pages/drama/studio/adaptation/` 下 8 个标签页文件 |
+| 2B 生成编排 / 局部重生成 / 提案 | `web/src/lib/studio/adaptation-engine.ts` |
+| 2B schema / 引用 / 因果 / 人物连续性校验 | `web/src/lib/studio/adaptation-schema.ts` |
+| 2B 持久化 / 版本 / 锁定 / 阶段 3 handoff | `web/src/lib/studio/adaptation-workspace.ts` |
+| 小说导入与四格式解析 | `web/src/lib/studio/novel-import.ts` |
+| 章节识别 / 8,000 字分块 | `web/src/lib/studio/novel-chapters.ts` |
+| 原著结构化提取与证据校验 | `web/src/lib/studio/novel-analysis.ts` |
+| 跨块合并 / 因果 / 跨章校验 | `web/src/lib/studio/novel-merge.ts` |
+| 分析任务状态机 / 中断恢复 | `web/src/lib/studio/novel-analysis-runner.ts` |
+| 项目文本模型与 Bridge 账号 | `web/src/lib/studio/novel-model.ts` |
+| **短剧工坊 V2（项目库 + 六区 + Workflow）** | `docs/ai-handover/STUDIO_V2.md` |
+| 短剧页面壳 / 项目切换 / 五步导航 | `web/src/pages/drama/index.tsx` |
+| 五步与旧 workspace URL 映射 | `web/src/lib/studio/navigation.ts` |
+| 短剧唯一数据仓 / 旧数据迁移 | `web/src/stores/use-studio-store.ts` |
+| 短剧统一任务中心 | `web/src/stores/use-studio-tasks.ts`、`web/src/pages/drama/studio/task-center.tsx` |
+| 短剧真实生成动作 | `web/src/lib/studio/actions.ts` |
+| 短剧 V2 专属 Diff 快照 | `docs/ai-handover/STUDIO_V2.diff` |
 | 全局入口、Provider、主题 | `web/src/main.tsx`、`web/src/layouts/` |
 | **画布主逻辑（最重要）** | `web/src/pages/canvas/project.tsx`（约 3500 行，节点生成/连线/任务都在这） |
 | 画布节点注册（自研节点） | `web/src/components/canvas/nodes/lihuo/index.tsx` |
@@ -134,3 +165,13 @@ curl -s http://127.0.0.1:9091/api/health
 ## 六、当前进度与待办
 
 见 `CURRENT_STATUS.md`（进度）、`KNOWN_ISSUES.md`（已知问题）、`NEXT_TASKS.md`（下一步）。
+
+## 七、公网后端
+
+要部署到公网、对外提供多用户服务前，必须先读 `BACKEND_PLAN.md`：
+
+- 现有 `server/` 的会话、计费、模型注册表、生成代理都已完成，**不要重写**
+- 四个缺口：生成主链路仍由浏览器直连上游（持 Key）、用户数据只在 IndexedDB、项目/素材/媒体接口缺失、依赖本机 sidecar（9091 / 17371 / 23210）
+- 账户侧同样只有登录：没有自助改密码、没有登录设备列表、额度只能管理员覆盖 `quota_cents` 且没有账户级额度流水（见方案第七章）
+- P0 顺序：生成收口 → 前端删 Key → 项目云存储 → 媒体直传 → payload 去 base64 → 同域部署 → 成本护栏 → 老数据迁移 → 账户自助最小集
+- **在 P0-2（前端删 Key）完成前，不要把服务开到公网**

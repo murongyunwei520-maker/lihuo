@@ -45,6 +45,10 @@ web/public/director-3d/
 # 临时探测脚本与临时截图
 _probe/
 _models-db-*.png
+# 根目录 UI 截图 / 调试图片，不提交
+/*.png
+/*.jpg
+/*.jpeg
 
 # UI 走查截图（体积大，仅本地参考）
 docs/ui-refactor/screenshots/

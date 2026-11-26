@@ -1,5 +1,7 @@
 // 豆包账号池 + 视频生成的本地桥接客户端。
 // 所有数据都来自 doubao-bridge（它再调用 doubao-brain 的 dbb CLI），读不到就返回 unknown，不编造。
+import type { DoubaoGenerationMode, DoubaoRequestedParams } from "./doubao-request-params";
+
 export const DOUBAO_BRIDGE_URL = import.meta.env.VITE_DOUBAO_BRIDGE_URL || "http://127.0.0.1:9091";
 
 export type DoubaoAccountState = {
@@ -38,6 +40,12 @@ export type DoubaoJobFile = {
 
 export type DoubaoJobStatus = "queued" | "running" | "succeeded" | "failed";
 
+export type DoubaoUnsupportedParam = {
+    key: string;
+    value?: unknown;
+    reason: string;
+};
+
 export type DoubaoJob = {
     id: string;
     nodeId?: string | null;
@@ -53,7 +61,11 @@ export type DoubaoJob = {
     elapsedMs?: number | null;
     progress?: string;
     modelName?: string | null;
-    requestedParams?: Record<string, unknown> | null;
+    requestedParams?: Partial<DoubaoRequestedParams> | null;
+    /** 桥接实际交给执行器的参数（已按网页端能力收敛） */
+    appliedParams?: Partial<DoubaoRequestedParams> | null;
+    /** 网页端没有对应控件、因此没有提交的参数；不会静默丢弃 */
+    unsupportedParams?: DoubaoUnsupportedParam[] | null;
     actualParams?: { model: string | null; ratio: string | null; duration: number | null; resolution: string | null; source: string } | null;
     files: DoubaoJobFile[];
     error: { reason?: string; message?: string } | null;
@@ -235,11 +247,11 @@ export async function createVideoJob(input: {
     accountSelectionMode?: "auto" | "manual" | "round-robin";
     prompt: string;
     attachments?: string[];
-    mode?: string;
+    mode?: DoubaoGenerationMode;
     capability?: string;
     expectedArtifactKind?: "image" | "video" | "text";
     modelName?: string;
-    requestedParams?: Record<string, unknown>;
+    requestedParams?: DoubaoRequestedParams;
     nodeId?: string;
 }) {
     const data = await request<{ ok: boolean; job: { id: string; status: DoubaoJobStatus } }>("/api/jobs", {
@@ -260,6 +272,11 @@ export async function getJob(id: string): Promise<DoubaoJob | null> {
         if (/任务不存在/.test(message) || /file not found/i.test(message)) return null;
         throw error;
     }
+}
+
+/** 取消桥接里的任务：前端中断/重新生成时必须真正停掉后台 Runner，否则旧产物会晚到并覆盖新卡片。 */
+export async function cancelJob(id: string) {
+    await request(`/api/jobs/${id}/cancel`, { method: "POST", body: "{}" });
 }
 
 /** 按画布节点找最近一次任务：结果只回这个节点。 */
@@ -283,11 +300,24 @@ export async function waitJob(id: string, onProgress?: (job: DoubaoJob) => void,
     for (;;) {
         if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
         const job = await getJob(id);
+        if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
         // 任务真的没了（连磁盘产物都不在）：明确失败，别让界面一直「生成中」
         if (!job) throw new Error("任务已在桥接重启后失效，请重新生成");
         onProgress?.(job);
         if (job.status === "succeeded" || job.status === "failed") return job;
         if (Date.now() > deadline) throw new Error("等待任务超时");
-        await new Promise((resolve) => setTimeout(resolve, intervalMs));
+        await new Promise<void>((resolve, reject) => {
+            let timer: ReturnType<typeof setTimeout>;
+            const onAbort = () => {
+                clearTimeout(timer);
+                reject(new DOMException("Aborted", "AbortError"));
+            };
+            timer = setTimeout(() => {
+                signal?.removeEventListener("abort", onAbort);
+                resolve();
+            }, intervalMs);
+            if (signal?.aborted) onAbort();
+            else signal?.addEventListener("abort", onAbort, { once: true });
+        });
     }
 }

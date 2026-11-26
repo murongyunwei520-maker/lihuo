@@ -14,3 +14,4 @@ description: 当前项目后续值得处理的事项
 - 豆包任务产物目前用桥接服务地址回传画布，重开画布需要桥接服务在运行；后续可下载到本地素材库做持久化。
 - 模型参数 Schema 后续：视频面板已按 Schema 渲染，图片设置面板与画布节点级参数（`buildGenerationConfig` 里的节点覆盖值）还没接入同一套 Schema；接入时沿用 `ParameterSchema.configKey` 绑定全局配置字段，不要另起一份参数存储。
 - 模型能力来源后续：豆包比例/时长范围目前按账号态 `video-caps.json` 的实测值写在 Schema 里，后续可改为由 `/api/accounts/:id/video-caps` 实时刷新覆盖，避免豆包改版后写死的值过期。
+- 公网后端建设：按 `docs/ai-handover/BACKEND_PLAN.md` 的 P0 顺序推进——生成请求全部收口到 `/api/generate/*`（视频端点与 multipart 图片编辑还缺）、删掉浏览器侧的所有上游 Key、补项目与素材的云存储（revision 乐观锁）、媒体改直传对象存储、项目 payload 去掉内联 base64、前端与 `/api` 同域部署、加余额与并发护栏、提供本地一键上云迁移、补账户自助（改密码、登录设备下线、额度流水）。前端还持有 Key 之前不要把服务开到公网。

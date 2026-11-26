@@ -82,7 +82,7 @@ export type CanvasNodeMetadata = {
     bytes?: number;
     durationMs?: number;
     videoTaskId?: string;
-    videoTaskProvider?: "openai" | "gemini" | "doubao";
+    videoTaskProvider?: "openai" | "gemini" | "doubao" | "cloud";
     groupId?: string;
     interactive?: boolean; // Plugin node interaction/move state; see CanvasNodeDefinition.interactionToggle.
     // 自研节点与插件可写入任意自定义字段，与插件 SDK 的 CanvasNodeMetadata 保持一致。

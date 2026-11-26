@@ -1,0 +1,76 @@
+# 同域全栈部署：前端与 /api 同一个域名（Cookie 会话才可靠）
+#
+# 用法（在仓库根目录）：
+#   docker compose -f docker-compose.stack.yml up -d --build
+#   打开 http://localhost:8080
+#
+# 后端工程默认取 ../lihuo后端，可用 LIHUO_API_DIR 覆盖：
+#   LIHUO_API_DIR=/srv/lihuo-backend docker compose -f docker-compose.stack.yml up -d --build
+name: lihuo-stack
+
+services:
+  web:
+    build:
+      context: .
+      args:
+        # 留空 = 前端请求同源 /api；不要填 127.0.0.1:3100，否则又会跨域
+        VITE_LIHUO_SERVER_URL: ""
+    image: lihuo-web:local
+    container_name: lihuo-web
+    restart: unless-stopped
+    ports:
+      - "8080:3000"
+    networks:
+      - edge
+    environment:
+      API_UPSTREAM: http://api:3100
+      # 统计分析（可选）
+      # ANALYTICS_GA4_ID: G-XXXXXXXXXX
+      # ANALYTICS_BAIDU_ID: xxxxxxxxxxxxxxxxxxxx
+    depends_on:
+      api:
+        condition: service_healthy
+
+  api:
+    build:
+      context: ${LIHUO_API_DIR:-../lihuo后端}
+    image: lihuo-backend:local
+    container_name: lihuo-api
+    restart: unless-stopped
+    # 只在内网暴露：公网入口只有 web:8080（生产建议再套一层 HTTPS 反代）
+    expose:
+      - "3100"
+    env_file:
+      - ${LIHUO_API_ENV:-../lihuo后端/.env.docker}
+    networks:
+      - edge
+    environment:
+      # 浏览器看到的地址，媒体签名地址用它拼接
+      LIHUO_PUBLIC_ORIGIN: ${LIHUO_PUBLIC_ORIGIN:-http://localhost:8080}
+      # 同域部署不需要 CORS 白名单
+      LIHUO_CORS_ORIGINS: ""
+      # 只信任本编排里的 edge 网段；该网络只有 web/api 两个容器
+      LIHUO_TRUST_PROXY: 172.28.5.0/24
+    volumes:
+      - lihuo-data:/data
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3100/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 15s
+      timeout: 3s
+      start_period: 10s
+      retries: 3
+
+volumes:
+  lihuo-data:
+
+networks:
+  # 独立的边缘网络：固定网段，只有 web 与 api 接入，避免同宿主机其它容器伪造 XFF
+  edge:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.5.0/24

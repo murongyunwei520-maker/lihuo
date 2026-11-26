@@ -1,5 +1,7 @@
 import { create } from "zustand";
 
+import { isCanvasLayoutInitialized } from "@/stores/use-canvas-layout-store";
+
 export const CANVAS_SIDE_PANEL_MOTION_MS = 500;
 export const CANVAS_SIDE_PANEL_MIN_WIDTH = 220;
 export const CANVAS_SIDE_PANEL_MAX_WIDTH = 480;
@@ -19,7 +21,9 @@ function initialWidth() {
 }
 
 function initialOpen() {
-    if (typeof window === "undefined") return true;
+    if (typeof window === "undefined") return false;
+    // 没有布局快照说明是首次进入：直接以沉浸模式首帧渲染，避免「先开后收」的闪烁。
+    if (!isCanvasLayoutInitialized()) return false;
     return localStorage.getItem(OPEN_KEY) !== "0";
 }
 

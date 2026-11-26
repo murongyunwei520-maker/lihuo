@@ -4,19 +4,17 @@ import { LIHUO_SERVER_URL, adminApi } from "@/services/api/lihuo-server";
 
 import { LoadState, PageHead, useLoad } from "./shared";
 
-function GatewayStatus() {
-    const load = useLoad(() => adminApi.gatewayHealth());
+function ServerStatus() {
+    const load = useLoad(() => adminApi.serverHealth());
     return (
         <LoadState loading={load.loading} error={load.error} onRetry={load.reload}>
             {load.error ? null : (
                 <Descriptions size="small" column={1} bordered>
                     <Descriptions.Item label="状态">
-                        <Tag color="green">在线</Tag>
+                        <Tag color={load.data?.status === "ok" ? "green" : "red"}>{load.data?.status ?? "未知"}</Tag>
                     </Descriptions.Item>
-                    <Descriptions.Item label="网关版本">{load.data?.version ?? "—"}</Descriptions.Item>
-                    <Descriptions.Item label="探测延迟">
-                        {load.data?.latencyMs === undefined ? "—" : `${load.data.latencyMs} ms`}
-                    </Descriptions.Item>
+                    <Descriptions.Item label="模型来源">{load.data?.gateway === "mock" ? "本地 mock（未接真实网关）" : "New-API 网关"}</Descriptions.Item>
+                    <Descriptions.Item label="媒体存储">{load.data?.storage === "s3" ? "对象存储（S3 兼容）" : "本地磁盘"}</Descriptions.Item>
                 </Descriptions>
             )}
         </LoadState>
@@ -39,7 +37,7 @@ export default function SettingsPage() {
                     模型网关健康：
                 </Typography.Text>
                 <div style={{ marginTop: 8 }}>
-                    <GatewayStatus />
+                    <ServerStatus />
                 </div>
             </Card>
 

@@ -29,8 +29,8 @@ const CAP_OPTIONS = [
     { value: "embedding", label: "向量" },
 ];
 
-/** 后端已有生成代理端点的能力；video 暂未接入，不显示按次价设置 */
-const GENERATION_CAPABILITIES = new Set<RegistryModel["capability"]>(["image", "audio", "embedding"]);
+/** 后端已有生成代理端点的能力（video 现在走异步任务，同样要按次计价） */
+const GENERATION_CAPABILITIES = new Set<RegistryModel["capability"]>(["image", "video", "audio", "embedding"]);
 
 interface CreateValues {
     modelId: string;
@@ -160,6 +160,34 @@ export default function ModelsPage() {
             render: (v: string) => <Tag>{CAP_OPTIONS.find((o) => o.value === v)?.label ?? v}</Tag>,
         },
         {
+            title: "渠道",
+            key: "channels",
+            width: 120,
+            render: (_, m) => {
+                if (!m.channelCount) return <Tag>旧网关</Tag>;
+                const available = m.availableChannels ?? 0;
+                return (
+                    <Tag color={available > 0 ? "blue" : "red"}>
+                        可用 {available}/{m.channelCount}
+                    </Tag>
+                );
+            },
+        },
+        {
+            title: "能力位",
+            key: "features",
+            width: 170,
+            render: (_, m) => (
+                <Space size={4} wrap>
+                    {m.streaming && <Tag>流式</Tag>}
+                    {m.vision && <Tag color="purple">图片输入</Tag>}
+                    {m.toolCalling && <Tag color="cyan">工具</Tag>}
+                    {m.supportsVideo && <Tag color="magenta">视频</Tag>}
+                    {!m.streaming && !m.vision && !m.toolCalling && !m.supportsVideo && <Tag>仅基础</Tag>}
+                </Space>
+            ),
+        },
+        {
             title: "价格（分/1K）",
             key: "price",
             width: 140,
@@ -234,11 +262,11 @@ export default function ModelsPage() {
                     )}
                     <Popconfirm
                         title={m.enabled ? "下架该模型？" : "上架该模型？"}
-                        description={!m.enabled && !m.price ? "未定价的模型无法上架，请先改价。" : undefined}
+                        description={!m.enabled && !m.generationPrice ? "未设置按次价的模型无法上架，请先改价。" : undefined}
                         onConfirm={() => toggleEnabled(m)}
-                        disabled={!m.enabled && !m.price}
+                        disabled={!m.enabled && !m.generationPrice}
                     >
-                        <Button type="link" size="small" disabled={!m.enabled && !m.price}>
+                        <Button type="link" size="small" disabled={!m.enabled && !m.generationPrice}>
                             {m.enabled ? "下架" : "上架"}
                         </Button>
                     </Popconfirm>

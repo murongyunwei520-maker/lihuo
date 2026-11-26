@@ -2,7 +2,10 @@ import { useEffect, useState } from "react";
 import { Input, InputNumber, Select } from "antd";
 import { ChevronLeft, ChevronRight, Image as ImageIcon, Mic, Video } from "lucide-react";
 
+import { shotImagePrompt, shotVideoPrompt } from "@/lib/drama/prompt";
 import { ASSET_KIND_LABEL, LIGHT_LABEL, SHOT_CAMERAS, SHOT_COMPOSITIONS, SHOT_MAX_SECONDS, SHOT_MIN_SECONDS, SHOT_MOVES, SHOT_SIZES, frameGradient } from "@/lib/drama/schema";
+import { APERTURE_OPTIONS, FILL_LIGHT_OPTIONS, KEY_LIGHT_OPTIONS, LENS_OPTIONS } from "@/lib/drama/settings";
+import { resolveCinematography } from "@/lib/drama/visual";
 import { cn } from "@/lib/utils";
 import { resolveMediaUrl } from "@/services/file-storage";
 import type { DramaAsset, DramaAssetKind, DramaLight, DramaSequence, DramaShot } from "@/types/drama";
@@ -97,7 +100,15 @@ export function Inspector({ sequence, shot, asset, collapsed, onToggle, onPatchS
                                 <Select className="w-full" value={shot.move} onChange={(value) => onPatchShot(shot.id, { move: value })} options={SHOT_MOVES.map((value) => ({ value, label: value }))} />
                             </Row>
                             <Row label="构图">
-                                <Select className="w-full" value={shot.composition ?? SHOT_COMPOSITIONS[0]} onChange={(value) => onPatchShot(shot.id, { composition: value })} options={SHOT_COMPOSITIONS.map((value) => ({ value, label: value }))} />
+                                <Select
+                                    className="w-full"
+                                    value={shot.composition ?? ""}
+                                    onChange={(value) => onPatchShot(shot.id, { composition: value || undefined })}
+                                    options={[
+                                        { value: "", label: `跟随项目（${resolveCinematography(sequence, shot).composition}）` },
+                                        ...SHOT_COMPOSITIONS.map((value) => ({ value, label: value })),
+                                    ]}
+                                />
                             </Row>
                             <Row label="光位">
                                 <Select className="w-full" value={shot.light} onChange={(value) => onPatchShot(shot.id, { light: value as DramaLight })} options={(Object.keys(LIGHT_LABEL) as DramaLight[]).map((value) => ({ value, label: LIGHT_LABEL[value] }))} />
@@ -107,11 +118,54 @@ export function Inspector({ sequence, shot, asset, collapsed, onToggle, onPatchS
                             </Row>
                         </div>
 
+                        <div className="drama-card space-y-0.5">
+                            <div className="drama-label">镜头级摄影（留空跟随项目默认）</div>
+                            {(() => {
+                                const cinema = resolveCinematography(sequence, shot);
+                                const override = (label: string, key: "lens" | "aperture" | "keyLight" | "fillLight", options: string[], fallback: string) => (
+                                    <Row label={label}>
+                                        <Select
+                                            className="w-full"
+                                            value={shot[key] ?? ""}
+                                            onChange={(value) => onPatchShot(shot.id, { [key]: value || undefined })}
+                                            options={[{ value: "", label: `跟随项目（${fallback}）` }, ...options.filter((item) => item !== "自动").map((item) => ({ value: item, label: item }))]}
+                                        />
+                                    </Row>
+                                );
+                                return (
+                                    <>
+                                        {override("焦段", "lens", LENS_OPTIONS, cinema.lens)}
+                                        {override("光圈", "aperture", APERTURE_OPTIONS, cinema.aperture)}
+                                        {override("主光", "keyLight", KEY_LIGHT_OPTIONS, cinema.keyLight)}
+                                        {override("辅光", "fillLight", FILL_LIGHT_OPTIONS, cinema.fillLight)}
+                                    </>
+                                );
+                            })()}
+                        </div>
+
                         <div className="drama-card">
-                            <div className="drama-label">台词</div>
-                            <Input.TextArea autoSize={{ minRows: 2, maxRows: 5 }} value={shot.line} placeholder="无台词可留空" onChange={(event) => onPatchShot(shot.id, { line: event.target.value })} />
-                            <div className="drama-label mt-3">画面描述 / 提示词</div>
+                            <div className="drama-label">实际提交的提示词</div>
+                            <details className="text-[13px]">
+                                <summary className="cursor-pointer text-stone-500 dark:text-stone-400">图片提示词</summary>
+                                <p className="mt-1 leading-6 whitespace-pre-wrap text-stone-600 dark:text-stone-300">{shotImagePrompt(sequence, shot)}</p>
+                            </details>
+                            <details className="mt-2 text-[13px]">
+                                <summary className="cursor-pointer text-stone-500 dark:text-stone-400">视频提示词</summary>
+                                <p className="mt-1 leading-6 whitespace-pre-wrap text-stone-600 dark:text-stone-300">{shotVideoPrompt(sequence, shot)}</p>
+                            </details>
+                        </div>
+
+                        <div className="drama-card">
+                            <div className="drama-label">台词{shot.speaker ? ` · ${shot.speaker}` : ""}</div>
+                            <Input.TextArea autoSize={{ minRows: 2, maxRows: 5 }} value={shot.line} placeholder="无台词可留空；不要在这里写画面" onChange={(event) => onPatchShot(shot.id, { line: event.target.value })} />
+                            <div className="drama-label mt-3">人物动作</div>
+                            <Input.TextArea autoSize={{ minRows: 2, maxRows: 4 }} value={shot.action ?? ""} placeholder="这一镜人物在做什么" onChange={(event) => onPatchShot(shot.id, { action: event.target.value })} />
+                            <div className="drama-label mt-3">面部表情</div>
+                            <Input value={shot.expression ?? ""} placeholder="例如：克制、眼眶泛红" onChange={(event) => onPatchShot(shot.id, { expression: event.target.value })} />
+                            <div className="drama-label mt-3">画面描述</div>
                             <Input.TextArea autoSize={{ minRows: 3, maxRows: 7 }} value={shot.prompt} placeholder="这一镜要看到什么" onChange={(event) => onPatchShot(shot.id, { prompt: event.target.value })} />
+                            <div className="drama-label mt-3">声音需求</div>
+                            <Input value={shot.sound ?? ""} placeholder="环境声 / 音效 / 旁白" onChange={(event) => onPatchShot(shot.id, { sound: event.target.value })} />
                         </div>
 
                         <div className="drama-card">
@@ -121,21 +175,21 @@ export function Inspector({ sequence, shot, asset, collapsed, onToggle, onPatchS
                                     <ImageIcon className="size-4 text-stone-400" />
                                     <span className="flex-1 text-left">画面</span>
                                     <span className={cn(shot.imageRef ? "text-emerald-600 dark:text-emerald-400" : "text-stone-400")}>
-                                        {shot.imageRef ? "已选用" : "未生成"} · {shot.imageVersions?.length ?? 0} 版
+                                        {shot.imageRef ? (shot.generation?.image?.stale ? "已选用 · 待重做" : "已选用") : "未生成"} · {shot.imageVersions?.length ?? 0} 版
                                     </span>
                                 </button>
                                 <button type="button" className="drama-version-row" onClick={() => onJumpStep(7)}>
                                     <Mic className="size-4 text-stone-400" />
                                     <span className="flex-1 text-left">声音</span>
                                     <span className={cn(shot.audioRef ? "text-emerald-600 dark:text-emerald-400" : "text-stone-400")}>
-                                        {shot.audioRef ? "已选用" : "未生成"} · {shot.audioVersions?.length ?? 0} 版
+                                        {shot.audioRef ? (shot.generation?.audio?.stale ? "已选用 · 待重做" : "已选用") : "未生成"} · {shot.audioVersions?.length ?? 0} 版
                                     </span>
                                 </button>
                                 <button type="button" className="drama-version-row" onClick={() => onJumpStep(8)}>
                                     <Video className="size-4 text-stone-400" />
                                     <span className="flex-1 text-left">视频</span>
                                     <span className={cn(shot.videoRef ? "text-emerald-600 dark:text-emerald-400" : "text-stone-400")}>
-                                        {shot.videoRef ? "已选用" : "未生成"} · {shot.videoVersions?.length ?? 0} 版
+                                        {shot.videoRef ? (shot.generation?.video?.stale ? "已选用 · 待重做" : "已选用") : "未生成"} · {shot.videoVersions?.length ?? 0} 版
                                     </span>
                                 </button>
                             </div>

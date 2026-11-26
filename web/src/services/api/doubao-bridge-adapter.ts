@@ -1,6 +1,7 @@
 // 把豆包 / Dola bridge 的 job 流程适配成统一生图/视频返回格式。
 // 选中 builtin-doubao / builtin-dola 模型时，由 image.ts / video.ts 在入口路由到这里。
 import {
+    cancelJob,
     createVideoJob,
     listAccounts,
     waitJob,
@@ -8,11 +9,12 @@ import {
 } from "./doubao-bridge";
 import { modelOptionName } from "@/stores/use-config-store";
 import { builtinProviderName, builtinProviderOf, type BuiltinProvider } from "@/constants/doubao-builtin";
+import { buildDoubaoImageRequestedParams, buildDoubaoTextRequestedParams, doubaoImageMode, type DoubaoImageMode } from "./doubao-request-params";
 
 // 账号优先级：显式传入 > 配置里选的账号 > 号池的「当前账号」。
 // 传入 provider（由模型决定站点）时只在同站点账号里找：豆包模型不能配 Dola 账号，反之亦然。
 // 都不存在时才报错——绝不静默随机分配。
-async function resolveAccountId(preferredAccountId?: string, provider: BuiltinProvider | null = null): Promise<string> {
+export async function resolveDoubaoAccountId(preferredAccountId?: string, provider: BuiltinProvider | null = null): Promise<string> {
     const { useDoubaoAccountStore } = await import("@/stores/use-doubao-account-store");
     const { useConfigStore } = await import("@/stores/use-config-store");
     const siteName = builtinProviderName(provider);
@@ -30,13 +32,10 @@ async function resolveAccountId(preferredAccountId?: string, provider: BuiltinPr
     }
     const account = accounts.find((item) => item.id === requested);
     if (!account) {
-        // 号池里只有一个「当前账号」，它可能属于另一个站点（豆包 ↔ Dola）：
-        // 这时按号池顺序退到同站点第一个已登录账号，而不是拿错站点的号去提交。
-        const fallback = accounts.find((item) => item.state.loggedIn);
-        if (fallback) return fallback.id;
+        // 当前账号属于另一个站点时不能静默换号：账号决定额度与登录态，必须让用户自己确认。
         const mismatch = all.find((item) => item.id === requested);
         if (mismatch) {
-            throw new Error(`「${mismatch.name}」是${mismatch.providerName || builtinProviderName((mismatch.provider ?? "doubao") as BuiltinProvider)}账号，不能用于${siteName}模型`);
+            throw new Error(`「${mismatch.name}」是${mismatch.providerName || builtinProviderName((mismatch.provider ?? "doubao") as BuiltinProvider)}账号，不能用于${siteName}模型；请在参数里改选${siteName}账号（不会自动换号）`);
         }
         throw new Error(`账号不存在: ${requested}`);
     }
@@ -56,6 +55,26 @@ async function fileToDataUrl(url: string): Promise<string> {
     });
 }
 
+/**
+ * 等待桥接任务，并在前端取消时同步取消桥接任务。
+ * 只停止轮询不取消后台任务，会让旧任务继续跑：用户重新生成后，旧产物晚到还会覆盖同一张卡片。
+ */
+async function waitJobWithCancel(id: string, signal: AbortSignal | undefined, intervalMs = 3000, timeoutMs = 20 * 60 * 1000) {
+    const cancel = () => {
+        void cancelJob(id).catch(() => undefined);
+    };
+    if (signal?.aborted) {
+        cancel();
+        throw new DOMException("Aborted", "AbortError");
+    }
+    signal?.addEventListener("abort", cancel, { once: true });
+    try {
+        return await waitJob(id, undefined, intervalMs, timeoutMs, signal);
+    } finally {
+        signal?.removeEventListener("abort", cancel);
+    }
+}
+
 export async function generateImageViaDoubao(opts: {
     modelValue: string;
     prompt: string;
@@ -63,48 +82,61 @@ export async function generateImageViaDoubao(opts: {
     signal?: AbortSignal;
     accountId?: string;
     nodeId?: string;
-    params?: { ratio?: string; quality?: string; count?: number };
+    params?: {
+        ratio?: string;
+        size?: string;
+        resolution?: string;
+        count?: number;
+        mode?: DoubaoImageMode;
+    };
 }): Promise<{ id: string; dataUrl: string }[]> {
     const provider = builtinProviderOf(opts.modelValue);
-    const accountId = await resolveAccountId(opts.accountId, provider);
+    const accountId = await resolveDoubaoAccountId(opts.accountId, provider);
     const modelName = modelOptionName(opts.modelValue);
+    if (opts.signal?.aborted) throw new DOMException("Aborted", "AbortError");
     // 连线/上传的参考图必须真实上传给豆包，和提示词一起提交（图生图 / 参考图）
-    // 并发上传：串行传多张会明显拖慢「传到豆包」的耗时
+    // 并发上传：串行传多张会明显拖慢「传到豆包」的耗时；任何一张失败都明确报错，不能静默退化成文生图。
     const { uploadAttachment } = await import("./doubao-bridge");
-    const attachments = (
-        await Promise.all(
-            (opts.references || []).slice(0, 6).map(async (reference, index) => {
-                try {
-                    const blob = await (await fetch(reference.dataUrl)).blob();
-                    return await uploadAttachment(accountId, blob, reference.name || `ref-${index}.png`);
-                } catch {
-                    return ""; // 读不到字节的跳过
-                }
-            }),
-        )
-    ).filter(Boolean);
+    const attachments = await Promise.all(
+        (opts.references || []).map(async (reference, index) => {
+            const blob = await (await fetch(reference.dataUrl, { signal: opts.signal })).blob();
+            const path = await uploadAttachment(accountId, blob, reference.name || `ref-${index}.png`);
+            if (opts.signal?.aborted) throw new DOMException("Aborted", "AbortError");
+            return path;
+        }),
+    );
+    if (opts.signal?.aborted) throw new DOMException("Aborted", "AbortError");
+    const mode = opts.params?.mode ?? doubaoImageMode(attachments.length > 0);
+    const requestedParams = buildDoubaoImageRequestedParams({
+        model: modelName,
+        mode,
+        ratio: opts.params?.ratio,
+        size: opts.params?.size,
+        resolution: opts.params?.resolution,
+        count: opts.params?.count,
+        attachmentCount: attachments.length,
+    });
     const job = await createVideoJob({
         accountId,
-        // 模型决定站点：桥接按 provider 只调度同站点的账号
         provider: provider || undefined,
+        accountSelectionMode: "manual",
         prompt: opts.prompt,
         capability: "图像生成",
         expectedArtifactKind: "image",
-        mode: attachments.length ? "image-to-image" : "text-to-image",
+        mode,
         modelName,
-        requestedParams: {
-            model: modelName,
-            ...(opts.params?.ratio ? { ratio: opts.params.ratio } : {}),
-            ...(opts.params?.quality ? { quality: opts.params.quality } : {}),
-            ...(opts.params?.count ? { count: opts.params.count } : {}),
-        },
+        requestedParams,
         attachments,
         nodeId: opts.nodeId,
     });
-    const done = await waitJob(job.id, undefined, 3000, 20 * 60 * 1000);
+    const done = await waitJobWithCancel(job.id, opts.signal, 3000, 20 * 60 * 1000);
     const siteLabel = builtinProviderName(provider);
     if (done.status !== "succeeded") {
         throw new Error(done.error?.message || siteLabel + "生图失败");
+    }
+    // 任务必须属于发起它的画布节点；万一桥接串了任务，宁可报错也不把别的卡片结果贴过来。
+    if (opts.nodeId && done.nodeId && done.nodeId !== opts.nodeId) {
+        throw new Error(`${siteLabel}任务归属校验失败（任务节点 ${done.nodeId} ≠ 当前节点 ${opts.nodeId}）`);
     }
     const images = done.files.filter((f) => f.kind === "image" || (f.contentType || "").startsWith("image/"));
     if (!images.length) throw new Error(siteLabel + "未返回图片");
@@ -132,31 +164,35 @@ export async function askDoubao(opts: {
     modelValue?: string;
 }): Promise<string> {
     const provider = builtinProviderOf(opts.modelValue);
-    const accountId = await resolveAccountId(opts.accountId, provider);
+    const accountId = await resolveDoubaoAccountId(opts.accountId, provider);
     const siteLabel = builtinProviderName(provider);
     const { uploadAttachment } = await import("./doubao-bridge");
-    // 画布上连到文本节点的图片：豆包对话支持图片输入，按附件传上去
+    // 画布上连到文本节点的图片：豆包对话支持图片输入，按附件传上去；失败要明确报错，不能悄悄退回纯文本。
     const attachments: string[] = [];
-    for (const [index, dataUrl] of (opts.images || []).slice(0, 4).entries()) {
-        try {
-            const blob = await (await fetch(dataUrl)).blob();
-            attachments.push(await uploadAttachment(accountId, blob, `ref-${index}.png`));
-        } catch {
-            /* 读不到字节的跳过 */
-        }
+    for (const [index, dataUrl] of (opts.images || []).entries()) {
+        const blob = await (await fetch(dataUrl, { signal: opts.signal })).blob();
+        attachments.push(await uploadAttachment(accountId, blob, `ref-${index}.png`));
+        if (opts.signal?.aborted) throw new DOMException("Aborted", "AbortError");
     }
+    if (opts.signal?.aborted) throw new DOMException("Aborted", "AbortError");
+    const textMode = attachments.length ? "image-to-text" : "text-to-text";
+    const textModelName = opts.modelValue ? modelOptionName(opts.modelValue) : "";
+    const requestedParams = buildDoubaoTextRequestedParams({ model: textModelName, mode: textMode, attachmentCount: attachments.length });
     const job = await createVideoJob({
         accountId,
         provider: provider || undefined,
+        accountSelectionMode: "manual",
         prompt: opts.prompt,
         capability: "对话",
         expectedArtifactKind: "text",
-        mode: attachments.length ? "image-to-text" : "text-to-text",
+        mode: textMode,
+        modelName: textModelName || undefined,
+        requestedParams,
         attachments,
         nodeId: opts.nodeId,
     });
     // 与 bridge 的 8 分钟对话等待对齐，再留出启动与发送的时间。
-    const done = await waitJob(job.id, undefined, 2000, 10 * 60 * 1000, opts.signal);
+    const done = await waitJobWithCancel(job.id, opts.signal, 2000, 10 * 60 * 1000);
     if (done.status !== "succeeded") {
         // 把 bridge 的最后一条进度带出来，方便判断是卡在登录、发送还是读取回答。
         const detail = done.progress ? `（${done.progress}）` : "";

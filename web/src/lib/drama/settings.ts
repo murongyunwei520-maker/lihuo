@@ -14,6 +14,14 @@ export const SHOT_DURATION_OPTIONS = ["自动", "4s", "5s", "8s", "10s", "12s", 
 export const ASSET_QUALITY_OPTIONS = ["自动", "标准", "高清"];
 export const VIDEO_QUALITY_OPTIONS = ["自动", "720P", "1080P"];
 
+// 项目级摄影规范：这些是「默认值」，每个镜头可以在检查器里单独覆盖。
+// 不写死具体机型，只描述焦段 / 景深 / 光位 / 构图，换题材时改这一组即可。
+export const LENS_OPTIONS = ["自动", "24mm 广角", "35mm 人文", "50mm 标准", "85mm 中焦", "135mm 长焦", "微距"];
+export const APERTURE_OPTIONS = ["自动", "f/1.4 极浅景深", "f/2.8 浅景深", "f/4 中等景深", "f/5.6 环境可见", "f/8 大景深"];
+export const KEY_LIGHT_OPTIONS = ["自动", "左侧主光", "右侧主光", "顶光", "逆光轮廓", "窗光", "无主光"];
+export const FILL_LIGHT_OPTIONS = ["自动", "柔和补光", "低补光（硬光比）", "无补光", "环境反射光"];
+export const COMPOSITION_OPTIONS = ["自动", "中心构图", "三分构图", "对称构图", "留白构图", "前景遮挡", "低角度构图"];
+
 export const DEFAULT_DRAMA_SETTINGS: DramaSettings = {
     textModel: "",
     imageModel: "",
@@ -29,6 +37,11 @@ export const DEFAULT_DRAMA_SETTINGS: DramaSettings = {
     targetDuration: "60s",
     shotDuration: "自动",
     assetQuality: "自动",
+    lens: "35mm 人文",
+    aperture: "f/2.8 浅景深",
+    keyLight: "左侧主光",
+    fillLight: "柔和补光",
+    composition: "三分构图",
 };
 
 export type DramaSettingKey = keyof DramaSettings;
@@ -44,6 +57,11 @@ export const SETTING_OPTIONS: Record<Exclude<DramaSettingKey, "textModel" | "ima
     targetDuration: TARGET_DURATION_OPTIONS,
     shotDuration: SHOT_DURATION_OPTIONS,
     assetQuality: ASSET_QUALITY_OPTIONS,
+    lens: LENS_OPTIONS,
+    aperture: APERTURE_OPTIONS,
+    keyLight: KEY_LIGHT_OPTIONS,
+    fillLight: FILL_LIGHT_OPTIONS,
+    composition: COMPOSITION_OPTIONS,
 };
 
 /** 自定义值不是预设时，也要出现在下拉里，否则切换项目后会「看不见当前值」。 */
@@ -68,12 +86,6 @@ export function episodeCountOf(settings: DramaSettings): number {
 export function shotSecondsOf(settings: DramaSettings): number | null {
     if (settings.shotDuration === "自动") return null;
     return Math.min(15, Math.max(4, parseDramaNumber(settings.shotDuration, 5)));
-}
-
-/** 视频时长：自动回落到 null（交给模型默认），否则钳到 4–15s。 */
-export function videoSecondsOf(settings: DramaSettings): number | null {
-    if (settings.videoSeconds === "自动") return null;
-    return Math.min(15, Math.max(4, parseDramaNumber(settings.videoSeconds, 5)));
 }
 
 /** 把设置拼进生成/拆镜提示词：设置不是摆设，会真实影响模型输出。 */

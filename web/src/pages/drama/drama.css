@@ -43,6 +43,9 @@
     min-width: 0;
     min-height: 0;
     flex: 1;
+    /* 顶部可能挂一条「剧本已改」的提示，工作区仍然占满剩余高度。 */
+    flex-direction: column;
+    gap: 8px;
 }
 
 /* ---------- 左侧工作流 ---------- */
@@ -237,12 +240,16 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    border: 1px solid rgb(245 158 11 / 0.35);
+    border: 1px solid rgb(245 158 11 / 0.45);
     border-radius: 10px;
     padding: 8px 12px;
     font-size: 13px;
-    color: rgb(180 83 9);
-    background: rgb(245 158 11 / 0.08);
+    color: rgb(146 64 14);
+    background: rgb(255 247 237 / 0.92);
+}
+.dark .drama-notice {
+    color: rgb(253 230 138);
+    background: rgb(120 53 15 / 0.32);
 }
 .drama-chip {
     border-radius: 6px;
@@ -255,6 +262,15 @@
 .drama-chip.is-muted {
     color: rgb(var(--studio-muted));
     background: rgb(var(--studio-muted) / 0.1);
+}
+/* 「内容已改」这类待重做标记：跟 notice 同一套黄，但不抢正文。 */
+.drama-chip.is-warn {
+    color: rgb(146 64 14);
+    background: rgb(245 158 11 / 0.18);
+}
+.dark .drama-chip.is-warn {
+    color: rgb(253 230 138);
+    background: rgb(245 158 11 / 0.22);
 }
 .drama-stream {
     max-height: 180px;
@@ -370,6 +386,19 @@
 }
 .drama-version-thumb.is-active {
     border-color: rgb(var(--studio-violet) / 0.8);
+    box-shadow: 0 0 0 1px rgb(var(--studio-violet) / 0.5);
+}
+/* 视频步骤里的「首帧」小图：比版本缩略图小一号，一行能放下几张备选。 */
+.drama-frame-thumb {
+    width: 22px;
+    height: 28px;
+    flex-shrink: 0;
+    overflow: hidden;
+    border: 1px solid var(--studio-border-soft);
+    border-radius: 5px;
+}
+.drama-frame-thumb.is-active {
+    border-color: rgb(var(--studio-violet) / 0.85);
     box-shadow: 0 0 0 1px rgb(var(--studio-violet) / 0.5);
 }
 .drama-voice-row {
@@ -509,6 +538,28 @@
 }
 .drama-taskbar__toggle:hover {
     background: rgb(var(--studio-violet) / 0.1);
+    color: rgb(var(--studio-ink));
+}
+.drama-task-card {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid var(--studio-border-soft);
+    border-radius: 10px;
+    padding: 6px 8px;
+    background: var(--studio-glass-soft);
+}
+.drama-task-cancel {
+    display: grid;
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+    place-items: center;
+    border-radius: 6px;
+    color: rgb(var(--studio-muted));
+}
+.drama-task-cancel:hover {
+    background: rgb(var(--studio-violet) / 0.12);
     color: rgb(var(--studio-ink));
 }
 .drama-task-row {

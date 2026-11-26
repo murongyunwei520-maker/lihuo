@@ -53,7 +53,7 @@ export default function ServerCheckPage() {
         try {
             const res = await listModels();
             setModels(res.items);
-            setGatewayError(res.gatewayError);
+            setGatewayError(res.gatewayError ?? null);
             const firstUsable = res.items.find((m) => m.usable && m.capability === "text");
             setModel((prev) => prev || firstUsable?.modelId || res.items[0]?.modelId || "");
         } catch (e) {

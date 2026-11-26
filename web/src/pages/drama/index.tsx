@@ -1,276 +1,556 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
-import { App, Button, InputNumber, Select } from "antd";
-import { Clapperboard, Plus, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { App, Alert, Button, Select, Spin, Tag, Tooltip } from "antd";
+import {
+    BookOpen,
+    Clapperboard,
+    Download,
+    FolderKanban,
+    Image as ImageIcon,
+    ListChecks,
+    Mic,
+    PlayCircle,
+    Plus,
+    Settings2,
+    Users,
+    Workflow,
+} from "lucide-react";
 
-import { AssetStep } from "./components/asset-step";
-import { DramaParamSelect } from "./components/drama-param-select";
-import { Inspector } from "./components/inspector";
-import { TaskBar } from "./components/task-bar";
-import { WorkflowNav } from "./components/workflow-nav";
-import { BreakdownStep } from "./steps/breakdown-step";
-import { ComposeStep } from "./steps/compose-step";
-import { ImageStep } from "./steps/image-step";
-import { InspirationStep, ScriptStep, SettingsStep } from "./steps/plan-steps";
-import { StoryboardStep } from "./steps/storyboard-step";
-import { VideoStep } from "./steps/video-step";
-import { VoiceStep } from "./steps/voice-step";
-import { makeScript } from "@/lib/drama/script";
-import { DEFAULT_DRAMA_SETTINGS, targetSecondsOf } from "@/lib/drama/settings";
-import { DRAMA_TEMPLATES } from "@/lib/drama/templates";
-import { DRAMA_STEPS, stepStates } from "@/lib/drama/workflow";
-import { allChannels, decodeChannelModel, modelOptionName, selectableModelsByCapability, useConfigStore } from "@/stores/use-config-store";
-import { useDramaStore } from "@/stores/use-drama-store";
-import { lintSequence, totalSeconds } from "@/lib/drama/lint";
-import type { DramaAsset, DramaSequence, DramaSettings } from "@/types/drama";
-import "./drama.css";
+import { exportStudioProject } from "@/lib/studio/export";
+import { defaultStepForProject, mapLegacyWorkspace, resolveStudioLocation, type DramaSubView } from "@/lib/studio/navigation";
+import { openStudioWorkflow } from "@/lib/studio/workflow";
+import { ensureStudioMigrated, persistStudioStoreNow, refreshStudioStoreFromPersistence, useStudioStore } from "@/stores/use-studio-store";
+import { useStudioTasks } from "@/stores/use-studio-tasks";
+import {
+    DRAMA_STEP_LABEL,
+    DRAMA_STEP_NUMBER,
+    type DramaStep,
+    type DramaStepStatus,
+    type StudioEpisode,
+    type StudioProject,
+    type StudioWorkspace,
+} from "@/types/studio";
 
-const API_FORMAT_LABEL: Record<string, string> = {
-    openai: "OpenAI 兼容",
-    gemini: "Gemini 兼容",
-    doubao: "豆包",
-    ark: "火山方舟",
+import { StudioAnalysisWorkspace } from "./studio/analysis-workspace";
+import { StudioAssetsWorkspace } from "./studio/assets-workspace";
+import { StudioDirectorWorkspace } from "./studio/director-workspace";
+import { StudioPictureWorkspace } from "./studio/picture-workspace";
+import { Stage3Workspace } from "./studio/production";
+import { Stage4ReviewWorkspace } from "./studio/review-workspace";
+import { StudioProjectManager } from "./studio/project-manager";
+import { StudioProjectSettingsModal } from "./studio/project-settings";
+import { StudioScriptWorkspace } from "./studio/script-workspace";
+import { StudioSoundWorkspace } from "./studio/sound-workspace";
+import { StudioTaskCenter } from "./studio/task-center";
+import { StudioEmpty } from "./studio/ui";
+import { StudioVideoWorkspace } from "./studio/video-workspace";
+import "./studio.css";
+
+// Lihuo 短剧工作室：项目首页 + 五步生产工作流。
+// 旧六工作区组件全部保留，通过 URL 映射和内部页签继续服务旧项目；不删旧 store、不改画布核心。
+
+const STEPS: { step: DramaStep; icon: typeof BookOpen }[] = [
+    { step: "analysis", icon: BookOpen },
+    { step: "assets", icon: Users },
+    { step: "script", icon: Clapperboard },
+    { step: "review", icon: ImageIcon },
+    { step: "video", icon: PlayCircle },
+];
+
+const STEP_STATUS_LABEL: Record<DramaStepStatus, string> = {
+    idle: "未开始",
+    pending: "待开始",
+    running: "进行中",
+    waiting_review: "待审核",
+    completed: "完成",
+    partial: "部分完成",
+    failed: "失败",
+    paused: "暂停",
 };
 
-function channelFormatLabel(apiFormat: string) {
-    return API_FORMAT_LABEL[apiFormat.toLowerCase()] ?? apiFormat;
-}
+const SUBVIEW_LABEL: Partial<Record<DramaSubView, string>> = {
+    script: "分集剧本",
+    storyboard: "分镜设计",
+    review: "审核",
+    video: "视频",
+    sound: "声音",
+};
 
-function savedLabel(updatedAt: string) {
-    return `已保存 · ${new Date(updatedAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}`;
-}
+export default function DramaStudioPage() {
+    const { message } = App.useApp();
+    const navigate = useNavigate();
+    const [params, setParams] = useSearchParams();
+    const [taskOpen, setTaskOpen] = useState(false);
+    const [settingsOpen, setSettingsOpen] = useState(false);
+    const [saveError, setSaveError] = useState<string | null>(null);
+    const [retryingSave, setRetryingSave] = useState(false);
+    const hydrationError = useStudioStore((state) => state.hydrationError);
+    const projects = useStudioStore((state) => state.projects);
+    const hydrated = useStudioStore((state) => state.hydrated);
+    const createEpisode = useStudioStore((state) => state.createEpisode);
+    const archiveProject = useStudioStore((state) => state.archiveProject);
+    const running = useStudioTasks((state) => state.tasks.filter((task) => task.status === "running" || task.status === "submitting" || task.status === "cancelling").length);
+    const queued = useStudioTasks((state) => state.tasks.filter((task) => task.status === "queued").length);
 
-export default function DramaPage() {
-    const { modal, message } = App.useApp();
-    const [searchParams, setSearchParams] = useSearchParams();
-    const hydrated = useDramaStore((state) => state.hydrated);
-    const sequences = useDramaStore((state) => state.sequences);
-    const createSequence = useDramaStore((state) => state.createSequence);
-    const updateSequence = useDramaStore((state) => state.updateSequence);
-    const deleteSequence = useDramaStore((state) => state.deleteSequence);
-    const config = useConfigStore((state) => state.config);
-
-    const requestedStep = Number(searchParams.get("step"));
-    const [activeId, setActiveId] = useState<string | null>(searchParams.get("sequence"));
-    const [step, setStep] = useState(Number.isInteger(requestedStep) && requestedStep >= 0 && requestedStep < DRAMA_STEPS.length ? requestedStep : 0);
-    const [selectedShotId, setSelectedShotId] = useState<string | null>(null);
-    const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
-    const [navCollapsed, setNavCollapsed] = useState(false);
-    const [inspectorCollapsed, setInspectorCollapsed] = useState(false);
-    const [taskCollapsed, setTaskCollapsed] = useState(true);
-    const seededRef = useRef(false);
-    const templateHandledRef = useRef<string | null>(null);
-    const templateId = searchParams.get("template");
-
-    // 首页模板创建真实序列；深链仍进入对应步骤。
     useEffect(() => {
-        if (!hydrated) return;
-        if (templateId) {
-            const template = DRAMA_TEMPLATES.find((item) => item.id === templateId);
-            if (!template || templateHandledRef.current === templateId) return;
-            templateHandledRef.current = templateId;
-            const id = createSequence(template.title);
-            updateSequence(id, {
-                script: makeScript(template.premise, "paste", { premise: template.premise }),
-                settings: { ...DEFAULT_DRAMA_SETTINGS, style: template.style },
-            });
-            setActiveId(id);
-            setStep(0);
-            setSearchParams({ sequence: id, step: "0" }, { replace: true });
+        void ensureStudioMigrated();
+    }, []);
+
+    useEffect(() => {
+        const onBlocked = (event: Event) => {
+            const detail = (event as CustomEvent<{ reason?: string }>).detail;
+            const reason = detail?.reason ? `保存失败：${detail.reason}` : "保存失败：工作区数据未写入，请刷新后重试";
+            setSaveError(reason);
+            message.error({ content: reason, key: "studio-save-blocked" });
+        };
+        window.addEventListener("lihuo:studio-store-write-blocked", onBlocked);
+        return () => window.removeEventListener("lihuo:studio-store-write-blocked", onBlocked);
+    }, [message]);
+
+    const retrySave = async () => {
+        setRetryingSave(true);
+        const result = await persistStudioStoreNow();
+        setRetryingSave(false);
+        if (result.ok) {
+            setSaveError(null);
+            message.success("工作区已重新保存");
             return;
         }
-        if (sequences.length === 0) {
-            if (seededRef.current) return;
-            seededRef.current = true;
-            setActiveId(createSequence("第 1 集", { sample: true }));
+        setSaveError(`保存失败：${result.error ?? "工作区数据未写入"}`);
+        message.error(`保存失败：${result.error ?? "工作区数据未写入"}`);
+    };
+
+    const reloadLatest = async () => {
+        const ok = await refreshStudioStoreFromPersistence();
+        if (!ok) {
+            message.error("重新读取失败：本地工作区仍不可用");
             return;
         }
-        if (!activeId || !sequences.some((item) => item.id === activeId)) setActiveId(sequences[0].id);
-    }, [hydrated, sequences, activeId, createSequence, templateId, updateSequence, setSearchParams]);
-
-    const sequence = useMemo(() => sequences.find((item) => item.id === activeId) ?? null, [sequences, activeId]);
-    const settings = useMemo<DramaSettings>(() => ({ ...DEFAULT_DRAMA_SETTINGS, ...(sequence?.settings ?? {}) }), [sequence?.settings]);
-    const states = useMemo(() => stepStates(sequence), [sequence]);
-    const shot = useMemo(() => sequence?.shots.find((item) => item.id === selectedShotId) ?? null, [sequence, selectedShotId]);
-    const asset = useMemo(() => sequence?.assets.find((item) => item.id === selectedAssetId) ?? null, [sequence, selectedAssetId]);
-    const issues = useMemo(() => (sequence ? lintSequence(sequence) : []), [sequence]);
-
-    const modelGroups = useMemo(() => {
-        const values = selectableModelsByCapability(config, "text");
-        const groups = allChannels(config)
-            .map((channel) => ({
-                label: `${channel.name} · ${channelFormatLabel(channel.apiFormat)}`,
-                options: values.filter((value) => decodeChannelModel(value)?.channelId === channel.id).map((value) => ({ value, label: modelOptionName(value) })),
-            }))
-            .filter((group) => group.options.length > 0);
-        return [{ label: "默认", options: [{ value: "", label: "自动（跟随画布默认）" }] }, ...groups];
-    }, [config]);
-
-    const patch = (part: Parameters<typeof updateSequence>[1]) => {
-        if (sequence) updateSequence(sequence.id, part);
+        setSaveError(null);
+        message.info("已重新读取 IndexedDB 最新数据；未保存的内存修改已放弃");
     };
 
-    const patchSetting = (key: keyof DramaSettings, rawValue: string) => {
-        if (!sequence) return;
-        let value = rawValue;
-        if ((key === "shotDuration" || key === "videoSeconds") && value !== "自动") {
-            const seconds = Number(value.match(/\d+/)?.[0] ?? 5);
-            if (seconds < 4 || seconds > 15) {
-                message.warning("单镜时长需在 4–15s 之间，已按边界值处理");
-                value = `${Math.min(15, Math.max(4, seconds))}s`;
-            }
-        }
-        const next: DramaSettings = { ...settings, [key]: value };
-        updateSequence(sequence.id, key === "targetDuration" ? { settings: next, targetSeconds: targetSecondsOf(next) } : { settings: next });
-    };
+    const activeProject = useMemo(() => projects.find((project) => project.id === params.get("project")) ?? null, [projects, params]);
+    const episodeId = params.get("episode") ?? "";
+    const activeEpisode = activeProject?.episodes.find((episode) => episode.id === episodeId) ?? activeProject?.episodes[0] ?? null;
+    const resolved = resolveStudioLocation({
+        step: params.get("step"),
+        workspace: params.get("workspace"),
+        view: params.get("view"),
+        project: activeProject,
+    });
+    const location = activeProject ? resolved.location : "projects";
+    const subView = activeProject ? resolved.subView : undefined;
 
-    const go = (next: number) => {
-        setStep(Math.max(0, Math.min(DRAMA_STEPS.length - 1, next)));
-        if (sequence) setSearchParams({ sequence: sequence.id, step: String(next) }, { replace: true });
-    };
-
-    const selectShot = (id: string | null) => {
-        setSelectedShotId(id);
-        if (id) setSelectedAssetId(null);
-    };
-    const selectAsset = (id: string | null) => {
-        setSelectedAssetId(id);
-        if (id) setSelectedShotId(null);
-    };
-
-    const handleDelete = () => {
-        if (!sequence) return;
-        modal.confirm({
-            title: `删除「${sequence.title}」？`,
-            content: "这一集的剧本、镜头、资产与生成记录会一起删掉，不可恢复。",
-            okText: "删除",
-            okButtonProps: { danger: true },
-            cancelText: "取消",
-            onOk: () => {
-                deleteSequence(sequence.id);
-                setActiveId(null);
-                setSelectedShotId(null);
-                setSelectedAssetId(null);
-            },
+    const patchParams = (patch: Record<string, string | undefined>, replace = true) => {
+        const next = new URLSearchParams(params);
+        Object.entries(patch).forEach(([key, value]) => {
+            if (value === undefined || value === "") next.delete(key);
+            else next.set(key, value);
         });
+        if (patch.step !== undefined || patch.workspace !== undefined) next.delete("workspace");
+        setParams(next, { replace });
     };
 
-    if (!hydrated) {
-        return <div className="grid h-full place-items-center text-sm text-stone-400">正在读取本地项目…</div>;
-    }
+    const openProject = (projectId: string, nextEpisodeId: string, nextStep?: DramaStep) => {
+        const project = projects.find((item) => item.id === projectId);
+        const step = nextStep ?? defaultStepForProject(project);
+        patchParams({ project: projectId, episode: nextEpisodeId || undefined, step, view: step === "script" ? "script" : step === "video" ? "video" : undefined, workspace: undefined });
+    };
 
-    if (!sequence) {
+    const goStep = (step: DramaStep, nextView?: DramaSubView) => {
+        if (!activeProject) return;
+        patchParams({ step, view: nextView ?? (step === "script" ? "script" : step === "video" ? "video" : undefined), workspace: undefined });
+    };
+
+    const goHome = () => {
+        patchParams({ project: undefined, episode: undefined, step: undefined, view: undefined, workspace: undefined });
+    };
+
+    /** 旧组件仍调用六工作区名；这里统一翻译成五步位置，不新增第六步。 */
+    const goLegacyWorkspace = (workspace: StudioWorkspace) => {
+        const mapped = mapLegacyWorkspace(workspace);
+        if (!mapped) return;
+        if (mapped.location === "projects") {
+            goHome();
+            return;
+        }
+        goStep(mapped.location, mapped.subView);
+    };
+
+    const openWorkflowFor = (projectId: string, episodeId: string, shotIds: string[] = []) => {
+        const project = projects.find((item) => item.id === projectId);
+        const episode = project?.episodes.find((item) => item.id === episodeId) ?? project?.episodes[0];
+        if (!project || !episode) {
+            message.warning("先打开一个项目");
+            return;
+        }
+        const canvasId = openStudioWorkflow(project, episode, shotIds);
+        if (!canvasId) {
+            message.error("画布项目创建失败");
+            return;
+        }
+        message.success(shotIds.length ? "镜头已发送到 Workflow 画布" : "已打开项目 Workflow 画布");
+        navigate(`/canvas/${canvasId}`);
+    };
+
+    const openWorkflow = (shotIds: string[] = []) => {
+        if (!activeProject || !activeEpisode) {
+            message.warning("先打开一个有分集的项目");
+            return;
+        }
+        openWorkflowFor(activeProject.id, activeEpisode.id, shotIds);
+    };
+
+    const addEpisode = () => {
+        if (!activeProject) return;
+        const id = createEpisode(activeProject.id);
+        if (!id) {
+            message.error("新建分集失败");
+            return;
+        }
+        patchParams({ project: activeProject.id, episode: id });
+        message.success("已补建一集；不会改变当前五步状态");
+    };
+
+    // 旧 ?workspace=director / picture / sound URL 映射到五步后，原地规范成 step + view。
+    useEffect(() => {
+        if (params.get("step") || !params.get("workspace")) return;
+        const mapped = resolveStudioLocation({ workspace: params.get("workspace"), project: activeProject });
+        patchParams({ step: mapped.location, view: mapped.subView });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [params, activeProject]);
+
+    useEffect(() => {
+        if (!activeProject) return;
+        if (activeEpisode && activeEpisode.id !== episodeId) {
+            patchParams({ project: activeProject.id, episode: activeEpisode.id });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeProject?.id, activeEpisode?.id]);
+
+    if (!hydrated && !projects.length) {
         return (
-            <div className="grid h-full place-items-center gap-3">
-                <p className="text-sm text-stone-500">还没有短剧项目</p>
-                <Button type="primary" onClick={() => setActiveId(createSequence("第 1 集"))}>
-                    新建一集
-                </Button>
+            <div className="drama-studio drama-studio--loading">
+                <Spin tip="正在读取本地项目与旧短剧数据…" size="large" />
             </div>
         );
     }
 
-    const total = totalSeconds(sequence);
-    const stepProps = {
-        sequence,
-        settings,
-        config,
-        patch,
-        patchSetting,
-        go,
-        selectShot,
-        selectedShotId,
-        selectAsset,
-        selectedAssetId,
-    };
-    const patchShot = (id: string, part: Partial<DramaSequence["shots"][number]>) =>
-        patch({ shots: sequence.shots.map((item) => (item.id === id ? { ...item, ...part } : item)) });
-    const patchAsset = (id: string, part: Partial<DramaAsset>) => patch({ assets: sequence.assets.map((item) => (item.id === id ? { ...item, ...part } : item)) });
-
-    const body = (() => {
-        switch (step) {
-            case 0:
-                return <InspirationStep {...stepProps} />;
-            case 1:
-                return <ScriptStep {...stepProps} />;
-            case 2:
-                return <SettingsStep {...stepProps} />;
-            case 3:
-                return <BreakdownStep {...stepProps} />;
-            case 4:
-                return <AssetStep {...stepProps} />;
-            case 5:
-                return <StoryboardStep {...stepProps} />;
-            case 6:
-                return <ImageStep {...stepProps} />;
-            case 7:
-                return <VoiceStep {...stepProps} />;
-            case 8:
-                return <VideoStep {...stepProps} />;
-            default:
-                return <ComposeStep {...stepProps} />;
-        }
-    })();
-
-    const pending = issues.filter((issue) => issue.level === "error" || issue.level === "warning").length;
+    const locationLabel = location === "projects" ? "项目库" : `${DRAMA_STEP_NUMBER[location]} · ${DRAMA_STEP_LABEL[location]}`;
 
     return (
-        <div className="drama-shell">
-            <header className="drama-topbar">
-                <Clapperboard className="size-5 shrink-0 text-[rgb(var(--studio-violet))]" />
-                <h1 className="drama-title">短剧工坊</h1>
-                <Select
-                    className="ml-2 min-w-40"
-                    value={sequence.id}
-                    onChange={(value) => {
-                        setActiveId(value);
-                        setSelectedShotId(null);
-                        setSelectedAssetId(null);
-                    }}
-                    options={sequences.map((item) => ({ value: item.id, label: item.title }))}
-                />
-                <Button type="text" icon={<Plus className="size-4" />} onClick={() => setActiveId(createSequence(`第 ${sequences.length + 1} 集`))}>
-                    新建一集
-                </Button>
-                <Button type="text" icon={<Trash2 className="size-4" />} onClick={handleDelete}>
-                    删除
-                </Button>
-
-                <div className="ml-auto flex flex-wrap items-center gap-3">
-                    <div className="w-56">
-                        <DramaParamSelect label="分析模型" value={settings.textModel} groups={modelGroups} onChange={(value) => patchSetting("textModel", value)} customPlaceholder="输入模型名" />
+        <div className="drama-studio">
+            <div className="drama-studio-shell">
+                <aside className="drama-studio-sidebar">
+                    <div className="drama-studio-sidebar__brand" onClick={goHome} role="button" tabIndex={0}>
+                        <span className="drama-studio-sidebar__mark"><Clapperboard className="size-5" /></span>
+                        <div><strong>Lihuo 短剧工作室</strong><small>五步工作流</small></div>
                     </div>
-                    <label className="flex items-center gap-2 text-[13px] text-stone-500 dark:text-stone-400">
-                        目标时长
-                        <InputNumber className="w-24" min={10} max={600} value={sequence.targetSeconds} onChange={(value) => typeof value === "number" && patchSetting("targetDuration", `${value}s`)} />
-                        秒
-                    </label>
-                    <span className="text-[13px] text-stone-500 dark:text-stone-400">
-                        <span className={total > sequence.targetSeconds ? "text-red-600 dark:text-red-400" : ""}>{total}s</span> / {sequence.targetSeconds}s
-                    </span>
-                    <span className="hidden text-[13px] text-stone-400 xl:inline">{savedLabel(sequence.updatedAt)}</span>
-                    <span className="hidden text-[13px] text-stone-400 xl:inline">{pending ? `${pending} 项待处理` : "检查通过"}</span>
-                </div>
-            </header>
 
-            <div className="drama-body">
-                <WorkflowNav step={step} states={states} collapsed={navCollapsed} onStep={go} onToggleCollapsed={() => setNavCollapsed((value) => !value)} />
-                <main className="drama-main">{body}</main>
-                <Inspector
-                    sequence={sequence}
-                    shot={shot}
-                    asset={asset}
-                    collapsed={inspectorCollapsed}
-                    onToggle={() => setInspectorCollapsed((value) => !value)}
-                    onPatchShot={patchShot}
-                    onPatchAsset={patchAsset}
-                    onSelectShot={(id) => selectShot(id)}
-                    onClearAsset={() => selectAsset(null)}
-                    onJumpStep={go}
-                />
+                    {activeProject ? (
+                        <div className="drama-studio-sidebar__project">
+                            <div className="drama-studio-sidebar__project-title">
+                                <strong>{activeProject.title}</strong>
+                                {activeProject.archived ? <Tag bordered={false}>已归档</Tag> : null}
+                            </div>
+                            <span>{activeProject.episodes.length} 集 · {activeProject.assets.length} 资产</span>
+                            {activeProject.episodes.length ? (
+                                <Select
+                                    size="small"
+                                    value={activeEpisode?.id}
+                                    options={activeProject.episodes.map((episode) => ({ value: episode.id, label: `第 ${episode.no} 集 · ${episode.title}` }))}
+                                    onChange={(value) => patchParams({ project: activeProject.id, episode: value })}
+                                    popupMatchSelectWidth={false}
+                                />
+                            ) : (
+                                <small className="drama-studio-sidebar__empty-hint">尚无分集，等待第一步分析或手动补建</small>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="drama-studio-sidebar__project drama-studio-sidebar__project--empty">
+                            <strong>还没有打开项目</strong>
+                            <span>从项目库选择，或新建一个。</span>
+                        </div>
+                    )}
+
+                    <nav className="drama-studio-nav">
+                        <button type="button" className={`drama-studio-nav__item drama-studio-nav__home${location === "projects" ? " is-active" : ""}`} onClick={goHome}>
+                            <FolderKanban className="size-4" />
+                            <span>项目库</span>
+                            {projects.length ? <em>{projects.length}</em> : null}
+                        </button>
+                        <div className="drama-studio-nav__steps">
+                            {STEPS.map((item) => {
+                                const Icon = item.icon;
+                                const status = activeProject?.stepStates[item.step] ?? "idle";
+                                return (
+                                    <button
+                                        key={item.step}
+                                        type="button"
+                                        className={`drama-studio-nav__item drama-studio-nav__step${location === item.step ? " is-active" : ""}`}
+                                        disabled={!activeProject}
+                                        onClick={() => goStep(item.step)}
+                                    >
+                                        <span className="drama-studio-nav__no">{DRAMA_STEP_NUMBER[item.step]}</span>
+                                        <Icon className="size-4" />
+                                        <span>{DRAMA_STEP_LABEL[item.step]}</span>
+                                        {status !== "idle" ? <em>{STEP_STATUS_LABEL[status]}</em> : null}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        <button type="button" className="drama-studio-nav__item drama-studio-nav__advanced" disabled={!activeProject || !activeEpisode} onClick={() => openWorkflow()}>
+                            <Workflow className="size-4" />
+                            <span>Workflow 画布</span>
+                            {activeEpisode?.workflowProjectId ? <em>已建</em> : <Plus className="size-3.5" />}
+                        </button>
+                    </nav>
+
+                    <div className="drama-studio-sidebar__bottom">
+                        <button type="button" className="drama-studio-task-button" onClick={() => setTaskOpen(true)}>
+                            <ListChecks className="size-4" />
+                            <div><strong>任务中心</strong><span>{running ? `${running} 个运行中` : queued ? `${queued} 个排队中` : "暂无运行任务"}</span></div>
+                            {running + queued ? <b>{running + queued}</b> : null}
+                        </button>
+                        <p>项目与产物默认保存在本机；阶段 2A 只调用本项目选定的文本模型，不声明云端同步。</p>
+                    </div>
+                </aside>
+
+                <main className="drama-studio-main">
+                    <header className="drama-studio-topbar">
+                        <div className="drama-studio-topbar__title">
+                            {location === "projects" ? (
+                                <strong>Lihuo 短剧工作室 · 项目库</strong>
+                            ) : (
+                                <>
+                                    <button type="button" className="drama-studio-breadcrumb" onClick={goHome}>项目库</button>
+                                    <span className="drama-studio-breadcrumb__sep">/</span>
+                                    <strong>{activeProject?.title ?? "未打开项目"}</strong>
+                                    <Tag bordered={false}>{locationLabel}</Tag>
+                                    {subView && SUBVIEW_LABEL[subView] ? <Tag bordered={false}>{SUBVIEW_LABEL[subView]}</Tag> : null}
+                                    {activeEpisode && location !== "analysis" && location !== "assets" ? <Tag bordered={false}>第 {activeEpisode.no} 集</Tag> : null}
+                                    {activeEpisode ? <span className="drama-studio-topbar__status">{activeEpisode.shots.length} 镜 · 目标 {activeEpisode.targetSeconds}s</span> : null}
+                                </>
+                            )}
+                        </div>
+                        <div className="drama-studio-topbar__actions">
+                            {activeProject ? (
+                                <>
+                                    <Button size="small" icon={<Settings2 className="size-3.5" />} onClick={() => setSettingsOpen(true)}>项目设置</Button>
+                                    <Button size="small" disabled={!activeEpisode} onClick={() => openWorkflow()}>Studio · Workflow</Button>
+                                    <Tooltip title="导出项目 JSON（剧本、分镜、资产与版本元数据；素材请在各自工作区下载）">
+                                        <Button size="small" icon={<Download className="size-3.5" />} onClick={() => {
+                                            exportStudioProject(activeProject);
+                                            message.success("项目 JSON 已导出");
+                                        }}>导出</Button>
+                                    </Tooltip>
+                                    <Button size="small" icon={<Plus className="size-3.5" />} onClick={addEpisode}>补建一集</Button>
+                                    <Tooltip title={activeProject.archived ? "恢复到项目库" : "归档后不在项目库首屏展示，数据保留"}>
+                                        <Button size="small" onClick={() => archiveProject(activeProject.id, !activeProject.archived)}>{activeProject.archived ? "恢复" : "归档"}</Button>
+                                    </Tooltip>
+                                    <Select
+                                        size="small"
+                                        variant="borderless"
+                                        value={activeProject.id}
+                                        options={projects.map((project) => ({ value: project.id, label: project.title }))}
+                                        onChange={(value) => {
+                                            const next = projects.find((project) => project.id === value);
+                                            if (next) openProject(value, next.episodes[0]?.id ?? "", defaultStepForProject(next));
+                                        }}
+                                        popupMatchSelectWidth={false}
+                                    />
+                                </>
+                            ) : null}
+                            <Button size="small" icon={<ListChecks className="size-3.5" />} onClick={() => setTaskOpen(true)}>任务中心{running ? ` · ${running}` : ""}</Button>
+                        </div>
+                    </header>
+
+                    {hydrationError || saveError ? (
+                        <Alert
+                            type="error"
+                            showIcon
+                            message={hydrationError ? "工作区读取失败" : "工作区尚未保存"}
+                            description={hydrationError
+                                ? `${hydrationError}。为避免空项目覆盖 IndexedDB，已暂停写入；当前内存未载入最新正式项目，请重新读取。`
+                                : `${saveError}。当前内存中的修改仍保留；重试会先校验 IndexedDB 版本，不会覆盖其他标签页的新数据。也可以重新读取最新数据，但会放弃未保存修改。`}
+                            action={
+                                <div className="flex flex-col gap-2">
+                                    {hydrationError ? null : <Button size="small" loading={retryingSave} onClick={() => void retrySave()}>重试保存</Button>}
+                                    <Button size="small" type={hydrationError ? "primary" : "text"} onClick={() => void reloadLatest()}>重新读取</Button>
+                                </div>
+                            }
+                            closable={false}
+                            style={{ margin: "8px 16px 0" }}
+                        />
+                    ) : null}
+
+                    <div className="drama-studio-content">
+                        {!activeProject || location === "projects" ? (
+                            <StudioProjectManager projects={projects} activeId={activeProject?.id} onOpen={(projectId, nextEpisodeId, step) => openProject(projectId, nextEpisodeId, step)} onWorkflow={(projectId, episodeId) => openWorkflowFor(projectId, episodeId)} />
+                        ) : location === "analysis" ? (
+                            <StudioAnalysisWorkspace project={activeProject} onOpenSettings={() => setSettingsOpen(true)} />
+                        ) : location === "assets" ? (
+                            <StudioAssetsWorkspace project={activeProject} onGoWorkspace={goLegacyWorkspace} />
+                        ) : location === "script" && activeProject.adaptation && !activeEpisode ? (
+                            <div className="studio-step-host studio-step-host--stage3">
+                                <Stage3Workspace
+                                    project={activeProject}
+                                    view={subView === "storyboard" ? "storyboard" : "script"}
+                                    onViewChange={(next) => goStep("script", next)}
+                                    onOpenEpisode={(id) => patchParams({ project: activeProject.id, episode: id })}
+                                    onOpenSettings={() => setSettingsOpen(true)}
+                                    onOpenPreviousStep={() => goStep("analysis")}
+                                />
+                            </div>
+                        ) : !activeEpisode ? (
+                            <div className="studio-step-host">
+                                {location === "script" ? (
+                                    <SubViewBar
+                                        items={[{ key: "script", label: "剧本", icon: <BookOpen className="size-3.5" /> }, { key: "storyboard", label: "分镜", icon: <Clapperboard className="size-3.5" /> }]}
+                                        active={subView === "storyboard" ? "storyboard" : "script"}
+                                        onChange={(value) => goStep("script", value as DramaSubView)}
+                                    />
+                                ) : location === "video" ? (
+                                    <SubViewBar
+                                        items={[{ key: "video", label: "视频", icon: <PlayCircle className="size-3.5" /> }, { key: "sound", label: "声音", icon: <Mic className="size-3.5" /> }]}
+                                        active={subView === "sound" ? "sound" : "video"}
+                                        onChange={(value) => goStep("video", value as DramaSubView)}
+                                    />
+                                ) : null}
+                                <div className="drama-studio-empty">
+                                    <StudioEmpty
+                                        icon={<Clapperboard className="size-8" />}
+                                        title="这个项目还没有分集"
+                                        description={activeProject.legacySequenceId ? "旧项目通常自带分集；如果确实为空，可以手动补建一集继续原有流程。" : "阶段 1 不再要求预填集数。第一步小说分析完成后会自动生成分集；当前也可以手动补建一集做基础检查。"}
+                                        action={<Button type="primary" onClick={addEpisode}>补建一集</Button>}
+                                    />
+                                </div>
+                            </div>
+                        ) : StepWorkspace({
+                            location,
+                            subView,
+                            project: activeProject,
+                            episode: activeEpisode,
+                            onOpenEpisode: (id) => patchParams({ project: activeProject.id, episode: id }),
+                            onGoWorkspace: goLegacyWorkspace,
+                            onGoStep: goStep,
+                            onOpenSettings: () => setSettingsOpen(true),
+                            onSendToWorkflow: (shotId) => openWorkflow([shotId]),
+                        })}
+                    </div>
+                </main>
             </div>
 
-            <TaskBar sequence={sequence} collapsed={taskCollapsed} onToggle={() => setTaskCollapsed((value) => !value)} onJumpStep={go} onSelectShot={selectShot} />
+            <StudioTaskCenter open={taskOpen} onClose={() => setTaskOpen(false)} projectId={activeProject?.id} />
+            <StudioProjectSettingsModal open={settingsOpen} project={activeProject} onClose={() => setSettingsOpen(false)} />
         </div>
     );
+
+    // 该函数定义在组件体内，不能以 <StepWorkspace /> 渲染：每次父组件渲染都会产生新的组件类型，
+    // 使第四步审核工作区整棵重挂载并丢失 Drawer、批量报告、筛选与选择状态。这里直接调用，返回元素按稳定类型协调。
+    function StepWorkspace({
+        location,
+        subView,
+        project,
+        episode,
+        onOpenEpisode,
+        onGoWorkspace,
+        onGoStep,
+        onOpenSettings,
+        onSendToWorkflow,
+    }: {
+        location: DramaStep;
+        subView?: DramaSubView;
+        project: StudioProject;
+        episode: StudioEpisode;
+        onOpenEpisode: (episodeId: string) => void;
+        onGoWorkspace: (workspace: StudioWorkspace) => void;
+        onGoStep: (step: DramaStep, view?: DramaSubView) => void;
+        onOpenSettings: () => void;
+        onSendToWorkflow: (shotId: string) => void;
+    }) {
+        if (location === "script") {
+            if (project.adaptation) {
+                return (
+                    <div className="studio-step-host studio-step-host--stage3">
+                        <Stage3Workspace
+                            project={project}
+                            episode={episode}
+                            view={subView === "storyboard" ? "storyboard" : "script"}
+                            onViewChange={(next) => onGoStep("script", next)}
+                            onOpenEpisode={onOpenEpisode}
+                            onOpenSettings={onOpenSettings}
+                            onOpenPreviousStep={() => onGoStep("analysis")}
+                        />
+                    </div>
+                );
+            }
+            return (
+                <div className="studio-step-host">
+                    <div className="studio-step-note">旧 V2 项目未接入 2B handoff，继续沿用原剧本 / 分镜工作区；新建项目请先在第二步完成改编规划。</div>
+                    <SubViewBar
+                        items={[{ key: "script", label: "剧本", icon: <BookOpen className="size-3.5" /> }, { key: "storyboard", label: "分镜", icon: <Clapperboard className="size-3.5" /> }]}
+                        active={subView === "storyboard" ? "storyboard" : "script"}
+                        onChange={(value) => onGoStep("script", value as DramaSubView)}
+                    />
+                    {subView === "storyboard" ? (
+                        <StudioDirectorWorkspace project={project} episode={episode} onGoWorkspace={onGoWorkspace} />
+                    ) : (
+                        <StudioScriptWorkspace project={project} episode={episode} onOpenEpisode={onOpenEpisode} onGoWorkspace={onGoWorkspace} />
+                    )}
+                </div>
+            );
+        }
+        if (location === "review") {
+            if (project.adaptation) {
+                return (
+                    <div className="studio-step-host studio-step-host--stage4">
+                        <Stage4ReviewWorkspace
+                            project={project}
+                            episode={episode}
+                            onOpenEpisode={onOpenEpisode}
+                            onGoStoryboard={() => onGoStep("script", "storyboard")}
+                        />
+                    </div>
+                );
+            }
+            return (
+                <div className="studio-step-host">
+                    <div className="studio-step-note">旧 V2 项目未接入结构化分镜，继续沿用原画面工作区；新建项目请先在第三步生成正式分镜。</div>
+                    <StudioPictureWorkspace project={project} episode={episode} onGoWorkspace={onGoWorkspace} onSendToWorkflow={onSendToWorkflow} />
+                </div>
+            );
+        }
+        if (location === "video") {
+            return (
+                <div className="studio-step-host">
+                    <SubViewBar
+                        items={[{ key: "video", label: "视频", icon: <PlayCircle className="size-3.5" /> }, { key: "sound", label: "声音", icon: <Mic className="size-3.5" /> }]}
+                        active={subView === "sound" ? "sound" : "video"}
+                        onChange={(value) => onGoStep("video", value as DramaSubView)}
+                    />
+                    {subView === "sound" ? (
+                        <StudioSoundWorkspace project={project} episode={episode} onGoWorkspace={onGoWorkspace} />
+                    ) : (
+                        <StudioVideoWorkspace project={project} episode={episode} onGoWorkspace={onGoWorkspace} onSendToWorkflow={onSendToWorkflow} />
+                    )}
+                </div>
+            );
+        }
+        return <StudioAssetsWorkspace project={project} onGoWorkspace={onGoWorkspace} />;
+    }
+
+    function SubViewBar({ items, active, onChange }: { items: { key: string; label: string; icon: ReactNode }[]; active: string; onChange: (key: string) => void }) {
+        return (
+            <div className="studio-subview-bar">
+                {items.map((item) => (
+                    <button key={item.key} type="button" className={active === item.key ? "is-active" : ""} onClick={() => onChange(item.key)}>
+                        {item.icon}
+                        {item.label}
+                    </button>
+                ))}
+            </div>
+        );
+    }
 }

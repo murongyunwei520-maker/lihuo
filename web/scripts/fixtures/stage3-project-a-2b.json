@@ -1,0 +1,3386 @@
+{
+  "projectId": "proj-UORILWcK",
+  "analysisVersion": 3,
+  "adaptation": {
+    "version": 1,
+    "settings": {
+      "genre": "悬疑",
+      "audience": "18-30 岁悬疑短剧用户",
+      "platform": "抖音",
+      "targetEpisodes": 3,
+      "targetEpisodeSeconds": 60,
+      "narrativeStyle": "冷峻悬疑、高密度反转",
+      "tone": "压抑中带希望",
+      "strength": "strong",
+      "endingDirection": "真相公开，苦尽甘来",
+      "requirements": "保留铜钥匙与旧钟楼；第 3 集回收铜钥匙发烫伏笔",
+      "prohibitions": "不得为制造爽点改变人物性格、行为逻辑；AI 新增内容不得伪装成原著事实。",
+      "updatedAt": "2026-11-22T06:59:20.815Z"
+    },
+    "strategy": {
+      "id": "strategy-2b",
+      "version": 1,
+      "createdAt": "2026-11-22T07:00:59.677Z",
+      "updatedAt": "2026-11-22T07:02:15.041Z",
+      "reviewStatus": "approved",
+      "locked": false,
+      "logline": "失忆引航员林舟持铜钥匙在雾港追查十年前夜航失踪真相，与修钟师沈鸢、守钟人老周联手对抗船帮首领顾北，借第七声钟开启旧航道，最终寻回被困的夜航完成归航。",
+      "positioningSummary": "悬疑题材，面向 18-30 岁抖音悬疑短剧受众，一共 3 集、单集 60 秒，冷峻悬疑高密度反转风格，压抑中带希望，改编强度 strong，结局走向真相公开、苦尽甘来，保留铜钥匙与旧钟楼设定，第 3 集回收铜钥匙发烫伏笔。",
+      "structureStrategy": "将原著 6 章 6 个核心事件重组压缩为 3 集递进结构；第 1 集合并码头相遇拿钥匙、钟楼初见与顾北闯入冲突，快速抛出铜钥匙、雾钟规则悬念；第 2 集合并货仓对峙逃脱、钟楼开暗格恢复记忆、第七声钟开启旧航道线索，完成身份反转；第 3 集收拢潮汐真相、旧航道寻船、码头对峙收尾，新增铜钥匙发烫的回收伏笔，保留全部原著核心事件，删减冗余过渡描写，不改动主线因果。",
+      "characterStrategy": "林舟：从迷茫失忆者逐步找回引航员身份，弧光是找回自我、扛起归航责任；沈鸢：始终是钟楼秘密守护者、林舟可靠同伴，冷静克制，串联钟楼线索；老周：作为真相见证者，掌握雾钟与旧航道核心秘密，稳重隐忍；顾北：不是纯粹恶人，动机是掩盖当年过错，冲突从强硬抢夺到最后放下执念放弃阻拦，对立关系随真相揭露逐步缓和；人物性格与底层动机严格遵循原著不变。",
+      "conflictStrategy": "第 1 集表层冲突：顾北抢夺铜钥匙与航海日志，建立外部敌对矛盾；第 2 层冲突升级：货仓对峙，顾北亲口承认当年下令冒险出港，矛盾聚焦于掩盖罪行；第 3 集终极冲突：旧航道开启后，顾北在码头做出选择，冲突由武力抢夺转为内心抉择，矛盾落点落在真相与赎罪。",
+      "foreshadowingStrategy": "保留原著两条核心伏笔：林舟从第七声钟声归来、航海日志 “第七声钟响，夜航归港”；新增衍生伏笔铜钥匙发烫，第 1 集埋下，第 3 集寻回夜航时回收；每集结尾钩子承接下一集悬念，伏笔不提前泄露谜底，反转集中在单集末尾。",
+      "endingStrategy": "结局遵循原著倾向，真相公开，顾北交出账本不再阻拦，夜航全员唤醒归港，老周补全航海日志；沈鸢定下第七声钟留给归航之人，完成主题闭环，基调苦尽甘来，不设计悲剧收尾。",
+      "episodeCountPlan": "3 集 ×60 秒；第 1 集：雾港码头→旧钟楼，建立人物、抛出铜钥匙悬念、顾北突袭抢夺（钩子：顾北带走林舟）；第 2 集：货仓逼供逃脱→钟楼暗格、恢复引航员记忆、第七声钟开启旧航道（钩子：海面裂开旧航道入口）；第 3 集：驾船驶入旧航道、铜钥匙发烫触发唤醒、码头对峙顾北放手、夜航归港，回收全部伏笔。",
+      "warnings": [
+        "压缩原著多段过渡对话，需要控制信息密度，避免观众丢失关键设定；新增铜钥匙发烫伏笔为 generated 内容，不得标注为原著事实；顾北缓和动机的呈现需要克制，不能洗白人物当年过错"
+      ],
+      "changes": [
+        {
+          "adaptationChangeId": "chg-001",
+          "operation": "merge",
+          "sourceType": "explicit",
+          "sourceReferences": {
+            "chapterIds": [
+              "chapter-wc1l1k",
+              "chapter-zehxl3"
+            ],
+            "eventIds": [
+              "event-15elqvd",
+              "event-uibrcl"
+            ],
+            "sceneIds": [
+              "scene-lpdm4f",
+              "scene-uefl2d"
+            ],
+            "foreshadowingIds": [
+              "foreshadow-1qkalie"
+            ],
+            "evidence": [
+              {
+                "chapterId": "chapter-wc1l1k",
+                "chapterTitle": "第一章 雾钟",
+                "excerpt": "林舟在码头边遇见沈鸢。沈鸢是旧钟楼的修钟师，她穿着一件洗旧的灰蓝色外套，手里握着一枚铜钥匙。沈鸢把钥匙交给林舟，说这是他",
+                "sourceLocation": {
+                  "charStart": 124,
+                  "charEnd": 184,
+                  "label": "第一章 雾钟"
+                },
+                "confidence": 0.75,
+                "evidenceType": "explicit"
+              },
+              {
+                "chapterId": "chapter-zehxl3",
+                "chapterTitle": "第二章 旧钟楼",
+                "excerpt": "林舟跟着沈鸢登上钟楼，看见钟摆停在第六下的位置。钟楼里住着守钟人老周。老周说，十年前有一艘叫“夜航”的船失踪，船上的",
+                "sourceLocation": {
+                  "charStart": 294,
+                  "charEnd": 352,
+                  "label": "第二章 旧钟楼"
+                },
+                "confidence": 0.75,
+                "evidenceType": "explicit"
+              }
+            ]
+          },
+          "beforeStructure": "事件 event-15elqvd（第 1 章码头遇沈鸢拿钥匙）独立在前，event-uibrcl（第 2 章钟楼顾北闯入）在后，中间存在独立章节过渡",
+          "afterStructure": "两事件合并放入短剧第 1 集，码头相遇拿钥匙后直接转场旧钟楼，老周简述夜航旧事，随即顾北带人闯入抢夺，单集结尾钩子落在顾北带走林舟",
+          "reason": "抖音短剧开篇需要快速入戏，60 秒时长有限，合并串联前置事件，快速建立人物、核心道具、对立冲突，砍掉平缓过渡，契合高密度悬疑节奏",
+          "characterImpact": "人物出场集中，林舟、沈鸢、老周、顾北在首集全部亮相，人物立场第一时间明确，没有改动人物性格与动机",
+          "causalityImpact": "保留原有因果：码头相遇拿钥匙→前往钟楼→顾北抢夺→带走林舟，因果链条完整无篡改",
+          "foreshadowingImpact": "保留伏笔 foreshadow-1qkalie（林舟从第七声钟声归来）在首集植入，不提前回收",
+          "episodeNumbers": [
+            1
+          ],
+          "riskTags": [],
+          "highRisk": false,
+          "reviewStatus": "pending_review",
+          "createdAt": "2026-11-22T07:00:59.676Z"
+        },
+        {
+          "adaptationChangeId": "chg-002",
+          "operation": "merge",
+          "sourceType": "explicit",
+          "sourceReferences": {
+            "chapterIds": [
+              "chapter-1wwbuyq",
+              "chapter-m66w13",
+              "chapter-yqt2gu"
+            ],
+            "eventIds": [
+              "event-35s5yr",
+              "event-18qzy1q",
+              "event-1xhntuv"
+            ],
+            "sceneIds": [
+              "scene-uefl2d"
+            ],
+            "foreshadowingIds": [],
+            "evidence": [
+              {
+                "chapterId": "chapter-1wwbuyq",
+                "chapterTitle": "第三章 船帮货仓",
+                "excerpt": "顾北把林舟带到货仓，逼他交出铜钥匙。林舟看见货仓墙上挂着一张旧航线图，图上标着夜航最后出现的位置。顾北承认，十年前是他下",
+                "sourceLocation": {
+                  "charStart": 551,
+                  "charEnd": 611,
+                  "label": "第三章 船帮货仓"
+                },
+                "confidence": 0.75,
+                "evidenceType": "explicit"
+              },
+              {
+                "chapterId": "chapter-m66w13",
+                "chapterTitle": "第四章 第七声钟",
+                "excerpt": "夜里，雾港落下大雨。林舟和沈鸢赶回旧钟楼，老周已经等在钟下。老周说，铜钥匙是钟楼暗格的钥匙，暗格里藏着夜航的真正航海图。",
+                "sourceLocation": {
+                  "charStart": 727,
+                  "charEnd": 787,
+                  "label": "第四章 第七声钟"
+                },
+                "confidence": 0.75,
+                "evidenceType": "explicit"
+              },
+              {
+                "chapterId": "chapter-yqt2gu",
+                "chapterTitle": "第五章 潮汐真相",
+                "excerpt": "顾北要抢走船牌，沈鸢拦住他。老周敲响第七声钟，钟声穿过雾港，旧航道的入口在海面裂开。林舟想起完整的航线：夜航没有沉，它被",
+                "sourceLocation": {
+                  "charStart": 935,
+                  "charEnd": 995,
+                  "label": "第五章 潮汐真相"
+                },
+                "confidence": 0.75,
+                "evidenceType": "explicit"
+              }
+            ]
+          },
+          "beforeStructure": "货仓对峙逃脱、钟楼开暗格恢复记忆、敲响第七声钟知晓潮汐真相依次分属原著 3、4、5 章独立事件",
+          "afterStructure": "三件事件合并放入短剧第 2 集，货仓顾北自白罪行、林舟沈鸢逃脱、返回钟楼开启暗格看见刻名船牌恢复引航员身份、老周敲第七声钟，海面裂开旧航道入口为本集结尾钩子",
+          "reason": "将真相揭露、身份记忆回归、世界观核心规则释放集中在第 2 集，承接首集冲突，完成中段反转，为第 3 集归航行动铺垫，适配 60 秒单集信息容量",
+          "characterImpact": "林舟的身份觉醒节奏加快，强化反转冲击力；顾北的罪证自白集中呈现，对立矛盾推至顶峰，人物行为逻辑不变",
+          "causalityImpact": "因果保持原样：被顾北带走→货仓对峙逃脱→返回钟楼→开暗格恢复记忆→敲响第七声钟开启旧航道入口",
+          "foreshadowingImpact": "铺垫航海日志伏笔 foreshadow-mn0fz，等待第 3 集回收",
+          "episodeNumbers": [
+            2
+          ],
+          "riskTags": [],
+          "highRisk": false,
+          "reviewStatus": "pending_review",
+          "createdAt": "2026-11-22T07:00:59.676Z"
+        },
+        {
+          "adaptationChangeId": "chg-003",
+          "operation": "rewrite",
+          "sourceType": "explicit",
+          "sourceReferences": {
+            "chapterIds": [
+              "chapter-8ad4yz"
+            ],
+            "eventIds": [
+              "event-8wwo0k"
+            ],
+            "sceneIds": [
+              "scene-p1rvik",
+              "scene-lpdm4f"
+            ],
+            "foreshadowingIds": [
+              "foreshadow-mn0fz"
+            ],
+            "evidence": [
+              {
+                "chapterId": "chapter-8ad4yz",
+                "chapterTitle": "第六章 归航",
+                "excerpt": "天亮前，林舟驾船驶入旧航道。雾里出现一艘旧船的轮廓，船身上写着“夜航”。林舟用铜钥匙敲了三下船舷，船上的人一个个抬起头",
+                "sourceLocation": {
+                  "charStart": 1114,
+                  "charEnd": 1173,
+                  "label": "第六章 归航"
+                },
+                "confidence": 0.75,
+                "evidenceType": "explicit"
+              }
+            ]
+          },
+          "beforeStructure": "原著仅写林舟用铜钥匙敲击船舷唤醒众人，无钥匙发烫细节",
+          "afterStructure": "短剧第 3 集，林舟驶入旧航道找到夜航时，铜钥匙持续发烫，以此作为唤醒触发信号，敲击船舷唤醒船员；后续码头顾北放弃阻拦、夜航归港、日志补写、伏笔 foreshadow-mn0fz 回收全部保留",
+          "reason": "满足需求：第 3 集回收铜钥匙发烫伏笔；强化铜钥匙的仪式感与奇幻属性，让唤醒动作更有视觉悬疑感，不改动原著唤醒结果、结局走向",
+          "characterImpact": "不改变所有人动机与选择，林舟依靠钥匙完成归航的行为逻辑自洽",
+          "causalityImpact": "旧航道寻船、唤醒船员、归港的因果不变，仅增加钥匙发烫的表现细节",
+          "foreshadowingImpact": "新增发烫伏笔在第 1、2 集埋下细微暗示，在本集完整回收；原著伏笔 foreshadow-mn0fz 同步收尾兑现",
+          "episodeNumbers": [
+            3
+          ],
+          "riskTags": [
+            "core_foreshadowing"
+          ],
+          "highRisk": true,
+          "reviewStatus": "approved",
+          "createdAt": "2026-11-22T07:00:59.677Z"
+        },
+        {
+          "adaptationChangeId": "chg-004",
+          "operation": "add",
+          "sourceType": "generated",
+          "sourceReferences": {
+            "chapterIds": [],
+            "eventIds": [],
+            "sceneIds": [],
+            "foreshadowingIds": [],
+            "evidence": []
+          },
+          "beforeStructure": "原著无铜钥匙发烫相关伏笔",
+          "afterStructure": "短剧第 1、2 集穿插微量镜头暗示铜钥匙温度异常，触摸时微微发热，台词不直接点明，作为隐藏线索",
+          "reason": "满足指定创作要求：第 3 集回收铜钥匙发烫伏笔，提前预埋铺垫，避免第 3 集发烫设定突兀",
+          "characterImpact": "无负面影响，不新增人物能力，铜钥匙依旧是钟楼暗格钥匙",
+          "causalityImpact": "不改变原有事件因果链，仅增加道具细节线索",
+          "foreshadowingImpact": "新增一条衍生伏笔，计划第 3 集回收",
+          "episodeNumbers": [
+            1,
+            2
+          ],
+          "riskTags": [
+            "core_foreshadowing"
+          ],
+          "highRisk": true,
+          "reviewStatus": "approved",
+          "createdAt": "2026-11-22T07:00:59.677Z"
+        }
+      ],
+      "sourceAnalysisVersion": 3,
+      "sourceNovelHash": "b78e5b8ef1b0ab4ccfdc20657b5f6b8daa3394dc76b40231cfbd8f119ad934e1"
+    },
+    "blueprint": {
+      "id": "blueprint-2b",
+      "version": 1,
+      "createdAt": "2026-11-22T07:19:30.11Z",
+      "updatedAt": "2026-11-22T07:19:54.922Z",
+      "reviewStatus": "approved",
+      "locked": false,
+      "title": "雾港夜航",
+      "theme": "寻回记忆，赴一场迟来的归航",
+      "logline": "失忆引航员林舟持铜钥匙追查夜航失踪真相，借第七声钟找回被困船只",
+      "mainline": "林舟在雾港遇沈鸢得铜钥匙，和老周联手对抗顾北，敲响第七声钟开启旧航道寻回夜航",
+      "centralConflict": "顾北掩盖当年过错抢夺钥匙日志，林舟一行要揭开真相带回夜航众人",
+      "protagonistGoals": [
+        "林舟：找回记忆，带回夜航船员",
+        "沈鸢：守护钟楼秘密，助林舟归航",
+        "老周：守护雾钟秘密，见证夜航归港"
+      ],
+      "antagonist": {
+        "name": "顾北",
+        "motivation": "掩盖当年下令冒险出港的罪责",
+        "pressure": "秘密暴露，船帮根基动摇"
+      },
+      "relationshipEvolution": "顾北与林舟、沈鸢从激烈对立，到真相揭晓后放下执念不再阻拦",
+      "stages": [
+        {
+          "id": "stage-1",
+          "name": "迷雾入局",
+          "description": "林舟拿到铜钥匙，钟楼遭遇顾北抢夺，被其带走",
+          "fromEpisode": 1,
+          "toEpisode": 1
+        },
+        {
+          "id": "stage-2",
+          "name": "记忆觉醒",
+          "description": "货仓对峙自白，钟楼解锁记忆，第七声钟开启旧航道",
+          "fromEpisode": 2,
+          "toEpisode": 2
+        },
+        {
+          "id": "stage-3",
+          "name": "归航兑现",
+          "description": "驶入旧航道，铜钥匙发烫唤醒夜航，码头对峙迎来结局",
+          "fromEpisode": 3,
+          "toEpisode": 3
+        }
+      ],
+      "keyEvents": [
+        {
+          "id": "bp-event-1",
+          "order": 1,
+          "act": "stage-1",
+          "title": "钟楼突袭抢夺",
+          "description": "林舟获铜钥匙登钟楼，顾北闯入抢夺，将林舟带走",
+          "episodeHint": "第 1 集",
+          "sourceType": "explicit",
+          "sourceReferences": {
+            "chapterIds": [
+              "chapter-wc1l1k",
+              "chapter-zehxl3"
+            ],
+            "eventIds": [
+              "event-15elqvd",
+              "event-uibrcl"
+            ],
+            "sceneIds": [
+              "scene-lpdm4f",
+              "scene-uefl2d"
+            ],
+            "foreshadowingIds": [],
+            "evidence": [
+              {
+                "chapterId": "chapter-wc1l1k",
+                "chapterTitle": "第一章 雾钟",
+                "excerpt": "林舟在码头边遇见沈鸢。沈鸢是旧钟楼的修钟师，她穿着一件洗旧的灰蓝色外套，手里握着一枚铜钥匙。沈鸢把钥匙交给林舟，说这是他从沉船上带回来的东西。",
+                "sourceLocation": {
+                  "paragraph": 3,
+                  "charStart": 124,
+                  "charEnd": 195,
+                  "label": "第一章 雾钟"
+                },
+                "confidence": 1,
+                "evidenceType": "explicit"
+              },
+              {
+                "chapterId": "chapter-zehxl3",
+                "chapterTitle": "第二章 旧钟楼",
+                "excerpt": "林舟跟着沈鸢登上钟楼，看见钟摆停在第六下的位置。钟楼里住着守钟人老周。老周说，十年前有一艘叫 “夜航” 的船失踪，船上的人一个也没有回来。",
+                "sourceLocation": {
+                  "paragraph": 10,
+                  "label": "第二章 旧钟楼"
+                },
+                "confidence": 1,
+                "evidenceType": "explicit"
+              },
+              {
+                "chapterId": "chapter-zehxl3",
+                "chapterTitle": "第二章 旧钟楼",
+                "excerpt": "顾北带着船帮的人闯进钟楼。顾北是雾港船帮的首领，他要拿走航海日志和铜钥匙。",
+                "sourceLocation": {
+                  "paragraph": 10,
+                  "charStart": 446,
+                  "charEnd": 483,
+                  "label": "第二章 旧钟楼"
+                },
+                "confidence": 1,
+                "evidenceType": "explicit"
+              }
+            ]
+          },
+          "adaptationChangeIds": [
+            "chg-001"
+          ]
+        },
+        {
+          "id": "bp-event-2",
+          "order": 2,
+          "act": "stage-2",
+          "title": "第七声钟启航道",
+          "description": "货仓对峙逃脱，钟楼解锁船牌恢复记忆，鸣钟裂开旧航道入口",
+          "episodeHint": "第 2 集",
+          "sourceType": "explicit",
+          "sourceReferences": {
+            "chapterIds": [
+              "chapter-1wwbuyq",
+              "chapter-m66w13",
+              "chapter-yqt2gu"
+            ],
+            "eventIds": [
+              "event-35s5yr",
+              "event-18qzy1q",
+              "event-1xhntuv"
+            ],
+            "sceneIds": [
+              "scene-uefl2d"
+            ],
+            "foreshadowingIds": [],
+            "evidence": [
+              {
+                "chapterId": "chapter-1wwbuyq",
+                "chapterTitle": "第三章 船帮货仓",
+                "excerpt": "顾北把林舟带到货仓，逼他交出铜钥匙。林舟看见货仓墙上挂着一张旧航线图，图上标着夜航最后出现的位置。顾北承认，十年前是他下令夜航冒险出港，因为船上有一批不能见光的货。",
+                "sourceLocation": {
+                  "paragraph": 17,
+                  "charStart": 551,
+                  "charEnd": 633,
+                  "label": "第三章 船帮货仓"
+                },
+                "confidence": 1,
+                "evidenceType": "explicit"
+              },
+              {
+                "chapterId": "chapter-1wwbuyq",
+                "chapterTitle": "第三章 船帮货仓",
+                "excerpt": "林舟没有交钥匙。他趁船帮的人换班，从货仓后窗逃了出去。沈鸢在窗外接应，她带来老周的口信：第七声钟不是报时，是打开旧航道的信号。",
+                "sourceLocation": {
+                  "paragraph": 17,
+                  "charStart": 635,
+                  "charEnd": 698,
+                  "label": "第三章 船帮货仓"
+                },
+                "confidence": 1,
+                "evidenceType": "explicit"
+              },
+              {
+                "chapterId": "chapter-m66w13",
+                "chapterTitle": "第四章 第七声钟",
+                "excerpt": "夜里，雾港落下大雨。林舟和沈鸢赶回旧钟楼，老周已经等在钟下。老周说，铜钥匙是钟楼暗格的钥匙，暗格里藏着夜航的真正航海图。沈鸢用钥匙打开暗格，里面没有航海图，只有一枚生锈的船牌，船牌上刻着林舟的名字。",
+                "sourceLocation": {
+                  "paragraph": 22,
+                  "charStart": 727,
+                  "charEnd": 826,
+                  "label": "第四章 第七声钟"
+                },
+                "confidence": 1,
+                "evidenceType": "explicit"
+              },
+              {
+                "chapterId": "chapter-m66w13",
+                "chapterTitle": "第四章 第七声钟",
+                "excerpt": "林舟终于想起，他是夜航的引航员。",
+                "sourceLocation": {
+                  "paragraph": 22,
+                  "charStart": 828,
+                  "charEnd": 844,
+                  "label": "第四章 第七声钟"
+                },
+                "confidence": 1,
+                "evidenceType": "explicit"
+              },
+              {
+                "chapterId": "chapter-yqt2gu",
+                "chapterTitle": "第五章 潮汐真相",
+                "excerpt": "顾北要抢走船牌，沈鸢拦住他。老周敲响第七声钟，钟声穿过雾港，旧航道的入口在海面裂开。林舟想起完整的航线：夜航没有沉，它被困在旧航道里，船上的人还活着，只是失去了记忆。",
+                "sourceLocation": {
+                  "paragraph": 27,
+                  "charStart": 935,
+                  "charEnd": 1018,
+                  "label": "第五章 潮汐真相"
+                },
+                "confidence": 1,
+                "evidenceType": "explicit"
+              }
+            ]
+          },
+          "adaptationChangeIds": [
+            "chg-002"
+          ]
+        },
+        {
+          "id": "bp-event-3",
+          "order": 3,
+          "act": "stage-3",
+          "title": "夜航归港",
+          "description": "林舟驾船寻到夜航，铜钥匙发烫唤醒众人，顾北放手放行",
+          "episodeHint": "第 3 集",
+          "sourceType": "explicit",
+          "sourceReferences": {
+            "chapterIds": [
+              "chapter-8ad4yz"
+            ],
+            "eventIds": [
+              "event-8wwo0k"
+            ],
+            "sceneIds": [],
+            "foreshadowingIds": [],
+            "evidence": [
+              {
+                "chapterId": "chapter-8ad4yz",
+                "chapterTitle": "第六章 归航",
+                "excerpt": "天亮前，林舟驾船驶入旧航道。雾里出现一艘旧船的轮廓，船身上写着 “夜航”。林舟用铜钥匙敲了三下船舷，船上的人一个个抬起头。顾北站在码头，没有阻止，只把船帮的旧账本交给老周。",
+                "sourceLocation": {
+                  "paragraph": 32,
+                  "label": "第六章 归航"
+                },
+                "confidence": 1,
+                "evidenceType": "explicit"
+              },
+              {
+                "chapterId": "chapter-8ad4yz",
+                "chapterTitle": "第六章 归航",
+                "excerpt": "夜航回到雾港时，第六声钟刚好响起。",
+                "sourceLocation": {
+                  "paragraph": 32,
+                  "charStart": 1201,
+                  "charEnd": 1218,
+                  "label": "第六章 归航"
+                },
+                "confidence": 1,
+                "evidenceType": "explicit"
+              }
+            ]
+          },
+          "adaptationChangeIds": [
+            "chg-003",
+            "chg-004"
+          ]
+        }
+      ],
+      "climax": "旧航道内铜钥匙发烫，林舟敲击船舷唤醒被困的夜航船员",
+      "ending": "顾北交出账本不再阻拦，夜航归港，航海日志补全完成闭环",
+      "foreshadowingPlan": "第七声钟伏笔第 1 集埋下第 2 集兑现；铜钥匙发烫 1、2 集预埋，第 3 集回收",
+      "characters": [
+        {
+          "characterId": "char-1o3hu0b",
+          "name": "林舟",
+          "role": "雾港引航员、夜航原引航员（人工校对）",
+          "goal": "找回记忆，带回被困在旧航道的夜航众人",
+          "arcSummary": "从失忆、仅有模糊记忆，逐步想起过往身份与航线，决定驶入旧航道带回夜航",
+          "entranceEpisode": 1,
+          "fate": "存活，记忆未完全恢复，成功寻回夜航",
+          "sourceType": "explicit"
+        },
+        {
+          "characterId": "char-1twimmn",
+          "name": "沈鸢",
+          "role": "旧钟楼修钟师，老周的徒弟",
+          "goal": "守护钟楼秘密，协助林舟探寻夜航真相，见证归航",
+          "arcSummary": "持续协助林舟，最后将铜钥匙挂回钟楼，定下第七声钟留给归航之人的约定",
+          "entranceEpisode": 1,
+          "fate": "存活",
+          "sourceType": "explicit"
+        },
+        {
+          "characterId": "char-1lrmjw",
+          "name": "老周",
+          "role": "旧钟楼守钟人",
+          "goal": "守护钟楼、航海日志与雾钟的秘密，见证夜航归航",
+          "arcSummary": "向林舟、沈鸢告知过往线索，敲响第七声钟开启旧航道，最后补写航海日志",
+          "entranceEpisode": 1,
+          "fate": "存活，补写航海日志",
+          "sourceType": "explicit"
+        },
+        {
+          "characterId": "char-dx9vb6",
+          "name": "顾北",
+          "role": "雾港船帮的首领",
+          "goal": "想要拿到航海日志与铜钥匙，掩盖当年下令夜航冒险出港、关掉安全锁的事情",
+          "arcSummary": "从抢夺日志钥匙、追捕林舟沈鸢，到得知夜航众人还活着，最终放弃阻拦，交出船帮旧账本",
+          "entranceEpisode": 1,
+          "fate": "存活，交出船帮旧账本",
+          "sourceType": "explicit"
+        }
+      ],
+      "relationships": [
+        {
+          "fromCharacterId": "char-1twimmn",
+          "toCharacterId": "char-1lrmjw",
+          "fromName": "沈鸢",
+          "toName": "老周",
+          "evolution": "存续"
+        },
+        {
+          "fromCharacterId": "char-dx9vb6",
+          "toCharacterId": "char-1o3hu0b",
+          "fromName": "顾北",
+          "toName": "林舟",
+          "evolution": "缓和"
+        },
+        {
+          "fromCharacterId": "char-dx9vb6",
+          "toCharacterId": "char-1twimmn",
+          "fromName": "顾北",
+          "toName": "沈鸢",
+          "evolution": "缓和"
+        },
+        {
+          "fromCharacterId": "char-1twimmn",
+          "toCharacterId": "char-1o3hu0b",
+          "fromName": "沈鸢",
+          "toName": "林舟",
+          "evolution": "存续"
+        }
+      ],
+      "locations": [
+        {
+          "sceneId": "scene-lpdm4f",
+          "name": "雾港码头",
+          "usage": "林舟开篇登场，后续顾北在此等候归航的夜航",
+          "episodeNumbers": [
+            1
+          ]
+        },
+        {
+          "sceneId": "scene-uefl2d",
+          "name": "旧钟楼",
+          "usage": "存放航海日志、暗格与船牌，敲响雾钟，众人在此对峙、揭开真相",
+          "episodeNumbers": [
+            1,
+            2
+          ]
+        },
+        {
+          "sceneId": "scene-p1rvik",
+          "name": "旧航道海面",
+          "usage": "夜航被困之地，林舟驶入此处找到夜航",
+          "episodeNumbers": [
+            3
+          ]
+        }
+      ],
+      "timeline": "第 1-1 集：林舟拿到铜钥匙，钟楼遭遇顾北抢夺，被其带走；第 2-2 集：货仓对峙自白，钟楼解锁记忆，第七声钟开启旧航道；第 3-3 集：驶入旧航道，铜钥匙发烫唤醒夜航，码头对峙迎来结局",
+      "sourceAnalysisVersion": 3,
+      "sourceNovelHash": "b78e5b8ef1b0ab4ccfdc20657b5f6b8daa3394dc76b40231cfbd8f119ad934e1"
+    },
+    "episodePlans": [
+      {
+        "episodeId": "ep-001",
+        "episodeNumber": 1,
+        "episodeTitle": "雾钟授钥",
+        "episodeLogline": "失忆林舟在雾港码头接过铜钥匙，登钟楼知晓夜航旧事，顾北突袭抢夺将他带走",
+        "episodeSynopsis": "雾港晨雾里，沈鸢将铜钥匙交给失忆的林舟，二人前往旧钟楼见老周，得知十年前夜航失踪，顾北带人闯入抢钥匙与日志，掳走林舟",
+        "dramaticGoal": "交付铜钥匙，抛出夜航失踪悬念，建立顾北与主角团对立",
+        "openingHook": "浓雾码头，沈鸢递来一枚带着潮纹的铜钥匙，说是林舟沉船带回之物",
+        "mainConflict": "顾北急于夺取铜钥匙与航海日志，掩盖当年夜航出事的秘密",
+        "keyEvents": [
+          {
+            "id": "ep-001-event-1",
+            "description": "沈鸢在雾港码头把铜钥匙交给失忆的林舟",
+            "sourceType": "explicit",
+            "sourceReferences": {
+              "chapterIds": [
+                "chapter-wc1l1k"
+              ],
+              "eventIds": [
+                "event-15elqvd"
+              ],
+              "sceneIds": [
+                "scene-lpdm4f"
+              ],
+              "foreshadowingIds": [],
+              "evidence": [
+                {
+                  "chapterId": "chapter-wc1l1k",
+                  "chapterTitle": "第一章 雾钟",
+                  "excerpt": "沈鸢把钥匙交给林舟，说这是他从沉船上带回来的东西。",
+                  "sourceLocation": {
+                    "charStart": 170,
+                    "charEnd": 195,
+                    "label": "第一章 雾钟"
+                  },
+                  "confidence": 0.75,
+                  "evidenceType": "explicit"
+                }
+              ]
+            },
+            "adaptationChangeIds": [
+              "chg-001",
+              "chg-004"
+            ]
+          },
+          {
+            "id": "ep-001-event-2",
+            "description": "林舟、沈鸢登钟楼，老周告知夜航失踪与雾钟规则",
+            "sourceType": "explicit",
+            "sourceReferences": {
+              "chapterIds": [
+                "chapter-zehxl3"
+              ],
+              "eventIds": [
+                "event-uibrcl"
+              ],
+              "sceneIds": [
+                "scene-uefl2d"
+              ],
+              "foreshadowingIds": [],
+              "evidence": [
+                {
+                  "chapterId": "chapter-zehxl3",
+                  "chapterTitle": "第二章 旧钟楼",
+                  "excerpt": "老周说，十年前有一艘叫“夜航”的船失踪，船上的人一个也没有回来。",
+                  "sourceLocation": {
+                    "charStart": 329,
+                    "charEnd": 361,
+                    "label": "第二章 旧钟楼"
+                  },
+                  "confidence": 0.75,
+                  "evidenceType": "explicit"
+                }
+              ]
+            },
+            "adaptationChangeIds": [
+              "chg-001"
+            ]
+          },
+          {
+            "id": "ep-001-event-3",
+            "description": "顾北带人闯入钟楼抢夺钥匙日志，强行带走林舟",
+            "sourceType": "explicit",
+            "sourceReferences": {
+              "chapterIds": [
+                "chapter-zehxl3"
+              ],
+              "eventIds": [
+                "event-uibrcl"
+              ],
+              "sceneIds": [
+                "scene-uefl2d"
+              ],
+              "foreshadowingIds": [],
+              "evidence": [
+                {
+                  "chapterId": "chapter-zehxl3",
+                  "chapterTitle": "第二章 旧钟楼",
+                  "excerpt": "林舟跟着沈鸢登上钟楼，看见钟摆停在第六下的位置。钟楼里住着守钟人老周。老周说，十年前有一艘叫 “夜航” 的船失踪，船上的人一个也没有回来。",
+                  "sourceLocation": {
+                    "paragraph": 10,
+                    "label": "第二章 旧钟楼"
+                  },
+                  "confidence": 1,
+                  "evidenceType": "explicit"
+                },
+                {
+                  "chapterId": "chapter-zehxl3",
+                  "chapterTitle": "第二章 旧钟楼",
+                  "excerpt": "顾北带着船帮的人闯进钟楼。顾北是雾港船帮的首领，他要拿走航海日志和铜钥匙。",
+                  "sourceLocation": {
+                    "paragraph": 10,
+                    "charStart": 446,
+                    "charEnd": 483,
+                    "label": "第二章 旧钟楼"
+                  },
+                  "confidence": 1,
+                  "evidenceType": "explicit"
+                }
+              ]
+            },
+            "adaptationChangeIds": [
+              "chg-001"
+            ]
+          }
+        ],
+        "characterAppearances": [
+          {
+            "characterId": "char-1o3hu0b",
+            "name": "林舟",
+            "role": "失忆引航员",
+            "summary": "失忆，拿到铜钥匙，被顾北带走"
+          },
+          {
+            "characterId": "char-1twimmn",
+            "name": "沈鸢",
+            "role": "钟楼修钟师",
+            "summary": "交付铜钥匙，守护钟楼秘密，阻拦顾北"
+          },
+          {
+            "characterId": "char-1lrmjw",
+            "name": "老周",
+            "role": "守钟人",
+            "summary": "告知夜航失踪往事，持有航海日志"
+          },
+          {
+            "characterId": "char-dx9vb6",
+            "name": "顾北",
+            "role": "船帮首领",
+            "summary": "抢夺钥匙日志，抓捕林舟掩盖罪责"
+          }
+        ],
+        "characterStates": [
+          {
+            "characterId": "char-1o3hu0b",
+            "name": "林舟",
+            "location": "旧钟楼，后被带往货仓",
+            "knows": [
+              "铜钥匙属于自己",
+              "夜航十年前失踪"
+            ],
+            "unknown": [
+              "自己真实身份",
+              "第七声钟作用",
+              "顾北当年的罪责"
+            ],
+            "relationships": "初识沈鸢、老周；与顾北敌对",
+            "physicalState": "正常，手握着铜钥匙，钥匙微热",
+            "abilityState": "引航能力被记忆封印",
+            "identityState": "失忆，不知自己是夜航引航员",
+            "present": true,
+            "lifeState": "alive"
+          },
+          {
+            "characterId": "char-1twimmn",
+            "name": "沈鸢",
+            "location": "旧钟楼",
+            "knows": [
+              "铜钥匙来历",
+              "第七声钟传闻",
+              "林舟从第七声钟声归来"
+            ],
+            "unknown": [
+              "旧航道完整秘密",
+              "夜航众人现状"
+            ],
+            "relationships": "老周徒弟，保护林舟，对抗顾北",
+            "physicalState": "正常，冷静克制",
+            "abilityState": "熟悉钟楼、修钟技艺",
+            "identityState": "旧钟楼修钟师",
+            "present": true,
+            "lifeState": "alive"
+          },
+          {
+            "characterId": "char-1lrmjw",
+            "name": "老周",
+            "location": "旧钟楼",
+            "knows": [
+              "雾钟规则",
+              "夜航失踪内情",
+              "航海日志的秘密"
+            ],
+            "unknown": [
+              "顾北是否愿意认罪",
+              "夜航能否被带回"
+            ],
+            "relationships": "沈鸢师父，守护钟楼秘密",
+            "physicalState": "正常，稳重隐忍",
+            "abilityState": "掌控雾钟、敲响第七声钟",
+            "identityState": "旧钟楼守钟人",
+            "present": true,
+            "lifeState": "alive"
+          },
+          {
+            "characterId": "char-dx9vb6",
+            "name": "顾北",
+            "location": "旧钟楼",
+            "knows": [
+              "当年自己下令冒险出港",
+              "钥匙日志会暴露罪行"
+            ],
+            "unknown": [
+              "林舟能否想起真相",
+              "夜航人还活着"
+            ],
+            "relationships": "对立林舟、沈鸢、老周",
+            "physicalState": "正常，强势凶狠",
+            "abilityState": "掌控船帮人手",
+            "identityState": "雾港船帮首领",
+            "present": true,
+            "lifeState": "alive"
+          }
+        ],
+        "characterRelationshipChanges": [
+          {
+            "fromCharacterId": "char-dx9vb6",
+            "toCharacterId": "char-1o3hu0b",
+            "fromName": "顾北",
+            "toName": "林舟",
+            "change": "初次正面冲突，确立敌对关系"
+          }
+        ],
+        "locations": [
+          {
+            "sceneId": "scene-lpdm4f",
+            "name": "雾港码头",
+            "purpose": "开篇相遇，交付铜钥匙"
+          },
+          {
+            "sceneId": "scene-uefl2d",
+            "name": "旧钟楼",
+            "purpose": "交代夜航往事，发生抢夺对峙"
+          }
+        ],
+        "emotionalProgression": [
+          "茫然疑惑",
+          "压抑不安",
+          "紧张突袭"
+        ],
+        "climax": "顾北带人闯入钟楼，强行抢夺铜钥匙与航海日志",
+        "endingHook": "顾北押走林舟，沈鸢和老周被困钟楼，危机未消",
+        "foreshadowingIntroduced": [
+          "fore-001",
+          "fore-002",
+          "fore-003"
+        ],
+        "foreshadowingAdvanced": [],
+        "foreshadowingResolved": [],
+        "continuityDependencies": [],
+        "estimatedDuration": 60,
+        "sourceReferences": {
+          "chapterIds": [
+            "chapter-wc1l1k",
+            "chapter-zehxl3"
+          ],
+          "eventIds": [
+            "event-15elqvd",
+            "event-uibrcl"
+          ],
+          "sceneIds": [
+            "scene-lpdm4f",
+            "scene-uefl2d"
+          ],
+          "foreshadowingIds": [],
+          "evidence": [
+            {
+              "chapterId": "chapter-wc1l1k",
+              "chapterTitle": "第一章 雾钟",
+              "excerpt": "沈鸢把钥匙交给林舟，说这是他从沉船上带回来的东西。",
+              "sourceLocation": {
+                "charStart": 170,
+                "charEnd": 195,
+                "label": "第一章 雾钟"
+              },
+              "confidence": 0.75,
+              "evidenceType": "explicit"
+            }
+          ]
+        },
+        "adaptationChanges": [
+          {
+            "adaptationChangeId": "chg-001",
+            "operation": "merge",
+            "description": "合并码头授钥、钟楼剧情，压缩过渡，快速冲突",
+            "highRisk": false,
+            "reviewStatus": "pending_review"
+          },
+          {
+            "adaptationChangeId": "chg-004",
+            "operation": "add",
+            "description": "本集预埋铜钥匙微微发烫的隐藏线索",
+            "highRisk": true,
+            "reviewStatus": "approved"
+          }
+        ],
+        "reviewStatus": "approved",
+        "version": 1,
+        "createdAt": "2026-11-22T07:26:52.325Z",
+        "updatedAt": "2026-11-22T07:32:26.151Z",
+        "locked": false,
+        "versions": []
+      },
+      {
+        "episodeId": "ep-002",
+        "episodeNumber": 2,
+        "episodeTitle": "钟醒归航",
+        "episodeLogline": "货仓对峙顾北自白罪行，林舟逃脱返回钟楼，解锁船牌恢复记忆，第七声钟裂开旧航道入口",
+        "episodeSynopsis": "顾北在货仓逼林舟交出钥匙，亲口承认当年下令夜航冒险出港；林舟趁换班逃脱，与沈鸢返回钟楼，钥匙打开暗格看见刻名船牌，恢复引航员记忆，老周敲响第七声钟，海面裂开旧航道入口",
+        "dramaticGoal": "揭露顾北罪证，完成林舟身份觉醒，解锁第七声钟与旧航道设定",
+        "openingHook": "货仓内，顾北指着航线图，逼迫林舟交出铜钥匙",
+        "mainConflict": "顾北坦白当年为私货强行出港、关闭安全锁，林舟要守住钥匙、查清真相，顾北要灭口夺证掩盖全部罪责",
+        "keyEvents": [
+          {
+            "id": "ep-002-event-1",
+            "description": "货仓对峙，顾北承认当年下令夜航冒险出港",
+            "sourceType": "explicit",
+            "sourceReferences": {
+              "chapterIds": [
+                "chapter-1wwbuyq"
+              ],
+              "eventIds": [
+                "event-35s5yr"
+              ],
+              "sceneIds": [],
+              "foreshadowingIds": [],
+              "evidence": [
+                {
+                  "chapterId": "chapter-1wwbuyq",
+                  "chapterTitle": "第三章 船帮货仓",
+                  "excerpt": "顾北把林舟带到货仓，逼他交出铜钥匙。林舟看见货仓墙上挂着一张旧航线图，图上标着夜航最后出现的位置。顾北承认，十年前是他下令夜航冒险出港，因为船上有一批不能见光的货。",
+                  "sourceLocation": {
+                    "paragraph": 17,
+                    "charStart": 551,
+                    "charEnd": 633,
+                    "label": "第三章 船帮货仓"
+                  },
+                  "confidence": 1,
+                  "evidenceType": "explicit"
+                },
+                {
+                  "chapterId": "chapter-1wwbuyq",
+                  "chapterTitle": "第三章 船帮货仓",
+                  "excerpt": "林舟没有交钥匙。他趁船帮的人换班，从货仓后窗逃了出去。沈鸢在窗外接应，她带来老周的口信：第七声钟不是报时，是打开旧航道的信号。",
+                  "sourceLocation": {
+                    "paragraph": 17,
+                    "charStart": 635,
+                    "charEnd": 698,
+                    "label": "第三章 船帮货仓"
+                  },
+                  "confidence": 1,
+                  "evidenceType": "explicit"
+                }
+              ]
+            },
+            "adaptationChangeIds": [
+              "chg-002"
+            ]
+          },
+          {
+            "id": "ep-002-event-2",
+            "description": "林舟逃脱返回钟楼，铜钥匙打开暗格，看见刻名船牌恢复记忆",
+            "sourceType": "explicit",
+            "sourceReferences": {
+              "chapterIds": [
+                "chapter-m66w13"
+              ],
+              "eventIds": [
+                "event-18qzy1q"
+              ],
+              "sceneIds": [
+                "scene-uefl2d"
+              ],
+              "foreshadowingIds": [],
+              "evidence": [
+                {
+                  "chapterId": "chapter-m66w13",
+                  "chapterTitle": "第四章 第七声钟",
+                  "excerpt": "夜里，雾港落下大雨。林舟和沈鸢赶回旧钟楼，老周已经等在钟下。老周说，铜钥匙是钟楼暗格的钥匙，暗格里藏着夜航的真正航海图。沈鸢用钥匙打开暗格，里面没有航海图，只有一枚生锈的船牌，船牌上刻着林舟的名字。",
+                  "sourceLocation": {
+                    "paragraph": 22,
+                    "charStart": 727,
+                    "charEnd": 826,
+                    "label": "第四章 第七声钟"
+                  },
+                  "confidence": 1,
+                  "evidenceType": "explicit"
+                },
+                {
+                  "chapterId": "chapter-m66w13",
+                  "chapterTitle": "第四章 第七声钟",
+                  "excerpt": "林舟终于想起，他是夜航的引航员。",
+                  "sourceLocation": {
+                    "paragraph": 22,
+                    "charStart": 828,
+                    "charEnd": 844,
+                    "label": "第四章 第七声钟"
+                  },
+                  "confidence": 1,
+                  "evidenceType": "explicit"
+                }
+              ]
+            },
+            "adaptationChangeIds": [
+              "chg-002",
+              "chg-004"
+            ]
+          },
+          {
+            "id": "ep-002-event-3",
+            "description": "老周敲响第七声钟，海面裂开旧航道入口",
+            "sourceType": "explicit",
+            "sourceReferences": {
+              "chapterIds": [
+                "chapter-yqt2gu"
+              ],
+              "eventIds": [
+                "event-1xhntuv"
+              ],
+              "sceneIds": [
+                "scene-uefl2d"
+              ],
+              "foreshadowingIds": [],
+              "evidence": [
+                {
+                  "chapterId": "chapter-yqt2gu",
+                  "chapterTitle": "第五章 潮汐真相",
+                  "excerpt": "顾北要抢走船牌，沈鸢拦住他。老周敲响第七声钟，钟声穿过雾港，旧航道的入口在海面裂开。林舟想起完整的航线：夜航没有沉，它被困在旧航道里，船上的人还活着，只是失去了记忆。",
+                  "sourceLocation": {
+                    "paragraph": 27,
+                    "charStart": 935,
+                    "charEnd": 1018,
+                    "label": "第五章 潮汐真相"
+                  },
+                  "confidence": 1,
+                  "evidenceType": "explicit"
+                }
+              ]
+            },
+            "adaptationChangeIds": [
+              "chg-002"
+            ]
+          }
+        ],
+        "characterAppearances": [
+          {
+            "characterId": "char-1o3hu0b",
+            "name": "林舟",
+            "role": "夜航引航员",
+            "summary": "货仓对峙逃脱，看见船牌恢复引航员记忆"
+          },
+          {
+            "characterId": "char-1twimmn",
+            "name": "沈鸢",
+            "role": "钟楼修钟师",
+            "summary": "接应林舟，阻拦顾北抢夺船牌"
+          },
+          {
+            "characterId": "char-1lrmjw",
+            "name": "老周",
+            "role": "守钟人",
+            "summary": "敲响第七声钟，开启旧航道入口"
+          },
+          {
+            "characterId": "char-dx9vb6",
+            "name": "顾北",
+            "role": "船帮首领",
+            "summary": "自白罪行，追赶至钟楼抢夺船牌失败"
+          }
+        ],
+        "characterStates": [
+          {
+            "characterId": "char-1o3hu0b",
+            "name": "林舟",
+            "location": "船帮货仓→旧钟楼",
+            "knows": [
+              "顾北当年罪责",
+              "自己是夜航引航员",
+              "第七声钟开启航道"
+            ],
+            "unknown": [
+              "旧航道内夜航状态",
+              "唤醒船员的条件"
+            ],
+            "relationships": "信任沈鸢、老周，与顾北敌对",
+            "physicalState": "疲惫，铜钥匙持续微热",
+            "abilityState": "引航记忆解封，记起航线",
+            "identityState": "确认自己是夜航引航员",
+            "present": true,
+            "lifeState": "alive"
+          },
+          {
+            "characterId": "char-1twimmn",
+            "name": "沈鸢",
+            "location": "货仓外→旧钟楼",
+            "knows": [
+              "第七声钟开启航道",
+              "船牌藏林舟身份"
+            ],
+            "unknown": [
+              "夜航众人是否存活"
+            ],
+            "relationships": "守护林舟，对抗顾北",
+            "physicalState": "正常，冷静",
+            "abilityState": "熟悉钟楼机关",
+            "identityState": "旧钟楼修钟师",
+            "present": true,
+            "lifeState": "alive"
+          },
+          {
+            "characterId": "char-1lrmjw",
+            "name": "老周",
+            "location": "旧钟楼",
+            "knows": [
+              "敲响第七声钟开启旧航道"
+            ],
+            "unknown": [
+              "夜航众人能否被唤醒带回"
+            ],
+            "relationships": "沈鸢师父，协助林舟",
+            "physicalState": "正常",
+            "abilityState": "敲响雾钟，触发旧航道",
+            "identityState": "旧钟楼守钟人",
+            "present": true,
+            "lifeState": "alive"
+          },
+          {
+            "characterId": "char-dx9vb6",
+            "name": "顾北",
+            "location": "货仓→旧钟楼",
+            "knows": [
+              "罪行被林舟知晓",
+              "船牌是关键证物"
+            ],
+            "unknown": [
+              "夜航人仍被困存活",
+              "旧航道开启后果"
+            ],
+            "relationships": "继续敌对主角团",
+            "physicalState": "急躁，急于销毁证据",
+            "abilityState": "指挥船帮人手",
+            "identityState": "雾港船帮首领",
+            "present": true,
+            "lifeState": "alive"
+          }
+        ],
+        "characterRelationshipChanges": [
+          {
+            "fromCharacterId": "char-1o3hu0b",
+            "toCharacterId": "char-1twimmn",
+            "fromName": "林舟",
+            "toName": "沈鸢",
+            "change": "信任加深，结成稳固同伴"
+          }
+        ],
+        "locations": [
+          {
+            "sceneId": "scene-uefl2d",
+            "name": "旧钟楼",
+            "purpose": "解锁暗格、恢复记忆、敲响第七声钟"
+          }
+        ],
+        "emotionalProgression": [
+          "压抑对峙",
+          "冲击觉醒",
+          "震撼、期待"
+        ],
+        "climax": "林舟看见刻名船牌恢复引航员记忆，知晓顾北不止强令出港，还锁死第六声钟防护，致使夜航坠入旧航道",
+        "endingHook": "海面裂开旧航道入口，林舟准备驾船驶入寻找夜航",
+        "foreshadowingIntroduced": [],
+        "foreshadowingAdvanced": [
+          "fore-001",
+          "fore-002",
+          "fore-003"
+        ],
+        "foreshadowingResolved": [
+          "fore-001"
+        ],
+        "continuityDependencies": [
+          "ep-001"
+        ],
+        "estimatedDuration": 60,
+        "sourceReferences": {
+          "chapterIds": [
+            "chapter-1wwbuyq",
+            "chapter-m66w13",
+            "chapter-yqt2gu"
+          ],
+          "eventIds": [
+            "event-35s5yr",
+            "event-18qzy1q",
+            "event-1xhntuv"
+          ],
+          "sceneIds": [
+            "scene-uefl2d"
+          ],
+          "foreshadowingIds": [],
+          "evidence": [
+            {
+              "chapterId": "chapter-1wwbuyq",
+              "chapterTitle": "第三章 船帮货仓",
+              "excerpt": "顾北把林舟带到货仓，逼他交出铜钥匙。林舟看见货仓墙上挂着一张旧航线图，图上标着夜航最后出现的位置。顾北承认，十年前是他下令夜航冒险出港，因为船上有一批不能见光的货。",
+              "sourceLocation": {
+                "paragraph": 17,
+                "charStart": 551,
+                "charEnd": 633,
+                "label": "第三章 船帮货仓"
+              },
+              "confidence": 1,
+              "evidenceType": "explicit"
+            },
+            {
+              "chapterId": "chapter-1wwbuyq",
+              "chapterTitle": "第三章 船帮货仓",
+              "excerpt": "林舟没有交钥匙。他趁船帮的人换班，从货仓后窗逃了出去。沈鸢在窗外接应，她带来老周的口信：第七声钟不是报时，是打开旧航道的信号。",
+              "sourceLocation": {
+                "paragraph": 17,
+                "charStart": 635,
+                "charEnd": 698,
+                "label": "第三章 船帮货仓"
+              },
+              "confidence": 1,
+              "evidenceType": "explicit"
+            },
+            {
+              "chapterId": "chapter-m66w13",
+              "chapterTitle": "第四章 第七声钟",
+              "excerpt": "夜里，雾港落下大雨。林舟和沈鸢赶回旧钟楼，老周已经等在钟下。老周说，铜钥匙是钟楼暗格的钥匙，暗格里藏着夜航的真正航海图。沈鸢用钥匙打开暗格，里面没有航海图，只有一枚生锈的船牌，船牌上刻着林舟的名字。",
+              "sourceLocation": {
+                "paragraph": 22,
+                "charStart": 727,
+                "charEnd": 826,
+                "label": "第四章 第七声钟"
+              },
+              "confidence": 1,
+              "evidenceType": "explicit"
+            },
+            {
+              "chapterId": "chapter-m66w13",
+              "chapterTitle": "第四章 第七声钟",
+              "excerpt": "林舟终于想起，他是夜航的引航员。",
+              "sourceLocation": {
+                "paragraph": 22,
+                "charStart": 828,
+                "charEnd": 844,
+                "label": "第四章 第七声钟"
+              },
+              "confidence": 1,
+              "evidenceType": "explicit"
+            },
+            {
+              "chapterId": "chapter-yqt2gu",
+              "chapterTitle": "第五章 潮汐真相",
+              "excerpt": "顾北要抢走船牌，沈鸢拦住他。老周敲响第七声钟，钟声穿过雾港，旧航道的入口在海面裂开。林舟想起完整的航线：夜航没有沉，它被困在旧航道里，船上的人还活着，只是失去了记忆。",
+              "sourceLocation": {
+                "paragraph": 27,
+                "charStart": 935,
+                "charEnd": 1018,
+                "label": "第五章 潮汐真相"
+              },
+              "confidence": 1,
+              "evidenceType": "explicit"
+            }
+          ]
+        },
+        "adaptationChanges": [
+          {
+            "adaptationChangeId": "chg-002",
+            "operation": "merge",
+            "description": "合并货仓对峙、钟楼解锁、鸣钟启航道三段剧情",
+            "highRisk": false,
+            "reviewStatus": "pending_review"
+          },
+          {
+            "adaptationChangeId": "chg-004",
+            "operation": "add",
+            "description": "本集继续预埋铜钥匙发烫线索，靠近航道更明显",
+            "highRisk": true,
+            "reviewStatus": "approved"
+          }
+        ],
+        "reviewStatus": "pending_review",
+        "version": 2,
+        "createdAt": "2026-11-22T07:26:52.326Z",
+        "updatedAt": "2026-11-22T08:03:40.286Z",
+        "locked": false,
+        "versions": [
+          {
+            "id": "ep-002-v1",
+            "version": 1,
+            "createdAt": "2026-11-22T07:33:11.765Z",
+            "reason": "让顾北在货仓对峙时说出当年夜航的更多内情，增加冲突层次",
+            "plan": {
+              "episodeId": "ep-002",
+              "episodeNumber": 2,
+              "episodeTitle": "钟醒归航",
+              "episodeLogline": "货仓对峙顾北自白罪行，林舟逃脱返回钟楼，解锁船牌恢复记忆，第七声钟裂开旧航道入口",
+              "episodeSynopsis": "顾北在货仓逼林舟交出钥匙，亲口承认当年下令夜航冒险出港；林舟趁换班逃脱，与沈鸢返回钟楼，钥匙打开暗格看见刻名船牌，恢复引航员记忆，老周敲响第七声钟，海面裂开旧航道入口",
+              "dramaticGoal": "揭露顾北罪证，完成林舟身份觉醒，解锁第七声钟与旧航道设定",
+              "openingHook": "货仓内，顾北指着航线图，逼迫林舟交出铜钥匙",
+              "mainConflict": "顾北的罪行被撞破，林舟要找回自己身份、探明夜航真相",
+              "keyEvents": [
+                {
+                  "id": "ep-002-event-1",
+                  "description": "货仓对峙，顾北承认当年下令夜航冒险出港",
+                  "sourceType": "explicit",
+                  "sourceReferences": {
+                    "chapterIds": [
+                      "chapter-1wwbuyq"
+                    ],
+                    "eventIds": [
+                      "event-35s5yr"
+                    ],
+                    "sceneIds": [],
+                    "foreshadowingIds": [],
+                    "evidence": [
+                      {
+                        "chapterId": "chapter-1wwbuyq",
+                        "chapterTitle": "第三章 船帮货仓",
+                        "excerpt": "顾北把林舟带到货仓，逼他交出铜钥匙。林舟看见货仓墙上挂着一张旧航线图，图上标着夜航最后出现的位置。顾北承认，十年前是他下令夜航冒险出港，因为船上有一批不能见光的货。",
+                        "sourceLocation": {
+                          "paragraph": 17,
+                          "charStart": 551,
+                          "charEnd": 633,
+                          "label": "第三章 船帮货仓"
+                        },
+                        "confidence": 1,
+                        "evidenceType": "explicit"
+                      },
+                      {
+                        "chapterId": "chapter-1wwbuyq",
+                        "chapterTitle": "第三章 船帮货仓",
+                        "excerpt": "林舟没有交钥匙。他趁船帮的人换班，从货仓后窗逃了出去。沈鸢在窗外接应，她带来老周的口信：第七声钟不是报时，是打开旧航道的信号。",
+                        "sourceLocation": {
+                          "paragraph": 17,
+                          "charStart": 635,
+                          "charEnd": 698,
+                          "label": "第三章 船帮货仓"
+                        },
+                        "confidence": 1,
+                        "evidenceType": "explicit"
+                      }
+                    ]
+                  },
+                  "adaptationChangeIds": [
+                    "chg-002"
+                  ]
+                },
+                {
+                  "id": "ep-002-event-2",
+                  "description": "林舟逃脱返回钟楼，铜钥匙打开暗格，看见刻名船牌恢复记忆",
+                  "sourceType": "explicit",
+                  "sourceReferences": {
+                    "chapterIds": [
+                      "chapter-m66w13"
+                    ],
+                    "eventIds": [
+                      "event-18qzy1q"
+                    ],
+                    "sceneIds": [
+                      "scene-uefl2d"
+                    ],
+                    "foreshadowingIds": [],
+                    "evidence": [
+                      {
+                        "chapterId": "chapter-m66w13",
+                        "chapterTitle": "第四章 第七声钟",
+                        "excerpt": "夜里，雾港落下大雨。林舟和沈鸢赶回旧钟楼，老周已经等在钟下。老周说，铜钥匙是钟楼暗格的钥匙，暗格里藏着夜航的真正航海图。沈鸢用钥匙打开暗格，里面没有航海图，只有一枚生锈的船牌，船牌上刻着林舟的名字。",
+                        "sourceLocation": {
+                          "paragraph": 22,
+                          "charStart": 727,
+                          "charEnd": 826,
+                          "label": "第四章 第七声钟"
+                        },
+                        "confidence": 1,
+                        "evidenceType": "explicit"
+                      },
+                      {
+                        "chapterId": "chapter-m66w13",
+                        "chapterTitle": "第四章 第七声钟",
+                        "excerpt": "林舟终于想起，他是夜航的引航员。",
+                        "sourceLocation": {
+                          "paragraph": 22,
+                          "charStart": 828,
+                          "charEnd": 844,
+                          "label": "第四章 第七声钟"
+                        },
+                        "confidence": 1,
+                        "evidenceType": "explicit"
+                      }
+                    ]
+                  },
+                  "adaptationChangeIds": [
+                    "chg-002",
+                    "chg-004"
+                  ]
+                },
+                {
+                  "id": "ep-002-event-3",
+                  "description": "老周敲响第七声钟，海面裂开旧航道入口",
+                  "sourceType": "explicit",
+                  "sourceReferences": {
+                    "chapterIds": [
+                      "chapter-yqt2gu"
+                    ],
+                    "eventIds": [
+                      "event-1xhntuv"
+                    ],
+                    "sceneIds": [
+                      "scene-uefl2d"
+                    ],
+                    "foreshadowingIds": [],
+                    "evidence": [
+                      {
+                        "chapterId": "chapter-yqt2gu",
+                        "chapterTitle": "第五章 潮汐真相",
+                        "excerpt": "顾北要抢走船牌，沈鸢拦住他。老周敲响第七声钟，钟声穿过雾港，旧航道的入口在海面裂开。林舟想起完整的航线：夜航没有沉，它被困在旧航道里，船上的人还活着，只是失去了记忆。",
+                        "sourceLocation": {
+                          "paragraph": 27,
+                          "charStart": 935,
+                          "charEnd": 1018,
+                          "label": "第五章 潮汐真相"
+                        },
+                        "confidence": 1,
+                        "evidenceType": "explicit"
+                      }
+                    ]
+                  },
+                  "adaptationChangeIds": [
+                    "chg-002"
+                  ]
+                }
+              ],
+              "characterAppearances": [
+                {
+                  "characterId": "char-1o3hu0b",
+                  "name": "林舟",
+                  "role": "夜航引航员",
+                  "summary": "货仓对峙逃脱，看见船牌恢复引航员记忆"
+                },
+                {
+                  "characterId": "char-1twimmn",
+                  "name": "沈鸢",
+                  "role": "钟楼修钟师",
+                  "summary": "接应林舟，阻拦顾北抢夺船牌"
+                },
+                {
+                  "characterId": "char-1lrmjw",
+                  "name": "老周",
+                  "role": "守钟人",
+                  "summary": "敲响第七声钟，开启旧航道入口"
+                },
+                {
+                  "characterId": "char-dx9vb6",
+                  "name": "顾北",
+                  "role": "船帮首领",
+                  "summary": "自白罪行，追赶至钟楼抢夺船牌失败"
+                }
+              ],
+              "characterStates": [
+                {
+                  "characterId": "char-1o3hu0b",
+                  "name": "林舟",
+                  "location": "船帮货仓→旧钟楼",
+                  "knows": [
+                    "顾北当年罪责",
+                    "自己是夜航引航员",
+                    "第七声钟开启航道"
+                  ],
+                  "unknown": [
+                    "旧航道内夜航状态",
+                    "唤醒船员的条件"
+                  ],
+                  "relationships": "信任沈鸢、老周，与顾北敌对",
+                  "physicalState": "疲惫，铜钥匙持续微热",
+                  "abilityState": "引航记忆解封，记起航线",
+                  "identityState": "确认自己是夜航引航员",
+                  "present": true,
+                  "lifeState": "alive"
+                },
+                {
+                  "characterId": "char-1twimmn",
+                  "name": "沈鸢",
+                  "location": "货仓外→旧钟楼",
+                  "knows": [
+                    "第七声钟开启航道",
+                    "船牌藏林舟身份"
+                  ],
+                  "unknown": [
+                    "夜航众人是否存活"
+                  ],
+                  "relationships": "守护林舟，对抗顾北",
+                  "physicalState": "正常，冷静",
+                  "abilityState": "熟悉钟楼机关",
+                  "identityState": "旧钟楼修钟师",
+                  "present": true,
+                  "lifeState": "alive"
+                },
+                {
+                  "characterId": "char-1lrmjw",
+                  "name": "老周",
+                  "location": "旧钟楼",
+                  "knows": [
+                    "敲响第七声钟开启旧航道"
+                  ],
+                  "unknown": [
+                    "夜航众人能否被唤醒带回"
+                  ],
+                  "relationships": "沈鸢师父，协助林舟",
+                  "physicalState": "正常",
+                  "abilityState": "敲响雾钟，触发旧航道",
+                  "identityState": "旧钟楼守钟人",
+                  "present": true,
+                  "lifeState": "alive"
+                },
+                {
+                  "characterId": "char-dx9vb6",
+                  "name": "顾北",
+                  "location": "货仓→旧钟楼",
+                  "knows": [
+                    "罪行被林舟知晓",
+                    "船牌是关键证物"
+                  ],
+                  "unknown": [
+                    "夜航人仍被困存活",
+                    "旧航道开启后果"
+                  ],
+                  "relationships": "继续敌对主角团",
+                  "physicalState": "急躁，急于销毁证据",
+                  "abilityState": "指挥船帮人手",
+                  "identityState": "雾港船帮首领",
+                  "present": true,
+                  "lifeState": "alive"
+                }
+              ],
+              "characterRelationshipChanges": [
+                {
+                  "fromCharacterId": "char-1o3hu0b",
+                  "toCharacterId": "char-1twimmn",
+                  "fromName": "林舟",
+                  "toName": "沈鸢",
+                  "change": "信任加深，结成稳固同伴"
+                }
+              ],
+              "locations": [
+                {
+                  "sceneId": "scene-uefl2d",
+                  "name": "旧钟楼",
+                  "purpose": "解锁暗格、恢复记忆、敲响第七声钟"
+                }
+              ],
+              "emotionalProgression": [
+                "压抑对峙",
+                "冲击觉醒",
+                "震撼、期待"
+              ],
+              "climax": "林舟看见刻名船牌，恢复夜航引航员身份记忆",
+              "endingHook": "海面裂开旧航道入口，林舟准备驾船驶入寻找夜航",
+              "foreshadowingIntroduced": [],
+              "foreshadowingAdvanced": [
+                "fore-001",
+                "fore-002",
+                "fore-003"
+              ],
+              "foreshadowingResolved": [
+                "fore-001"
+              ],
+              "continuityDependencies": [
+                "ep-001"
+              ],
+              "estimatedDuration": 60,
+              "sourceReferences": {
+                "chapterIds": [
+                  "chapter-1wwbuyq",
+                  "chapter-m66w13",
+                  "chapter-yqt2gu"
+                ],
+                "eventIds": [
+                  "event-35s5yr",
+                  "event-18qzy1q",
+                  "event-1xhntuv"
+                ],
+                "sceneIds": [
+                  "scene-uefl2d"
+                ],
+                "foreshadowingIds": [],
+                "evidence": [
+                  {
+                    "chapterId": "chapter-1wwbuyq",
+                    "chapterTitle": "第三章 船帮货仓",
+                    "excerpt": "顾北把林舟带到货仓，逼他交出铜钥匙。林舟看见货仓墙上挂着一张旧航线图，图上标着夜航最后出现的位置。顾北承认，十年前是他下令夜航冒险出港，因为船上有一批不能见光的货。",
+                    "sourceLocation": {
+                      "paragraph": 17,
+                      "charStart": 551,
+                      "charEnd": 633,
+                      "label": "第三章 船帮货仓"
+                    },
+                    "confidence": 1,
+                    "evidenceType": "explicit"
+                  },
+                  {
+                    "chapterId": "chapter-1wwbuyq",
+                    "chapterTitle": "第三章 船帮货仓",
+                    "excerpt": "林舟没有交钥匙。他趁船帮的人换班，从货仓后窗逃了出去。沈鸢在窗外接应，她带来老周的口信：第七声钟不是报时，是打开旧航道的信号。",
+                    "sourceLocation": {
+                      "paragraph": 17,
+                      "charStart": 635,
+                      "charEnd": 698,
+                      "label": "第三章 船帮货仓"
+                    },
+                    "confidence": 1,
+                    "evidenceType": "explicit"
+                  },
+                  {
+                    "chapterId": "chapter-m66w13",
+                    "chapterTitle": "第四章 第七声钟",
+                    "excerpt": "夜里，雾港落下大雨。林舟和沈鸢赶回旧钟楼，老周已经等在钟下。老周说，铜钥匙是钟楼暗格的钥匙，暗格里藏着夜航的真正航海图。沈鸢用钥匙打开暗格，里面没有航海图，只有一枚生锈的船牌，船牌上刻着林舟的名字。",
+                    "sourceLocation": {
+                      "paragraph": 22,
+                      "charStart": 727,
+                      "charEnd": 826,
+                      "label": "第四章 第七声钟"
+                    },
+                    "confidence": 1,
+                    "evidenceType": "explicit"
+                  },
+                  {
+                    "chapterId": "chapter-m66w13",
+                    "chapterTitle": "第四章 第七声钟",
+                    "excerpt": "林舟终于想起，他是夜航的引航员。",
+                    "sourceLocation": {
+                      "paragraph": 22,
+                      "charStart": 828,
+                      "charEnd": 844,
+                      "label": "第四章 第七声钟"
+                    },
+                    "confidence": 1,
+                    "evidenceType": "explicit"
+                  },
+                  {
+                    "chapterId": "chapter-yqt2gu",
+                    "chapterTitle": "第五章 潮汐真相",
+                    "excerpt": "顾北要抢走船牌，沈鸢拦住他。老周敲响第七声钟，钟声穿过雾港，旧航道的入口在海面裂开。林舟想起完整的航线：夜航没有沉，它被困在旧航道里，船上的人还活着，只是失去了记忆。",
+                    "sourceLocation": {
+                      "paragraph": 27,
+                      "charStart": 935,
+                      "charEnd": 1018,
+                      "label": "第五章 潮汐真相"
+                    },
+                    "confidence": 1,
+                    "evidenceType": "explicit"
+                  }
+                ]
+              },
+              "adaptationChanges": [
+                {
+                  "adaptationChangeId": "chg-002",
+                  "operation": "merge",
+                  "description": "合并货仓对峙、钟楼解锁、鸣钟启航道三段剧情",
+                  "highRisk": false,
+                  "reviewStatus": "pending_review"
+                },
+                {
+                  "adaptationChangeId": "chg-004",
+                  "operation": "add",
+                  "description": "本集继续预埋铜钥匙发烫线索，靠近航道更明显",
+                  "highRisk": true,
+                  "reviewStatus": "approved"
+                }
+              ],
+              "reviewStatus": "approved",
+              "version": 1,
+              "createdAt": "2026-11-22T07:26:52.326Z",
+              "updatedAt": "2026-11-22T07:33:11.765Z"
+            }
+          }
+        ]
+      },
+      {
+        "episodeId": "ep-003",
+        "episodeNumber": 3,
+        "episodeTitle": "夜航归港",
+        "episodeLogline": "林舟驶入旧航道找到夜航，铜钥匙发烫唤醒船员，码头对峙，顾北放下执念，夜航归港",
+        "episodeSynopsis": "林舟驾船驶入旧航道，浓雾中寻到夜航，铜钥匙剧烈发烫，敲击船舷唤醒失忆船员；回到雾港码头，顾北不再阻拦交出账本，夜航归港，老周补全航海日志，伏笔全部回收",
+        "dramaticGoal": "回收铜钥匙发烫伏笔，唤醒船员，真相公开，完成夜航归航闭环",
+        "openingHook": "林舟驾船驶入雾气弥漫的旧航道，搜寻失踪的夜航",
+        "mainConflict": "唤醒被困船员，顾北在真相面前选择赎罪还是继续掩盖",
+        "keyEvents": [
+          {
+            "id": "ep-003-event-1",
+            "description": "林舟驶入旧航道，找到夜航，铜钥匙发烫，敲击船舷唤醒船员",
+            "sourceType": "explicit",
+            "sourceReferences": {
+              "chapterIds": [
+                "chapter-8ad4yz"
+              ],
+              "eventIds": [
+                "event-8wwo0k"
+              ],
+              "sceneIds": [
+                "scene-p1rvik"
+              ],
+              "foreshadowingIds": [],
+              "evidence": [
+                {
+                  "chapterId": "chapter-8ad4yz",
+                  "chapterTitle": "第六章 归航",
+                  "excerpt": "雾里出现一艘旧船的轮廓，船身上写着“夜航”。",
+                  "sourceLocation": {
+                    "charStart": 1128,
+                    "charEnd": 1150,
+                    "label": "第六章 归航"
+                  },
+                  "confidence": 0.75,
+                  "evidenceType": "explicit"
+                }
+              ]
+            },
+            "adaptationChangeIds": [
+              "chg-003"
+            ]
+          },
+          {
+            "id": "ep-003-event-2",
+            "description": "码头对峙，顾北放弃阻拦，交出船帮旧账本赎罪",
+            "sourceType": "explicit",
+            "sourceReferences": {
+              "chapterIds": [
+                "chapter-8ad4yz"
+              ],
+              "eventIds": [
+                "event-8wwo0k"
+              ],
+              "sceneIds": [
+                "scene-lpdm4f"
+              ],
+              "foreshadowingIds": [],
+              "evidence": [
+                {
+                  "chapterId": "chapter-8ad4yz",
+                  "chapterTitle": "第六章 归航",
+                  "excerpt": "顾北站在码头，没有阻止，只把船帮的旧账本交给老周。",
+                  "sourceLocation": {
+                    "charStart": 1174,
+                    "charEnd": 1199,
+                    "label": "第六章 归航"
+                  },
+                  "confidence": 0.75,
+                  "evidenceType": "explicit"
+                }
+              ]
+            },
+            "adaptationChangeIds": []
+          },
+          {
+            "id": "ep-003-event-3",
+            "description": "夜航驶入雾港，第六声钟响起，老周补写航海日志闭环",
+            "sourceType": "explicit",
+            "sourceReferences": {
+              "chapterIds": [
+                "chapter-8ad4yz"
+              ],
+              "eventIds": [
+                "event-8wwo0k"
+              ],
+              "sceneIds": [
+                "scene-lpdm4f"
+              ],
+              "foreshadowingIds": [],
+              "evidence": [
+                {
+                  "chapterId": "chapter-8ad4yz",
+                  "chapterTitle": "第六章 归航",
+                  "excerpt": "夜航回到雾港时，第六声钟刚好响起。",
+                  "sourceLocation": {
+                    "charStart": 1201,
+                    "charEnd": 1218,
+                    "label": "第六章 归航"
+                  },
+                  "confidence": 0.75,
+                  "evidenceType": "explicit"
+                }
+              ]
+            },
+            "adaptationChangeIds": []
+          }
+        ],
+        "characterAppearances": [
+          {
+            "characterId": "char-1o3hu0b",
+            "name": "林舟",
+            "role": "夜航引航员",
+            "summary": "驶入旧航道，依靠发烫铜钥匙唤醒夜航船员"
+          },
+          {
+            "characterId": "char-1twimmn",
+            "name": "沈鸢",
+            "role": "钟楼修钟师",
+            "summary": "在码头等候，见证夜航归港"
+          },
+          {
+            "characterId": "char-1lrmjw",
+            "name": "老周",
+            "role": "守钟人",
+            "summary": "接收账本，补写航海日志，完成记录闭环"
+          },
+          {
+            "characterId": "char-dx9vb6",
+            "name": "顾北",
+            "role": "船帮首领",
+            "summary": "放下执念，交出账本，不再阻拦归航"
+          }
+        ],
+        "characterStates": [
+          {
+            "characterId": "char-1o3hu0b",
+            "name": "林舟",
+            "location": "旧航道海面→雾港码头",
+            "knows": [
+              "唤醒船员的方式",
+              "夜航众人被困真相"
+            ],
+            "unknown": [
+              "自己记忆是否会完全复原"
+            ],
+            "relationships": "同伴关系稳固，与顾北矛盾缓和",
+            "physicalState": "疲惫，铜钥匙剧烈发烫后恢复常温",
+            "abilityState": "引航能力完整，成功带回夜航",
+            "identityState": "夜航引航员，完成归航使命",
+            "present": true,
+            "lifeState": "alive"
+          },
+          {
+            "characterId": "char-1twimmn",
+            "name": "沈鸢",
+            "location": "雾港码头",
+            "knows": [
+              "夜航成功带回，第七声钟约定落定"
+            ],
+            "unknown": [],
+            "relationships": "与林舟、老周同伴存续，与顾北缓和",
+            "physicalState": "平静释然",
+            "abilityState": "正常",
+            "identityState": "旧钟楼修钟师",
+            "present": true,
+            "lifeState": "alive"
+          },
+          {
+            "characterId": "char-1lrmjw",
+            "name": "老周",
+            "location": "雾港码头",
+            "knows": [
+              "全部真相，夜航全员归来"
+            ],
+            "unknown": [],
+            "relationships": "师徒关系存续，接纳顾北的赎罪",
+            "physicalState": "平静释然",
+            "abilityState": "正常",
+            "identityState": "旧钟楼守钟人",
+            "present": true,
+            "lifeState": "alive"
+          },
+          {
+            "characterId": "char-dx9vb6",
+            "name": "顾北",
+            "location": "雾港码头",
+            "knows": [
+              "夜航众人活着，无法继续掩盖罪行"
+            ],
+            "unknown": [
+              "自己后续的结局"
+            ],
+            "relationships": "与主角团对立解除，关系缓和",
+            "physicalState": "沉重，放下执念",
+            "abilityState": "放弃动用船帮力量阻拦",
+            "identityState": "雾港船帮首领",
+            "present": true,
+            "lifeState": "alive"
+          }
+        ],
+        "characterRelationshipChanges": [
+          {
+            "fromCharacterId": "char-dx9vb6",
+            "toCharacterId": "char-1o3hu0b",
+            "fromName": "顾北",
+            "toName": "林舟",
+            "change": "对立解除，矛盾缓和"
+          },
+          {
+            "fromCharacterId": "char-dx9vb6",
+            "toCharacterId": "char-1twimmn",
+            "fromName": "顾北",
+            "toName": "沈鸢",
+            "change": "对立解除，矛盾缓和"
+          }
+        ],
+        "locations": [
+          {
+            "sceneId": "scene-p1rvik",
+            "name": "旧航道海面",
+            "purpose": "寻到夜航，铜钥匙发烫唤醒船员"
+          },
+          {
+            "sceneId": "scene-lpdm4f",
+            "name": "雾港码头",
+            "purpose": "码头对峙，夜航归港收尾"
+          }
+        ],
+        "emotionalProgression": [
+          "紧张搜寻",
+          "震撼唤醒",
+          "释然、苦尽甘来"
+        ],
+        "climax": "铜钥匙剧烈发烫，林舟敲击船舷，夜航船员陆续苏醒",
+        "endingHook": "无，全剧收尾，真相公开，夜航归港",
+        "foreshadowingIntroduced": [],
+        "foreshadowingAdvanced": [],
+        "foreshadowingResolved": [
+          "fore-002",
+          "fore-003"
+        ],
+        "continuityDependencies": [
+          "ep-002"
+        ],
+        "estimatedDuration": 60,
+        "sourceReferences": {
+          "chapterIds": [
+            "chapter-8ad4yz"
+          ],
+          "eventIds": [
+            "event-8wwo0k"
+          ],
+          "sceneIds": [
+            "scene-p1rvik",
+            "scene-lpdm4f"
+          ],
+          "foreshadowingIds": [],
+          "evidence": [
+            {
+              "chapterId": "chapter-8ad4yz",
+              "chapterTitle": "第六章 归航",
+              "excerpt": "林舟用铜钥匙敲了三下船舷，船上的人一个个抬起头。",
+              "sourceLocation": {
+                "charStart": 1150,
+                "charEnd": 1174,
+                "label": "第六章 归航"
+              },
+              "confidence": 0.75,
+              "evidenceType": "explicit"
+            }
+          ]
+        },
+        "adaptationChanges": [
+          {
+            "adaptationChangeId": "chg-003",
+            "operation": "rewrite",
+            "description": "增加铜钥匙发烫设定，本集回收该伏笔",
+            "highRisk": true,
+            "reviewStatus": "approved"
+          }
+        ],
+        "reviewStatus": "locked",
+        "version": 1,
+        "createdAt": "2026-11-22T07:26:52.326Z",
+        "updatedAt": "2026-11-22T07:37:48.237Z",
+        "locked": true,
+        "versions": []
+      }
+    ],
+    "characterArcs": [
+      {
+        "characterId": "char-1o3hu0b",
+        "characterName": "林舟",
+        "version": 1,
+        "createdAt": "2026-11-22T07:28:37.421Z",
+        "updatedAt": "2026-11-22T07:48:33.856Z",
+        "initialState": "失忆，仅记得名字，对雾港过往一无所知",
+        "coreGoal": "找回记忆，带回被困旧航道的夜航众人",
+        "innerConflict": "渴望真相，又畏惧记忆里的沉重过往",
+        "flaw": "记忆残缺，无法信任自己的判断",
+        "turningPoints": [
+          {
+            "episodeNumber": 2,
+            "description": "看见刻名船牌，恢复夜航引航员身份记忆"
+          },
+          {
+            "episodeNumber": 3,
+            "description": "驾船驶入旧航道，以铜钥匙唤醒船员"
+          }
+        ],
+        "keyChoices": [
+          {
+            "episodeNumber": 1,
+            "description": "收下铜钥匙，跟随沈鸢前往旧钟楼"
+          },
+          {
+            "episodeNumber": 2,
+            "description": "拒绝交出铜钥匙，伺机逃离船帮货仓"
+          },
+          {
+            "episodeNumber": 3,
+            "description": "坚持驶入旧航道，冒险完成归航"
+          }
+        ],
+        "relationshipChanges": [
+          {
+            "episodeNumber": 1,
+            "description": "结识沈鸢、老周，与顾北形成对立"
+          },
+          {
+            "episodeNumber": 3,
+            "description": "顾北放下对抗，双方矛盾缓和"
+          }
+        ],
+        "finalState": "找回身份，成功带回夜航，记忆未完全复原",
+        "milestones": [
+          {
+            "episodeNumber": 1,
+            "type": "first_appearance",
+            "description": "雾港码头登场，拿到铜钥匙",
+            "sourceType": "explicit",
+            "sourceReferences": {
+              "chapterIds": [
+                "chapter-wc1l1k"
+              ],
+              "eventIds": [
+                "event-15elqvd"
+              ],
+              "sceneIds": [
+                "scene-lpdm4f"
+              ],
+              "foreshadowingIds": [],
+              "evidence": [
+                {
+                  "chapterId": "chapter-wc1l1k",
+                  "chapterTitle": "第一章 雾钟",
+                  "excerpt": "林舟在码头边遇见沈鸢。沈鸢是旧钟楼的修钟师，她穿着一件洗旧的灰蓝色外套，手里握着一枚铜钥匙。沈鸢把钥匙交给林舟，说这是他从沉船上带回来的东西。",
+                  "sourceLocation": {
+                    "paragraph": 3,
+                    "charStart": 124,
+                    "charEnd": 195,
+                    "label": "第一章 雾钟"
+                  },
+                  "confidence": 1,
+                  "evidenceType": "explicit"
+                }
+              ]
+            }
+          },
+          {
+            "episodeNumber": 2,
+            "type": "reveal",
+            "description": "暗格船牌揭露，想起自己是夜航引航员",
+            "sourceType": "explicit",
+            "sourceReferences": {
+              "chapterIds": [
+                "chapter-m66w13"
+              ],
+              "eventIds": [
+                "event-18qzy1q"
+              ],
+              "sceneIds": [
+                "scene-uefl2d"
+              ],
+              "foreshadowingIds": [],
+              "evidence": [
+                {
+                  "chapterId": "chapter-m66w13",
+                  "chapterTitle": "第四章 第七声钟",
+                  "excerpt": "夜里，雾港落下大雨。林舟和沈鸢赶回旧钟楼，老周已经等在钟下。老周说，铜钥匙是钟楼暗格的钥匙，暗格里藏着夜航的真正航海图。沈鸢用钥匙打开暗格，里面没有航海图，只有一枚生锈的船牌，船牌上刻着林舟的名字。",
+                  "sourceLocation": {
+                    "paragraph": 22,
+                    "charStart": 727,
+                    "charEnd": 826,
+                    "label": "第四章 第七声钟"
+                  },
+                  "confidence": 1,
+                  "evidenceType": "explicit"
+                },
+                {
+                  "chapterId": "chapter-m66w13",
+                  "chapterTitle": "第四章 第七声钟",
+                  "excerpt": "林舟终于想起，他是夜航的引航员。",
+                  "sourceLocation": {
+                    "paragraph": 22,
+                    "charStart": 828,
+                    "charEnd": 844,
+                    "label": "第四章 第七声钟"
+                  },
+                  "confidence": 1,
+                  "evidenceType": "explicit"
+                }
+              ]
+            }
+          },
+          {
+            "episodeNumber": 3,
+            "type": "turning_point",
+            "description": "铜钥匙发烫唤醒船员，完成夜航归航",
+            "sourceType": "explicit",
+            "sourceReferences": {
+              "chapterIds": [
+                "chapter-8ad4yz"
+              ],
+              "eventIds": [
+                "event-8wwo0k"
+              ],
+              "sceneIds": [
+                "scene-p1rvik"
+              ],
+              "foreshadowingIds": [],
+              "evidence": [
+                {
+                  "chapterId": "chapter-8ad4yz",
+                  "chapterTitle": "第六章 归航",
+                  "excerpt": "天亮前，林舟驾船驶入旧航道。雾里出现一艘旧船的轮廓，船身上写着 “夜航”。林舟用铜钥匙敲了三下船舷，船上的人一个个抬起头。顾北站在码头，没有阻止，只把船帮的旧账本交给老周。",
+                  "sourceLocation": {
+                    "paragraph": 32,
+                    "label": "第六章 归航"
+                  },
+                  "confidence": 1,
+                  "evidenceType": "explicit"
+                },
+                {
+                  "chapterId": "chapter-8ad4yz",
+                  "chapterTitle": "第六章 归航",
+                  "excerpt": "夜航回到雾港时，第六声钟刚好响起。",
+                  "sourceLocation": {
+                    "paragraph": 32,
+                    "charStart": 1201,
+                    "charEnd": 1218,
+                    "label": "第六章 归航"
+                  },
+                  "confidence": 1,
+                  "evidenceType": "explicit"
+                }
+              ]
+            }
+          }
+        ],
+        "timeline": [
+          {
+            "episodeNumber": 1,
+            "location": "旧钟楼，后被带往货仓",
+            "knows": [
+              "铜钥匙属于自己",
+              "夜航十年前失踪"
+            ],
+            "unknown": [
+              "自己真实身份",
+              "第七声钟作用",
+              "顾北当年的罪责"
+            ],
+            "relationships": "初识沈鸢、老周；与顾北敌对",
+            "physicalState": "正常，手握着铜钥匙，钥匙微热",
+            "abilityState": "引航能力被记忆封印",
+            "identityState": "失忆，不知自己是夜航引航员",
+            "present": true,
+            "lifeState": "alive"
+          },
+          {
+            "episodeNumber": 2,
+            "location": "船帮货仓→旧钟楼",
+            "knows": [
+              "顾北当年罪责",
+              "自己是夜航引航员",
+              "第七声钟开启航道"
+            ],
+            "unknown": [
+              "旧航道内夜航状态",
+              "唤醒船员的条件"
+            ],
+            "relationships": "信任沈鸢、老周，与顾北敌对",
+            "physicalState": "疲惫，铜钥匙持续微热",
+            "abilityState": "引航记忆解封，记起航线",
+            "identityState": "确认自己是夜航引航员",
+            "present": true,
+            "lifeState": "alive"
+          },
+          {
+            "episodeNumber": 3,
+            "location": "旧航道海面→雾港码头",
+            "knows": [
+              "唤醒船员的方式",
+              "夜航众人被困真相"
+            ],
+            "unknown": [
+              "自己记忆是否会完全复原"
+            ],
+            "relationships": "同伴关系稳固，与顾北矛盾缓和",
+            "physicalState": "疲惫，铜钥匙剧烈发烫后恢复常温",
+            "abilityState": "引航能力完整，成功带回夜航",
+            "identityState": "夜航引航员，完成归航使命",
+            "present": true,
+            "lifeState": "alive"
+          }
+        ],
+        "reviewStatus": "pending_review"
+      },
+      {
+        "characterId": "char-1twimmn",
+        "characterName": "沈鸢",
+        "version": 1,
+        "createdAt": "2026-11-22T07:28:37.421Z",
+        "updatedAt": "2026-11-22T07:48:33.856Z",
+        "initialState": "钟楼修钟师，守着钟楼秘密，沉静克制",
+        "coreGoal": "守护钟楼秘密，协助林舟见证夜航归航",
+        "innerConflict": "知晓秘密，却不能提前全盘托出",
+        "flaw": "习惯独自承担秘密，不善倾诉",
+        "turningPoints": [
+          {
+            "episodeNumber": 3,
+            "description": "定下第七声钟留给归航之人的约定"
+          }
+        ],
+        "keyChoices": [
+          {
+            "episodeNumber": 1,
+            "description": "把铜钥匙交给林舟，引他前往钟楼"
+          },
+          {
+            "episodeNumber": 2,
+            "description": "货仓外接应林舟，传递老周口信"
+          },
+          {
+            "episodeNumber": 3,
+            "description": "守住约定，守护归航的规则"
+          }
+        ],
+        "relationshipChanges": [
+          {
+            "episodeNumber": 1,
+            "description": "与林舟结成同伴，和顾北对立"
+          },
+          {
+            "episodeNumber": 3,
+            "description": "顾北放下敌意，冲突缓和"
+          }
+        ],
+        "finalState": "继续做修钟师，守住雾钟归航约定",
+        "milestones": [
+          {
+            "episodeNumber": 1,
+            "type": "first_appearance",
+            "description": "码头和林舟相遇，交付铜钥匙",
+            "sourceType": "explicit",
+            "sourceReferences": {
+              "chapterIds": [
+                "chapter-wc1l1k"
+              ],
+              "eventIds": [
+                "event-15elqvd"
+              ],
+              "sceneIds": [
+                "scene-lpdm4f"
+              ],
+              "foreshadowingIds": [],
+              "evidence": [
+                {
+                  "chapterId": "chapter-wc1l1k",
+                  "chapterTitle": "第一章 雾钟",
+                  "excerpt": "林舟在码头边遇见沈鸢。沈鸢是旧钟楼的修钟师，她穿着一件洗旧的灰蓝色外套，手里握着一枚铜钥匙。沈鸢把钥匙交给林舟，说这是他从沉船上带回来的东西。",
+                  "sourceLocation": {
+                    "paragraph": 3,
+                    "charStart": 124,
+                    "charEnd": 195,
+                    "label": "第一章 雾钟"
+                  },
+                  "confidence": 1,
+                  "evidenceType": "explicit"
+                }
+              ]
+            }
+          },
+          {
+            "episodeNumber": 2,
+            "type": "reveal",
+            "description": "打开钟楼暗格，亮出刻名船牌",
+            "sourceType": "explicit",
+            "sourceReferences": {
+              "chapterIds": [
+                "chapter-m66w13"
+              ],
+              "eventIds": [
+                "event-18qzy1q"
+              ],
+              "sceneIds": [
+                "scene-uefl2d"
+              ],
+              "foreshadowingIds": [],
+              "evidence": [
+                {
+                  "chapterId": "chapter-m66w13",
+                  "chapterTitle": "第四章 第七声钟",
+                  "excerpt": "夜里，雾港落下大雨。林舟和沈鸢赶回旧钟楼，老周已经等在钟下。老周说，铜钥匙是钟楼暗格的钥匙，暗格里藏着夜航的真正航海图。沈鸢用钥匙打开暗格，里面没有航海图，只有一枚生锈的船牌，船牌上刻着林舟的名字。",
+                  "sourceLocation": {
+                    "paragraph": 22,
+                    "charStart": 727,
+                    "charEnd": 826,
+                    "label": "第四章 第七声钟"
+                  },
+                  "confidence": 1,
+                  "evidenceType": "explicit"
+                },
+                {
+                  "chapterId": "chapter-m66w13",
+                  "chapterTitle": "第四章 第七声钟",
+                  "excerpt": "林舟终于想起，他是夜航的引航员。",
+                  "sourceLocation": {
+                    "paragraph": 22,
+                    "charStart": 828,
+                    "charEnd": 844,
+                    "label": "第四章 第七声钟"
+                  },
+                  "confidence": 1,
+                  "evidenceType": "explicit"
+                }
+              ]
+            }
+          },
+          {
+            "episodeNumber": 3,
+            "type": "choice",
+            "description": "确立第七声钟留给归航之人的约定",
+            "sourceType": "explicit",
+            "sourceReferences": {
+              "chapterIds": [
+                "chapter-8ad4yz"
+              ],
+              "eventIds": [
+                "event-8wwo0k"
+              ],
+              "sceneIds": [
+                "scene-lpdm4f"
+              ],
+              "foreshadowingIds": [],
+              "evidence": [
+                {
+                  "chapterId": "chapter-8ad4yz",
+                  "chapterTitle": "第六章 归航",
+                  "excerpt": "天亮前，林舟驾船驶入旧航道。雾里出现一艘旧船的轮廓，船身上写着 “夜航”。林舟用铜钥匙敲了三下船舷，船上的人一个个抬起头。顾北站在码头，没有阻止，只把船帮的旧账本交给老周。",
+                  "sourceLocation": {
+                    "paragraph": 32,
+                    "label": "第六章 归航"
+                  },
+                  "confidence": 1,
+                  "evidenceType": "explicit"
+                },
+                {
+                  "chapterId": "chapter-8ad4yz",
+                  "chapterTitle": "第六章 归航",
+                  "excerpt": "夜航回到雾港时，第六声钟刚好响起。",
+                  "sourceLocation": {
+                    "paragraph": 32,
+                    "charStart": 1201,
+                    "charEnd": 1218,
+                    "label": "第六章 归航"
+                  },
+                  "confidence": 1,
+                  "evidenceType": "explicit"
+                }
+              ]
+            }
+          }
+        ],
+        "timeline": [
+          {
+            "episodeNumber": 1,
+            "location": "旧钟楼",
+            "knows": [
+              "铜钥匙来历",
+              "第七声钟传闻",
+              "林舟从第七声钟声归来"
+            ],
+            "unknown": [
+              "旧航道完整秘密",
+              "夜航众人现状"
+            ],
+            "relationships": "老周徒弟，保护林舟，对抗顾北",
+            "physicalState": "正常，冷静克制",
+            "abilityState": "熟悉钟楼、修钟技艺",
+            "identityState": "旧钟楼修钟师",
+            "present": true,
+            "lifeState": "alive"
+          },
+          {
+            "episodeNumber": 2,
+            "location": "货仓外→旧钟楼",
+            "knows": [
+              "第七声钟开启航道",
+              "船牌藏林舟身份"
+            ],
+            "unknown": [
+              "夜航众人是否存活"
+            ],
+            "relationships": "守护林舟，对抗顾北",
+            "physicalState": "正常，冷静",
+            "abilityState": "熟悉钟楼机关",
+            "identityState": "旧钟楼修钟师",
+            "present": true,
+            "lifeState": "alive"
+          },
+          {
+            "episodeNumber": 3,
+            "location": "雾港码头",
+            "knows": [
+              "夜航成功带回，第七声钟约定落定"
+            ],
+            "unknown": [],
+            "relationships": "与林舟、老周同伴存续，与顾北缓和",
+            "physicalState": "平静释然",
+            "abilityState": "正常",
+            "identityState": "旧钟楼修钟师",
+            "present": true,
+            "lifeState": "alive"
+          }
+        ],
+        "reviewStatus": "pending_review"
+      },
+      {
+        "characterId": "char-1lrmjw",
+        "characterName": "老周",
+        "version": 1,
+        "createdAt": "2026-11-22T07:28:37.421Z",
+        "updatedAt": "2026-11-22T07:48:33.856Z",
+        "initialState": "守钟人，隐忍，手握全部雾港陈年真相",
+        "coreGoal": "守护雾钟秘密，见证夜航顺利归航",
+        "innerConflict": "手握真相，长久隐忍不敢公开",
+        "flaw": "顾虑船帮势力，不敢过早揭露全部秘密",
+        "turningPoints": [
+          {
+            "episodeNumber": 2,
+            "description": "敲响第七声钟，开启旧航道入口"
+          }
+        ],
+        "keyChoices": [
+          {
+            "episodeNumber": 1,
+            "description": "向林舟诉说夜航失踪旧事"
+          },
+          {
+            "episodeNumber": 2,
+            "description": "敲响第七声钟，打开旧航道入口"
+          },
+          {
+            "episodeNumber": 3,
+            "description": "补写航海日志，记录夜航归港结局"
+          }
+        ],
+        "relationshipChanges": [
+          {
+            "episodeNumber": 1,
+            "description": "徒弟沈鸢，与顾北立场对立"
+          },
+          {
+            "episodeNumber": 3,
+            "description": "收下顾北账本，矛盾和解"
+          }
+        ],
+        "finalState": "继续守钟，补全航海日志，秘密落定",
+        "milestones": [
+          {
+            "episodeNumber": 1,
+            "type": "first_appearance",
+            "description": "钟楼内现身，道出夜航失踪往事",
+            "sourceType": "explicit",
+            "sourceReferences": {
+              "chapterIds": [
+                "chapter-zehxl3"
+              ],
+              "eventIds": [
+                "event-uibrcl"
+              ],
+              "sceneIds": [
+                "scene-uefl2d"
+              ],
+              "foreshadowingIds": [],
+              "evidence": [
+                {
+                  "chapterId": "chapter-zehxl3",
+                  "chapterTitle": "第二章 旧钟楼",
+                  "excerpt": "林舟跟着沈鸢登上钟楼，看见钟摆停在第六下的位置。钟楼里住着守钟人老周。老周说，十年前有一艘叫 “夜航” 的船失踪，船上的人一个也没有回来。",
+                  "sourceLocation": {
+                    "paragraph": 10,
+                    "label": "第二章 旧钟楼"
+                  },
+                  "confidence": 1,
+                  "evidenceType": "explicit"
+                },
+                {
+                  "chapterId": "chapter-zehxl3",
+                  "chapterTitle": "第二章 旧钟楼",
+                  "excerpt": "顾北带着船帮的人闯进钟楼。顾北是雾港船帮的首领，他要拿走航海日志和铜钥匙。",
+                  "sourceLocation": {
+                    "paragraph": 10,
+                    "charStart": 446,
+                    "charEnd": 483,
+                    "label": "第二章 旧钟楼"
+                  },
+                  "confidence": 1,
+                  "evidenceType": "explicit"
+                }
+              ]
+            }
+          },
+          {
+            "episodeNumber": 2,
+            "type": "turning_point",
+            "description": "敲响第七声钟，海面裂开旧航道入口",
+            "sourceType": "explicit",
+            "sourceReferences": {
+              "chapterIds": [
+                "chapter-yqt2gu"
+              ],
+              "eventIds": [
+                "event-1xhntuv"
+              ],
+              "sceneIds": [
+                "scene-uefl2d"
+              ],
+              "foreshadowingIds": [],
+              "evidence": [
+                {
+                  "chapterId": "chapter-yqt2gu",
+                  "chapterTitle": "第五章 潮汐真相",
+                  "excerpt": "顾北要抢走船牌，沈鸢拦住他。老周敲响第七声钟，钟声穿过雾港，旧航道的入口在海面裂开。林舟想起完整的航线：夜航没有沉，它被困在旧航道里，船上的人还活着，只是失去了记忆。",
+                  "sourceLocation": {
+                    "paragraph": 27,
+                    "charStart": 935,
+                    "charEnd": 1018,
+                    "label": "第五章 潮汐真相"
+                  },
+                  "confidence": 1,
+                  "evidenceType": "explicit"
+                }
+              ]
+            }
+          },
+          {
+            "episodeNumber": 3,
+            "type": "reveal",
+            "description": "补写航海日志，写下夜航归港记录",
+            "sourceType": "explicit",
+            "sourceReferences": {
+              "chapterIds": [
+                "chapter-8ad4yz"
+              ],
+              "eventIds": [
+                "event-8wwo0k"
+              ],
+              "sceneIds": [
+                "scene-lpdm4f"
+              ],
+              "foreshadowingIds": [],
+              "evidence": [
+                {
+                  "chapterId": "chapter-8ad4yz",
+                  "chapterTitle": "第六章 归航",
+                  "excerpt": "天亮前，林舟驾船驶入旧航道。雾里出现一艘旧船的轮廓，船身上写着 “夜航”。林舟用铜钥匙敲了三下船舷，船上的人一个个抬起头。顾北站在码头，没有阻止，只把船帮的旧账本交给老周。",
+                  "sourceLocation": {
+                    "paragraph": 32,
+                    "label": "第六章 归航"
+                  },
+                  "confidence": 1,
+                  "evidenceType": "explicit"
+                },
+                {
+                  "chapterId": "chapter-8ad4yz",
+                  "chapterTitle": "第六章 归航",
+                  "excerpt": "夜航回到雾港时，第六声钟刚好响起。",
+                  "sourceLocation": {
+                    "paragraph": 32,
+                    "charStart": 1201,
+                    "charEnd": 1218,
+                    "label": "第六章 归航"
+                  },
+                  "confidence": 1,
+                  "evidenceType": "explicit"
+                }
+              ]
+            }
+          }
+        ],
+        "timeline": [
+          {
+            "episodeNumber": 1,
+            "location": "旧钟楼",
+            "knows": [
+              "雾钟规则",
+              "夜航失踪内情",
+              "航海日志的秘密"
+            ],
+            "unknown": [
+              "顾北是否愿意认罪",
+              "夜航能否被带回"
+            ],
+            "relationships": "沈鸢师父，守护钟楼秘密",
+            "physicalState": "正常，稳重隐忍",
+            "abilityState": "掌控雾钟、敲响第七声钟",
+            "identityState": "旧钟楼守钟人",
+            "present": true,
+            "lifeState": "alive"
+          },
+          {
+            "episodeNumber": 2,
+            "location": "旧钟楼",
+            "knows": [
+              "敲响第七声钟开启旧航道"
+            ],
+            "unknown": [
+              "夜航众人能否被唤醒带回"
+            ],
+            "relationships": "沈鸢师父，协助林舟",
+            "physicalState": "正常",
+            "abilityState": "敲响雾钟，触发旧航道",
+            "identityState": "旧钟楼守钟人",
+            "present": true,
+            "lifeState": "alive"
+          },
+          {
+            "episodeNumber": 3,
+            "location": "雾港码头",
+            "knows": [
+              "全部真相，夜航全员归来"
+            ],
+            "unknown": [],
+            "relationships": "师徒关系存续，接纳顾北的赎罪",
+            "physicalState": "平静释然",
+            "abilityState": "正常",
+            "identityState": "旧钟楼守钟人",
+            "present": true,
+            "lifeState": "alive"
+          }
+        ],
+        "reviewStatus": "pending_review"
+      },
+      {
+        "characterId": "char-dx9vb6",
+        "characterName": "顾北",
+        "version": 1,
+        "createdAt": "2026-11-22T07:28:37.422Z",
+        "updatedAt": "2026-11-22T07:48:33.856Z",
+        "initialState": "船帮首领，强硬抢夺钥匙掩盖罪行",
+        "coreGoal": "夺取航海日志与铜钥匙，掩盖当年过错",
+        "innerConflict": "惧怕罪行曝光，心底尚存愧疚",
+        "flaw": "当年为货物冒险，铸成无法挽回的错",
+        "turningPoints": [
+          {
+            "episodeNumber": 3,
+            "description": "得知船员尚在，选择交出账本不再阻拦"
+          }
+        ],
+        "keyChoices": [
+          {
+            "episodeNumber": 1,
+            "description": "闯入钟楼抢夺日志、铜钥匙，带走林舟"
+          },
+          {
+            "episodeNumber": 2,
+            "description": "货仓逼供，承认当年下令冒险出港"
+          },
+          {
+            "episodeNumber": 3,
+            "description": "放弃阻拦，交出船帮旧账本"
+          }
+        ],
+        "relationshipChanges": [
+          {
+            "episodeNumber": 1,
+            "description": "与林舟、沈鸢、老周激烈对立"
+          },
+          {
+            "episodeNumber": 3,
+            "description": "放下对抗，和主角团冲突缓和"
+          }
+        ],
+        "finalState": "放弃掩盖罪行，交出账本，不再阻拦归航",
+        "milestones": [
+          {
+            "episodeNumber": 1,
+            "type": "first_appearance",
+            "description": "带人闯入钟楼抢夺道具，掳走林舟",
+            "sourceType": "explicit",
+            "sourceReferences": {
+              "chapterIds": [
+                "chapter-zehxl3"
+              ],
+              "eventIds": [
+                "event-uibrcl"
+              ],
+              "sceneIds": [
+                "scene-uefl2d"
+              ],
+              "foreshadowingIds": [],
+              "evidence": [
+                {
+                  "chapterId": "chapter-zehxl3",
+                  "chapterTitle": "第二章 旧钟楼",
+                  "excerpt": "林舟跟着沈鸢登上钟楼，看见钟摆停在第六下的位置。钟楼里住着守钟人老周。老周说，十年前有一艘叫 “夜航” 的船失踪，船上的人一个也没有回来。",
+                  "sourceLocation": {
+                    "paragraph": 10,
+                    "label": "第二章 旧钟楼"
+                  },
+                  "confidence": 1,
+                  "evidenceType": "explicit"
+                },
+                {
+                  "chapterId": "chapter-zehxl3",
+                  "chapterTitle": "第二章 旧钟楼",
+                  "excerpt": "顾北带着船帮的人闯进钟楼。顾北是雾港船帮的首领，他要拿走航海日志和铜钥匙。",
+                  "sourceLocation": {
+                    "paragraph": 10,
+                    "charStart": 446,
+                    "charEnd": 483,
+                    "label": "第二章 旧钟楼"
+                  },
+                  "confidence": 1,
+                  "evidenceType": "explicit"
+                }
+              ]
+            }
+          },
+          {
+            "episodeNumber": 2,
+            "type": "reveal",
+            "description": "货仓自白，承认当年下令冒险出港",
+            "sourceType": "explicit",
+            "sourceReferences": {
+              "chapterIds": [
+                "chapter-1wwbuyq"
+              ],
+              "eventIds": [
+                "event-35s5yr"
+              ],
+              "sceneIds": [
+                "scene-uefl2d"
+              ],
+              "foreshadowingIds": [],
+              "evidence": [
+                {
+                  "chapterId": "chapter-1wwbuyq",
+                  "chapterTitle": "第三章 船帮货仓",
+                  "excerpt": "顾北把林舟带到货仓，逼他交出铜钥匙。林舟看见货仓墙上挂着一张旧航线图，图上标着夜航最后出现的位置。顾北承认，十年前是他下令夜航冒险出港，因为船上有一批不能见光的货。",
+                  "sourceLocation": {
+                    "paragraph": 17,
+                    "charStart": 551,
+                    "charEnd": 633,
+                    "label": "第三章 船帮货仓"
+                  },
+                  "confidence": 1,
+                  "evidenceType": "explicit"
+                },
+                {
+                  "chapterId": "chapter-1wwbuyq",
+                  "chapterTitle": "第三章 船帮货仓",
+                  "excerpt": "林舟没有交钥匙。他趁船帮的人换班，从货仓后窗逃了出去。沈鸢在窗外接应，她带来老周的口信：第七声钟不是报时，是打开旧航道的信号。",
+                  "sourceLocation": {
+                    "paragraph": 17,
+                    "charStart": 635,
+                    "charEnd": 698,
+                    "label": "第三章 船帮货仓"
+                  },
+                  "confidence": 1,
+                  "evidenceType": "explicit"
+                }
+              ]
+            }
+          },
+          {
+            "episodeNumber": 3,
+            "type": "choice",
+            "description": "码头放手，交出账本，不再阻拦夜航",
+            "sourceType": "explicit",
+            "sourceReferences": {
+              "chapterIds": [
+                "chapter-8ad4yz"
+              ],
+              "eventIds": [
+                "event-8wwo0k"
+              ],
+              "sceneIds": [
+                "scene-lpdm4f"
+              ],
+              "foreshadowingIds": [],
+              "evidence": [
+                {
+                  "chapterId": "chapter-8ad4yz",
+                  "chapterTitle": "第六章 归航",
+                  "excerpt": "天亮前，林舟驾船驶入旧航道。雾里出现一艘旧船的轮廓，船身上写着 “夜航”。林舟用铜钥匙敲了三下船舷，船上的人一个个抬起头。顾北站在码头，没有阻止，只把船帮的旧账本交给老周。",
+                  "sourceLocation": {
+                    "paragraph": 32,
+                    "label": "第六章 归航"
+                  },
+                  "confidence": 1,
+                  "evidenceType": "explicit"
+                },
+                {
+                  "chapterId": "chapter-8ad4yz",
+                  "chapterTitle": "第六章 归航",
+                  "excerpt": "夜航回到雾港时，第六声钟刚好响起。",
+                  "sourceLocation": {
+                    "paragraph": 32,
+                    "charStart": 1201,
+                    "charEnd": 1218,
+                    "label": "第六章 归航"
+                  },
+                  "confidence": 1,
+                  "evidenceType": "explicit"
+                }
+              ]
+            }
+          }
+        ],
+        "timeline": [
+          {
+            "episodeNumber": 1,
+            "location": "旧钟楼",
+            "knows": [
+              "当年自己下令冒险出港",
+              "钥匙日志会暴露罪行"
+            ],
+            "unknown": [
+              "林舟能否想起真相",
+              "夜航人还活着"
+            ],
+            "relationships": "对立林舟、沈鸢、老周",
+            "physicalState": "正常，强势凶狠",
+            "abilityState": "掌控船帮人手",
+            "identityState": "雾港船帮首领",
+            "present": true,
+            "lifeState": "alive"
+          },
+          {
+            "episodeNumber": 2,
+            "location": "货仓→旧钟楼",
+            "knows": [
+              "罪行被林舟知晓",
+              "船牌是关键证物"
+            ],
+            "unknown": [
+              "夜航人仍被困存活",
+              "旧航道开启后果"
+            ],
+            "relationships": "继续敌对主角团",
+            "physicalState": "急躁，急于销毁证据",
+            "abilityState": "指挥船帮人手",
+            "identityState": "雾港船帮首领",
+            "present": true,
+            "lifeState": "alive"
+          },
+          {
+            "episodeNumber": 3,
+            "location": "雾港码头",
+            "knows": [
+              "夜航众人活着，无法继续掩盖罪行"
+            ],
+            "unknown": [
+              "自己后续的结局"
+            ],
+            "relationships": "与主角团对立解除，关系缓和",
+            "physicalState": "沉重，放下执念",
+            "abilityState": "放弃动用船帮力量阻拦",
+            "identityState": "雾港船帮首领",
+            "present": true,
+            "lifeState": "alive"
+          }
+        ],
+        "reviewStatus": "pending_review"
+      }
+    ],
+    "foreshadowings": [
+      {
+        "foreshadowingId": "fore-001",
+        "content": "沈鸢告知林舟三年前他从第七声钟声里回来，暗示特殊关联",
+        "sourceType": "explicit",
+        "sourceNovelForeshadowingId": "foreshadow-1qkalie",
+        "firstPlantedEpisode": 1,
+        "advancedEpisodes": [
+          2
+        ],
+        "expectedResolveEpisode": 2,
+        "actualResolveEpisode": 2,
+        "relatedCharacterIds": [
+          "char-1o3hu0b"
+        ],
+        "relatedEventIds": [
+          "event-18qzy1q",
+          "event-1xhntuv"
+        ],
+        "status": "resolved",
+        "isOriginal": true,
+        "isAiAdded": false,
+        "reviewStatus": "pending_review",
+        "createdAt": "2026-11-22T07:48:33.854Z",
+        "updatedAt": "2026-11-22T07:48:33.855Z"
+      },
+      {
+        "foreshadowingId": "fore-002",
+        "content": "航海日志写着 “第七声钟响，夜航归港”，暗示归航条件",
+        "sourceType": "explicit",
+        "sourceNovelForeshadowingId": "foreshadow-mn0fz",
+        "firstPlantedEpisode": 1,
+        "advancedEpisodes": [
+          2
+        ],
+        "expectedResolveEpisode": 3,
+        "actualResolveEpisode": 3,
+        "relatedCharacterIds": [
+          "char-1lrmjw",
+          "char-1o3hu0b"
+        ],
+        "relatedEventIds": [
+          "event-8wwo0k"
+        ],
+        "status": "resolved",
+        "isOriginal": true,
+        "isAiAdded": false,
+        "reviewStatus": "pending_review",
+        "createdAt": "2026-11-22T07:48:33.854Z",
+        "updatedAt": "2026-11-22T07:48:33.855Z"
+      },
+      {
+        "foreshadowingId": "fore-003",
+        "content": "铜钥匙偶尔微微发烫，越靠近旧航道温度越高，唤醒船员关键",
+        "sourceType": "generated",
+        "sourceNovelForeshadowingId": "",
+        "firstPlantedEpisode": 1,
+        "advancedEpisodes": [
+          2
+        ],
+        "expectedResolveEpisode": 3,
+        "actualResolveEpisode": 3,
+        "relatedCharacterIds": [
+          "char-1o3hu0b"
+        ],
+        "relatedEventIds": [
+          "event-8wwo0k"
+        ],
+        "status": "resolved",
+        "isOriginal": false,
+        "isAiAdded": true,
+        "reviewStatus": "pending_review",
+        "createdAt": "2026-11-22T07:48:33.855Z",
+        "updatedAt": "2026-11-22T07:48:33.855Z"
+      }
+    ],
+    "changes": [
+      {
+        "adaptationChangeId": "chg-001",
+        "operation": "merge",
+        "sourceType": "explicit",
+        "sourceReferences": {
+          "chapterIds": [
+            "chapter-wc1l1k",
+            "chapter-zehxl3"
+          ],
+          "eventIds": [
+            "event-15elqvd",
+            "event-uibrcl"
+          ],
+          "sceneIds": [
+            "scene-lpdm4f",
+            "scene-uefl2d"
+          ],
+          "foreshadowingIds": [
+            "foreshadow-1qkalie"
+          ],
+          "evidence": [
+            {
+              "chapterId": "chapter-wc1l1k",
+              "chapterTitle": "第一章 雾钟",
+              "excerpt": "林舟在码头边遇见沈鸢。沈鸢是旧钟楼的修钟师，她穿着一件洗旧的灰蓝色外套，手里握着一枚铜钥匙。沈鸢把钥匙交给林舟，说这是他",
+              "sourceLocation": {
+                "charStart": 124,
+                "charEnd": 184,
+                "label": "第一章 雾钟"
+              },
+              "confidence": 0.75,
+              "evidenceType": "explicit"
+            },
+            {
+              "chapterId": "chapter-zehxl3",
+              "chapterTitle": "第二章 旧钟楼",
+              "excerpt": "林舟跟着沈鸢登上钟楼，看见钟摆停在第六下的位置。钟楼里住着守钟人老周。老周说，十年前有一艘叫“夜航”的船失踪，船上的",
+              "sourceLocation": {
+                "charStart": 294,
+                "charEnd": 352,
+                "label": "第二章 旧钟楼"
+              },
+              "confidence": 0.75,
+              "evidenceType": "explicit"
+            }
+          ]
+        },
+        "beforeStructure": "事件 event-15elqvd（第 1 章码头遇沈鸢拿钥匙）独立在前，event-uibrcl（第 2 章钟楼顾北闯入）在后，中间存在独立章节过渡",
+        "afterStructure": "两事件合并放入短剧第 1 集，码头相遇拿钥匙后直接转场旧钟楼，老周简述夜航旧事，随即顾北带人闯入抢夺，单集结尾钩子落在顾北带走林舟",
+        "reason": "抖音短剧开篇需要快速入戏，60 秒时长有限，合并串联前置事件，快速建立人物、核心道具、对立冲突，砍掉平缓过渡，契合高密度悬疑节奏",
+        "characterImpact": "人物出场集中，林舟、沈鸢、老周、顾北在首集全部亮相，人物立场第一时间明确，没有改动人物性格与动机",
+        "causalityImpact": "保留原有因果：码头相遇拿钥匙→前往钟楼→顾北抢夺→带走林舟，因果链条完整无篡改",
+        "foreshadowingImpact": "保留伏笔 foreshadow-1qkalie（林舟从第七声钟声归来）在首集植入，不提前回收",
+        "episodeNumbers": [
+          1
+        ],
+        "riskTags": [],
+        "highRisk": false,
+        "reviewStatus": "pending_review",
+        "createdAt": "2026-11-22T07:00:59.676Z"
+      },
+      {
+        "adaptationChangeId": "chg-002",
+        "operation": "merge",
+        "sourceType": "explicit",
+        "sourceReferences": {
+          "chapterIds": [
+            "chapter-1wwbuyq",
+            "chapter-m66w13",
+            "chapter-yqt2gu"
+          ],
+          "eventIds": [
+            "event-35s5yr",
+            "event-18qzy1q",
+            "event-1xhntuv"
+          ],
+          "sceneIds": [
+            "scene-uefl2d"
+          ],
+          "foreshadowingIds": [],
+          "evidence": [
+            {
+              "chapterId": "chapter-1wwbuyq",
+              "chapterTitle": "第三章 船帮货仓",
+              "excerpt": "顾北把林舟带到货仓，逼他交出铜钥匙。林舟看见货仓墙上挂着一张旧航线图，图上标着夜航最后出现的位置。顾北承认，十年前是他下",
+              "sourceLocation": {
+                "charStart": 551,
+                "charEnd": 611,
+                "label": "第三章 船帮货仓"
+              },
+              "confidence": 0.75,
+              "evidenceType": "explicit"
+            },
+            {
+              "chapterId": "chapter-m66w13",
+              "chapterTitle": "第四章 第七声钟",
+              "excerpt": "夜里，雾港落下大雨。林舟和沈鸢赶回旧钟楼，老周已经等在钟下。老周说，铜钥匙是钟楼暗格的钥匙，暗格里藏着夜航的真正航海图。",
+              "sourceLocation": {
+                "charStart": 727,
+                "charEnd": 787,
+                "label": "第四章 第七声钟"
+              },
+              "confidence": 0.75,
+              "evidenceType": "explicit"
+            },
+            {
+              "chapterId": "chapter-yqt2gu",
+              "chapterTitle": "第五章 潮汐真相",
+              "excerpt": "顾北要抢走船牌，沈鸢拦住他。老周敲响第七声钟，钟声穿过雾港，旧航道的入口在海面裂开。林舟想起完整的航线：夜航没有沉，它被",
+              "sourceLocation": {
+                "charStart": 935,
+                "charEnd": 995,
+                "label": "第五章 潮汐真相"
+              },
+              "confidence": 0.75,
+              "evidenceType": "explicit"
+            }
+          ]
+        },
+        "beforeStructure": "货仓对峙逃脱、钟楼开暗格恢复记忆、敲响第七声钟知晓潮汐真相依次分属原著 3、4、5 章独立事件",
+        "afterStructure": "三件事件合并放入短剧第 2 集，货仓顾北自白罪行、林舟沈鸢逃脱、返回钟楼开启暗格看见刻名船牌恢复引航员身份、老周敲第七声钟，海面裂开旧航道入口为本集结尾钩子",
+        "reason": "将真相揭露、身份记忆回归、世界观核心规则释放集中在第 2 集，承接首集冲突，完成中段反转，为第 3 集归航行动铺垫，适配 60 秒单集信息容量",
+        "characterImpact": "林舟的身份觉醒节奏加快，强化反转冲击力；顾北的罪证自白集中呈现，对立矛盾推至顶峰，人物行为逻辑不变",
+        "causalityImpact": "因果保持原样：被顾北带走→货仓对峙逃脱→返回钟楼→开暗格恢复记忆→敲响第七声钟开启旧航道入口",
+        "foreshadowingImpact": "铺垫航海日志伏笔 foreshadow-mn0fz，等待第 3 集回收",
+        "episodeNumbers": [
+          2
+        ],
+        "riskTags": [],
+        "highRisk": false,
+        "reviewStatus": "pending_review",
+        "createdAt": "2026-11-22T07:00:59.676Z"
+      },
+      {
+        "adaptationChangeId": "chg-003",
+        "operation": "rewrite",
+        "sourceType": "explicit",
+        "sourceReferences": {
+          "chapterIds": [
+            "chapter-8ad4yz"
+          ],
+          "eventIds": [
+            "event-8wwo0k"
+          ],
+          "sceneIds": [
+            "scene-p1rvik",
+            "scene-lpdm4f"
+          ],
+          "foreshadowingIds": [
+            "foreshadow-mn0fz"
+          ],
+          "evidence": [
+            {
+              "chapterId": "chapter-8ad4yz",
+              "chapterTitle": "第六章 归航",
+              "excerpt": "天亮前，林舟驾船驶入旧航道。雾里出现一艘旧船的轮廓，船身上写着“夜航”。林舟用铜钥匙敲了三下船舷，船上的人一个个抬起头",
+              "sourceLocation": {
+                "charStart": 1114,
+                "charEnd": 1173,
+                "label": "第六章 归航"
+              },
+              "confidence": 0.75,
+              "evidenceType": "explicit"
+            }
+          ]
+        },
+        "beforeStructure": "原著仅写林舟用铜钥匙敲击船舷唤醒众人，无钥匙发烫细节",
+        "afterStructure": "短剧第 3 集，林舟驶入旧航道找到夜航时，铜钥匙持续发烫，以此作为唤醒触发信号，敲击船舷唤醒船员；后续码头顾北放弃阻拦、夜航归港、日志补写、伏笔 foreshadow-mn0fz 回收全部保留",
+        "reason": "满足需求：第 3 集回收铜钥匙发烫伏笔；强化铜钥匙的仪式感与奇幻属性，让唤醒动作更有视觉悬疑感，不改动原著唤醒结果、结局走向",
+        "characterImpact": "不改变所有人动机与选择，林舟依靠钥匙完成归航的行为逻辑自洽",
+        "causalityImpact": "旧航道寻船、唤醒船员、归港的因果不变，仅增加钥匙发烫的表现细节",
+        "foreshadowingImpact": "新增发烫伏笔在第 1、2 集埋下细微暗示，在本集完整回收；原著伏笔 foreshadow-mn0fz 同步收尾兑现",
+        "episodeNumbers": [
+          3
+        ],
+        "riskTags": [
+          "core_foreshadowing"
+        ],
+        "highRisk": true,
+        "reviewStatus": "approved",
+        "createdAt": "2026-11-22T07:00:59.677Z"
+      },
+      {
+        "adaptationChangeId": "chg-004",
+        "operation": "add",
+        "sourceType": "generated",
+        "sourceReferences": {
+          "chapterIds": [],
+          "eventIds": [],
+          "sceneIds": [],
+          "foreshadowingIds": [],
+          "evidence": []
+        },
+        "beforeStructure": "原著无铜钥匙发烫相关伏笔",
+        "afterStructure": "短剧第 1、2 集穿插微量镜头暗示铜钥匙温度异常，触摸时微微发热，台词不直接点明，作为隐藏线索",
+        "reason": "满足指定创作要求：第 3 集回收铜钥匙发烫伏笔，提前预埋铺垫，避免第 3 集发烫设定突兀",
+        "characterImpact": "无负面影响，不新增人物能力，铜钥匙依旧是钟楼暗格钥匙",
+        "causalityImpact": "不改变原有事件因果链，仅增加道具细节线索",
+        "foreshadowingImpact": "新增一条衍生伏笔，计划第 3 集回收",
+        "episodeNumbers": [
+          1,
+          2
+        ],
+        "riskTags": [
+          "core_foreshadowing"
+        ],
+        "highRisk": true,
+        "reviewStatus": "approved",
+        "createdAt": "2026-11-22T07:00:59.677Z"
+      },
+      {
+        "adaptationChangeId": "chg-005",
+        "operation": "rewrite",
+        "sourceType": "inferred",
+        "sourceReferences": {
+          "chapterIds": [],
+          "eventIds": [],
+          "sceneIds": [],
+          "foreshadowingIds": [],
+          "evidence": []
+        },
+        "beforeStructure": "原著线性六章依次铺陈",
+        "afterStructure": "重组为迷雾入局、记忆觉醒、归航兑现三阶段，匹配 3 集短剧节奏",
+        "reason": "适配抖音 3 集高密度反转悬疑结构，保证每集独立戏剧目标与钩子",
+        "characterImpact": "人物弧光节奏压缩加快，底层动机不变",
+        "causalityImpact": "完整保留原著因果链，无删改核心事件",
+        "foreshadowingImpact": "统一规划两条原著伏笔 + 一条新增发烫伏笔的预埋回收时序",
+        "episodeNumbers": [
+          1,
+          2,
+          3
+        ],
+        "riskTags": [],
+        "highRisk": false,
+        "reviewStatus": "approved",
+        "createdAt": "2026-11-22T07:05:00Z"
+      }
+    ],
+    "checks": [
+      {
+        "id": "check-1",
+        "level": "warning",
+        "code": "location_change_without_move",
+        "category": "时间线",
+        "message": "人物「林舟」从第 1 集「旧钟楼，后被带往货仓」到第 2 集「船帮货仓→旧钟楼」，没有说明移动过程。",
+        "suggestion": "补充赶路、转场或时间跳跃说明，避免人物瞬移。",
+        "episodeNumbers": [
+          1,
+          2
+        ],
+        "characterIds": [
+          "char-1o3hu0b"
+        ],
+        "eventIds": [],
+        "sceneIds": [],
+        "source": "deterministic",
+        "status": "open",
+        "createdAt": "2026-11-22T14:31:11.787Z"
+      },
+      {
+        "id": "check-2",
+        "level": "warning",
+        "code": "location_change_without_move",
+        "category": "时间线",
+        "message": "人物「林舟」从第 2 集「船帮货仓→旧钟楼」到第 3 集「旧航道海面→雾港码头」，没有说明移动过程。",
+        "suggestion": "补充赶路、转场或时间跳跃说明，避免人物瞬移。",
+        "episodeNumbers": [
+          2,
+          3
+        ],
+        "characterIds": [
+          "char-1o3hu0b"
+        ],
+        "eventIds": [],
+        "sceneIds": [],
+        "source": "deterministic",
+        "status": "open",
+        "createdAt": "2026-11-22T14:31:11.788Z"
+      },
+      {
+        "id": "check-3",
+        "level": "warning",
+        "code": "location_change_without_move",
+        "category": "时间线",
+        "message": "人物「沈鸢」从第 1 集「旧钟楼」到第 2 集「货仓外→旧钟楼」，没有说明移动过程。",
+        "suggestion": "补充赶路、转场或时间跳跃说明，避免人物瞬移。",
+        "episodeNumbers": [
+          1,
+          2
+        ],
+        "characterIds": [
+          "char-1twimmn"
+        ],
+        "eventIds": [],
+        "sceneIds": [],
+        "source": "deterministic",
+        "status": "open",
+        "createdAt": "2026-11-22T14:31:11.788Z"
+      },
+      {
+        "id": "check-4",
+        "level": "warning",
+        "code": "location_change_without_move",
+        "category": "时间线",
+        "message": "人物「沈鸢」从第 2 集「货仓外→旧钟楼」到第 3 集「雾港码头」，没有说明移动过程。",
+        "suggestion": "补充赶路、转场或时间跳跃说明，避免人物瞬移。",
+        "episodeNumbers": [
+          2,
+          3
+        ],
+        "characterIds": [
+          "char-1twimmn"
+        ],
+        "eventIds": [],
+        "sceneIds": [],
+        "source": "deterministic",
+        "status": "open",
+        "createdAt": "2026-11-22T14:31:11.788Z"
+      },
+      {
+        "id": "check-5",
+        "level": "warning",
+        "code": "location_change_without_move",
+        "category": "时间线",
+        "message": "人物「老周」从第 2 集「旧钟楼」到第 3 集「雾港码头」，没有说明移动过程。",
+        "suggestion": "补充赶路、转场或时间跳跃说明，避免人物瞬移。",
+        "episodeNumbers": [
+          2,
+          3
+        ],
+        "characterIds": [
+          "char-1lrmjw"
+        ],
+        "eventIds": [],
+        "sceneIds": [],
+        "source": "deterministic",
+        "status": "open",
+        "createdAt": "2026-11-22T14:31:11.788Z"
+      },
+      {
+        "id": "check-6",
+        "level": "warning",
+        "code": "location_change_without_move",
+        "category": "时间线",
+        "message": "人物「顾北」从第 1 集「旧钟楼」到第 2 集「货仓→旧钟楼」，没有说明移动过程。",
+        "suggestion": "补充赶路、转场或时间跳跃说明，避免人物瞬移。",
+        "episodeNumbers": [
+          1,
+          2
+        ],
+        "characterIds": [
+          "char-dx9vb6"
+        ],
+        "eventIds": [],
+        "sceneIds": [],
+        "source": "deterministic",
+        "status": "open",
+        "createdAt": "2026-11-22T14:31:11.788Z"
+      },
+      {
+        "id": "check-7",
+        "level": "warning",
+        "code": "location_change_without_move",
+        "category": "时间线",
+        "message": "人物「顾北」从第 2 集「货仓→旧钟楼」到第 3 集「雾港码头」，没有说明移动过程。",
+        "suggestion": "补充赶路、转场或时间跳跃说明，避免人物瞬移。",
+        "episodeNumbers": [
+          2,
+          3
+        ],
+        "characterIds": [
+          "char-dx9vb6"
+        ],
+        "eventIds": [],
+        "sceneIds": [],
+        "source": "deterministic",
+        "status": "open",
+        "createdAt": "2026-11-22T14:31:11.788Z"
+      },
+      {
+        "id": "check-8",
+        "level": "suggestion",
+        "code": "change_not_in_episode",
+        "category": "改编记录",
+        "message": "改编「chg-005」已记录，但没有映射到任何分集。",
+        "suggestion": "确认它是全剧级设定调整，还是遗漏了分集落点。",
+        "episodeNumbers": [],
+        "characterIds": [],
+        "eventIds": [],
+        "sceneIds": [],
+        "source": "deterministic",
+        "status": "open",
+        "createdAt": "2026-11-22T14:31:11.79Z"
+      }
+    ],
+    "proposals": [],
+    "history": [],
+    "generations": [],
+    "versionNumber": 4,
+    "createdAt": "2026-11-22T06:57:02.984Z",
+    "updatedAt": "2026-11-22T14:31:11.791Z"
+  }
+}

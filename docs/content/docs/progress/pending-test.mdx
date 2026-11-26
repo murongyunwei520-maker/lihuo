@@ -5,7 +5,300 @@ description: Implemented changes that still need manual verification
 
 # Pending Tests
 
+## 无限画布豆包参数 / 沉浸模式 / 节点卡片专项（待真实浏览器与真实账号验收）
+
+本轮直接修改现有画布组件，没有重写 `project.tsx`、没有替换技术栈、没有调用真实豆包账号生成。代码侧已完成统一参数契约、首次沉浸布局、节点卡片屏幕定位和若干画布问题修复；下列真实网页参数生效、真实生成回填和四个分辨率下的视觉结果仍需用户在真实浏览器 / 真实账号里确认。
+
+- 豆包参数：图片入口现在统一提交 `model / mode / ratio / size / resolution / count / attachmentCount`；视频入口统一提交 `model / mode / ratio / duration / size / resolution / count / attachmentCount`，并真实上传图片、视频、音频参考素材。前端 builder、桥接 `requestedParams`、`appliedParams`、执行器 spec 逐层保留参数；`size / resolution` 因豆包网页端没有对应控件，不伪造提交，而是记录到 `unsupportedParams` 并在右侧检查器显示原因。真实网页是否按比例 / 时长 / 模型点选成功，仍待真实账号验证。
+- 豆包结果回填：图片继续使用桥接任务的原始文件 `index` 取文件，视频继续用任务内真实文件对象下标；任务 `nodeId` 与画布节点不一致时直接报错，不把别的卡片结果贴过来。桥接缺少附件文件时明确返回 `ATTACHMENT_MISSING`，参考图上传失败不再静默退化成文生图。真实多任务并发回填仍待真实账号验证。
+- 账号：普通图片 / 视频 / 对话入口统一走适配器解析账号，显式节点账号 > 当前选中账号 > 全局配置；多账号且没有明确选择时生成报错，不再擅自拿第一个登录账号。号池点选会同步写 `doubaoAccountId`；桥接 manual 模式额度不足只报错、不换号。真实额度不足换号边界仍待真实账号验证。
+- 沉浸模式：首次进入画布时顶部栏、底部任务队列、左侧素材栏、右侧属性 / 日志栏、账号池展开区全部收起；保留顶栏「显示顶栏」入口、左侧素材开关、账号池 / 检查器折叠 rail 和右下角任务队列按钮。布局快照 `canvas-layout-v1` 与侧栏原有宽度 / 节点视图键分开持久化；用户手动展开后刷新保持，不因项目切换或 React 重渲染反复收起。真实浏览器刷新闪烁与四个分辨率下的观感待验收。
+- 节点卡片：`NodePanelShell` 改为 portal 到 body，以屏幕坐标计算宽度 / 高度 / 左偏移和上下翻转；优先节点下方，空间不足翻上方，左右越界向内收，宽度不超过画布可用宽度，最大高度不超过顶栏 / 底部工具栏之间的可视区域，内容内部滚动；画布拖动、缩放、节点移动、侧栏变化、窗口变化用 rAF + ResizeObserver 重定位，effect 清理已覆盖。四个屏幕边缘和小屏由纯函数单测覆盖，真实浏览器缩放 / 拖动视觉待验收。
+- 其他画布修复：底部工具栏不再固定留 300px 空白；删除节点会取消该节点仍在跑的生成 / 轮询；上传过滤保留原始文件 index；任务栏收起后不占布局高度但保留轮询与展开入口；检查器收起时暂停轮询。
+- 自动化已执行：`node --experimental-strip-types --test` 的布局 / 参数 / 文件索引 15 例通过，桥接参数拆分 4 例通过；非增量 `tsc --noEmit` 通过；`vite build` 通过。没有真实豆包账号生成、没有真实浏览器四分辨率截图、没有真实视频参考素材网页行为验证。
+- 仍需真实环境确认：1920×1080 / 1600×900 / 1366×768 / 1280×720 下卡片边缘与工具栏不重叠；刷新首帧无闪烁；真实豆包图片比例 / 数量 / 参考图回填到指定卡片；真实豆包视频模型 / 比例 / 时长 / 清晰度（网页端无清晰度控件）/ 视频参考模式；任务取消后后台 Runner 停止。不能把上述纯函数与编译结果写成真实环境通过。
+
+## Lihuo AI 短剧工作室 阶段 4D.1-FINAL（武器人物绑定 + 审核证据范围，待验收）
+
+4D.1-FINAL 只处理两个遗留边界，不重构 4D：武器取得动作必须绑定当前检查人物，AI Prompt 与证据库必须使用同一审核范围。代码与确定性测试已完成；真实 AI 审核证据仍来自 4D.1 版本，未为本次 Prompt 重构重新消耗账号额度。
+
+- 武器取得：`weaponAcquisitionForCharacter()` 拆分 action / characterBlocking，要求主体是当前人物、对象是武器；支持“林舟拾起短刀”“短刀被林舟拾起”“从沈砚手中接过短刀”等主动 / 被动 / 旁语句式；排除“举起手臂、握紧拳头、刀柄、刀鞘、枪套”等普通动作或非武器对象；动作主体不明、其他人物拾取武器时不消除当前人物的信息不足。明确空手、未知武器、武器消失判断未改。
+- 审核范围：`review-ai.ts` 新增 `createReviewInputView()`，`buildStoryboardReviewPrompt()` 与导出的 `buildStoryboardReviewEvidenceCorpus()` 共用同一 `selectedShots / contextShots / promptScenes / relevantContinuity / existingIssues`；单镜、选中、整集三类测试逐字段比对 Prompt 实际 JSON 与 `shot_text / script_text / continuity_report`，未发送场景不会进入证据库。
+- 测试：`stage4d-core-check` 覆盖 10 类武器场景和三类审核范围；`stage4d-action-check`、3.2.2 55 例、4A 9 组、4B 8 组、4C 26 组、4C.1 全部回归通过；`typecheck` exit 0；`build` exit 0。
+- 边界：4D.1-FINAL 没有重新调用真实模型复核 Prompt 重构后的真实 AI 返回；真实浏览器证据仍引用 4D.1 的 `stage4d1-ai-review-success.png` 等截图，不能写成 4D.1-FINAL 已完成真实 AI 复跑。报告 `docs/ai-handover/DRAMA_STUDIO_STAGE4D_1_FINAL.md`，Diff 同名 `.diff`。
+
+## Lihuo AI 短剧工作室 阶段 4D.2.1（三项收口，待验收）
+
+4D.2.1 只处理三项收口，不扩大 4D.2 范围：`studio_store` 读取失败不得回退 localStorage；第一轮跨标签页证据矛盾必须修正；快照删除包装补重复 / 并发测试。
+
+- 读取失败：`localforage-storage.ts` 的 `studio_store` 只读 IndexedDB 权威副本，失败抛错并置 `studioStoreReadFailed`，不回退 localforage / localStorage；`use-studio-store.ts` 的 `hydrationError` 阻止 `persistStudioStoreNow()` 与 `ensureStudioMigrated()`；页面显示「工作区读取失败」Alert，只保留「重新读取」。3002 页面真实注入 `IDBObjectStore.get` 抛错后，`refreshStudioStoreFromPersistence()` 返回 `false`，写入返回「工作区读取失败，已暂停写入；请先重新读取」，localStorage 标记未出现；恢复后刷新成功载入 `删除前修改-4D2`。截图因 BUA viewport 不可用未生成，以页面 DOM 文本为证据。
+- 证据修正：3000 第一轮 `A-守卫2 / 最终 B-守卫2` 记录作废，不再声称 B 被拒。3002 用当前代码重跑：两标签页基线 `删除前修改-4D2`；A 写 `4D21-重跑A-证据2` 成功，IDB 同步；B 陈旧写 `4D21-重跑B-陈旧覆盖` 后内存保留该标题，IDB 保持 A，B 显示「工作区尚未保存」；A 恢复原标题后 project updatedAt 为 `2026-11-25T14:07:08.908Z`，B 刷新后显示原标题且 Alert 消失。
+- 快照测试：`stage4d2-core-check` 新增 7 组内存事务测试：成功删除 backup、重复删除被拒、project 陈旧被拒、episode 陈旧被拒、formal 拒绝、不同 / 相同快照并发双删只有一方成功；不替代真实浏览器 IndexedDB 并发。
+- 自动化：`npx tsx scripts/stage4d2-core-check.ts` 输出 `{"ok":true,"tasks":7,"metadataGuards":3,"snapshotDiscards":7}`；`stage4d-core-check`、`stage4d-action-check` 回归通过；`npm run typecheck` exit 0；`npm run build` exit 0（Vite 7.3.6，仅既有 chunk / import warning）。报告与证据见 `docs/ai-handover/DRAMA_STUDIO_STAGE4D_2.md`、`stage4d2-browser-evidence.json` 与同名 `.diff`。不能写成 4D.2 整体关闭。
+
+## Lihuo AI 短剧工作室 阶段 4D.2（可靠性专项，部分未关闭）
+
+4D.2 已完成跨标签页项目元数据守卫、任务提交快照与恢复状态机、真实 IndexedDB 事务 abort 注入、双标签页项目 / 分镜 / 删除 / 快照并发、页面刷新 / 重新打开后的任务恢复与失败 UI；但不能整体关闭。原始 live 项目 A 不可恢复；提案 vs 正式分镜真实双标签页、真实磁盘配额耗尽、快照包装层偶发拒绝仍未完成或未定位。
+
+- 原始项目 A：检查 IndexedDB、浏览器数据目录、五个导出和备份后确认 `proj-stage4c-snap-1795573351974` 与原始 live 项目 A 均不可恢复；`proj-UORILWcK` 是导出副本恢复项目，不是原始 A。已建立 3000 替代项目 `proj-stage4d2-1795608774580` 与 3002 隔离项目 `proj-stage4d2-iso-1795610200000`。
+- 并发守卫：`studio-store-persistence.ts` 增加模块级 `observedProjectUpdatedAt` / `observeStudioStoreRaw()` / `assertNoStaleProjectMetadata()`；当前 IndexedDB 项目 `updatedAt` 与本标签页最近观察值不同时拒绝整仓写入，拒绝删除其他标签页新建项目。`localforage-storage.ts` 在正式写入守卫后调用该项目守卫；`readRaw()` 成功后观察，`transact()` 写入提交后才观察。
+- 未保存 UI：`pages/drama/index.tsx` 监听 `lihuo:studio-store-write-blocked` 后显示「工作区尚未保存」Alert、失败原因、「重试保存」「重新读取」；不再自动刷新丢弃内存修改；`persistStudioStoreNow()` 重试仍走整仓版本守卫。
+- 任务恢复：`StudioTask` 增加 `submitting / interrupted` 与 `submitState / submitStartedAt / submitConfirmedAt / modelSnapshot / promptVersion`；提交前先写 `lihuo:studio_tasks`，running / submitting 或已有 remote 的任务恢复为 `unknown` 并禁止自动重试，确认未提交的 queued / pending / retrying 恢复为 `interrupted`；`recoverInterruptedTask()` 由 `stage4d2-core-check` 覆盖 7 类状态，hydration 合并内存与持久化任务，避免晚到 hydration 覆盖新任务。
+- 真实浏览器：3002 同项目标题并发中旧标签写入被拒绝、B 显示未保存横幅、IndexedDB 保留 A 标题；同集不同分镜并发 A 返回 v14 → v15 conflict 并保留 `sbs-a6s5ga`，B 成功 v15；删除 vs 修改被拒绝；快照删除 B 陈旧请求被拒绝；任务刷新 / 关闭标签重开后 running 任务为 `unknown`、queued 任务为 `interrupted`，均无自动重试。截图 `stage4d2-stale-tab-blocked.png`、`stage4d2-task-recovery.png`、`stage4d2-real-idb-failure-ui.png`。
+- 真实 IndexedDB 故障：3002 主世界包装 `IDBObjectStore.prototype.put` 对 `lihuo:studio_store` 抛 `QuotaExceededError`，实际触发 `IDBTransaction.abort()`，`abortCalls=1`、`rawChanged=false`；页面显示失败 Alert / toast，无成功提示，刷新后读回旧标题。该异常来自隔离测试包装，不是真实磁盘配额耗尽；必须区分“真实事务 abort”与“真实 QuotaExceededError 环境”。
+- 未完成 / 未决：① 真实 AI pending 提案仍需用户确认额度后复跑；本轮已用 `ai-proposal-4d2-pending-fixture`（复用现有提案结构，仅改 ID / 版本 / 决策状态，不是模型生成）完成真实双标签页“提案应用 vs 正式分镜修改”：B 成功 v16，A 返回冲突并持久化 `ai-apply-bIXnkwJ7hz`，未覆盖 B；不能写成真实 AI 提案已验。② `discardStoryboardSnapshot` 曾有一次返回“项目已被其他操作更新”，随后同一包装调用删除 `sbs-1nn2d7h` 成功，未能复现，保留为观察项。③ 后端无任务查询 / 幂等键，unknown 只能人工确认重试，重复扣费风险未消除；④ 原始 live 项目 A 永久不可恢复，只能用替代项目。上述均不得写成 4D.2 全部通过。
+- 自动化：`stage3_2_2` 55 例、4A 9 组、4B 8 组、4C 26 组、4C.1 全部、4D action、`stage4d2-core-check`（7 tasks + 3 metadata guards + 7 snapshot discards）、`typecheck`、`build` 均通过。报告与证据见 `docs/ai-handover/DRAMA_STUDIO_STAGE4D_2.md`、`stage4d2-browser-evidence.json` 与同名 `.diff`。
+
+## Lihuo AI 短剧工作室 阶段 4D.1（四项遗留修复 + 真实浏览器主路径）
+
+阶段 4D.1 是在 4D 代码上的小范围修复，不重构 4D、不进入 4E。四项代码修复已完成并通过审查：过期提案显式冲突入口、提案默认不选中、AI 证据范围与实际 Prompt 一致、武器取得动作识别；另修复 Bridge 注入失败，把 4D Prompt JSON 从 pretty 改为 compact。`stage4d-core-check`、`stage4d-action-check`、`typecheck`、`build` 通过；4D.1 临时恢复项目上完成真实 AI 整集审核、真实提案逐项选择 / 局部应用、同批旧版本提案冲突标记、刷新恢复；真实持久化失败 UI 只用浏览器主世界 IDB 故障注入触发，不能写成真实 IndexedDB 故障注入通过。
+
+- 过期提案：新增 `markAiProposalConflictAction()` 与「标记版本冲突」确认层，只接受仍 pending 且版本低于当前正式版本的提案；只写 `status:"conflict"` 的 decision / application，`acceptedChangeIds:[]`，不改正式分镜、不重新应用、不 rebase。真实 UI 已验证同批旧版本夹具 `ai-proposal-conflict-fixture` 在真实提案应用 v14 后从待决策转为「版本冲突」，应用记录 `ai-apply-Uy-x0Err8w` 为 `v13 / 0 项 / 已持久化确认`。
+- 提案默认选择：首次打开真实提案为 0/2 未选中，应用按钮 disabled；逐项勾选后 1/2 可应用，取消可回 0/2；「全选修改」是独立操作；确认层显示「已选中 1 / 2 项；正式分镜将从 v13 写入 v14」，并提示其他 pending 不自动合并。真实点击确认后正式 v13 → v14，只应用 `ai-change-17k7ngl`，`ai-change-j3zvh4` 保持未选；backup `sbs-1a40ya2`、formal `sbs-xrglrj`、应用记录 `ai-apply-1cshj1f` 均落盘，连续性重跑 v14 / 8 镜 / 7 对 / 0 Error / 2 Warning / 19 信息不足。
+- AI 证据范围：`evidenceCorpus()` 按实际 Prompt 建立 `shot_text`（选中 + 已发送相邻镜头）、`script_text`（仅选中镜头对应的 `promptScenes`）、`continuity_report`（与 Prompt 相同的 `continuityPromptView`）范围；真实 AI 返回中「剧本 scene-uq23vl 写明钥匙转移」因该场景不在实际 `script_text` 输入中，被降级为 `inference / speculative`，同时两条连续性报告证据保持有效，证明未发送场景不会被完整剧本冒充。确定性测试还覆盖「已发送场景证据不误降级」和「未发送场景必须降级」。
+- 武器取得动作：`weaponAcquired` 识别拔刀、拔剑、拔枪、抽出、取出、拾取、拾起、捡起、捡到、接过、接住、召出、召唤、举起、握紧、亮出、现出；上一镜明确空手、下一镜持有武器且有取得动作时不报信息不足，也不报武器异常；没有取得动作仍只报信息不足；明确空手后未记录仍只报信息不足，不推断武器消失。正向、反向、边界用例均通过。
+- 真实 AI 成功：恢复项目 `proj-UORILWcK` / 第 1 集 `ep-GHduqaBp` / v13 / 8 镜；真实 run `ai-review-PP5o8NQ68j` 为 `completed`，3 findings（2 条 `continuity_report`、1 条 `inference`），1 个真实 proposal `ai-proposal-i8t2ay`（2 changes，pending）。证据截图 `stage4d1-ai-review-success.png`。
+- 刷新恢复：应用后 reload 重新打开 Drawer，仍显示 v14、真实提案「已局部接受」、冲突夹具「版本冲突」、两条应用记录「已持久化确认」，无待决策提案；截图 `stage4d1-after-refresh.png`。页面刷新只验证结果恢复，不等同页面卸载期间任务恢复。
+- 持久化失败 UI：在浏览器主世界把 `IDBObjectStore.prototype.put` 对 `app_state` 注入 `QuotaExceededError`，真实点击「拒绝提案」，UI 显示底层失败信息、确认层停留、待决策提案仍在、正式 v14 未变；刷新后回到待决策列表，没有出现成功提示。这是**浏览器内故障注入（Mock）**，不是真实 IndexedDB 故障注入，不能写成实机故障通过；失败后确认层未自动关闭，是本轮观察到的交互瑕疵，未修改。截图 `stage4d1-persist-failure-ui.png`。
+- 测试夹具与数据事故：为做同批冲突，曾在旧浏览器会话误把对象写入 `app_state` 的 out-of-line key，导致原 3 个测试项目被清空；已从 `阶段2A验收·雾港夜航(4).json` 导出副本恢复 `proj-UORILWcK`（3 集 / 8 资产 / 第 1 集 v13 / 8 镜 / 4 组），旧项目 `proj-stage4c-snap-1795573351974` 及其真实 run / proposal 不可恢复，只有截图。本轮冲突提案是**人工注入的同批旧版本夹具**，不是模型生成的第二条提案；报告已如实标注，不能冒充原始 live 项目 A 或全部 AI 生成。
+- 未验证边界：原始 live 项目 A、跨标签页并发、真实 IndexedDB 故障注入、页面卸载期间任务恢复、真实持久化失败（只用浏览器故障注入）、真实 AI 审核 / 提案应用在原始 live 项目上的重复验收。上述均不得写成实机通过。
+- 自动化回归：`stage4d-core-check` 通过；`stage4d-action-check` 通过（含显式标记冲突、同批第二条冲突、拒绝、存储失败）；3.2.2 55 例、4A 9 组、4B 8 组、4C 26 组、4C.1 全部通过；`npm run typecheck` exit 0；`npm run build` exit 0（Vite 7.3.6，8315 modules）。报告 `docs/ai-handover/DRAMA_STUDIO_STAGE4D_1.md`，Diff `docs/ai-handover/DRAMA_STUDIO_STAGE4D_1.diff`。
+
+## Lihuo AI 短剧工作室 阶段 4D（AI 分镜审核 / 调整提案，等待验收）
+
+> 本节记录 4D 基线状态，其中真实 AI 成功、真实提案应用、版本冲突和刷新恢复已由上方 4D.1 补充；原始 live 项目 A、跨标签页并发、真实 IndexedDB 故障注入和页面卸载任务恢复仍未验证。
+
+阶段 4D 主体已完成：修复 4C.1 四项遗留 P1（人物绑定遗漏、人物名称最长匹配与动作主体歧义、动作阶段回归、武器明确消失 / 未知），并新增 AI 单镜 / 选中 / 整集审核、问题定位、调整提案、用户确认与局部安全应用。`stage4d-core-check`、`stage4d-action-check`、`stage4c1-core-check`、4A 9 组、4B 8 组、4C 26 组、3.2.1、3.2.2 55 例、`typecheck`、`build` 均通过；真实浏览器已验证 AI 审核失败 run 持久化、锁定 / 解锁事务持久化、AI Drawer 与历史记录读取、reload hydration 修复。真实 AI 成功路径、真实提案应用 UI、真实版本冲突 UI、真实持久化失败 UI、页面卸载恢复、原始 live 项目 A、跨标签页并发与真实 IndexedDB 故障注入仍未验证。
+
+- 4C.1 P1：`characterBindingGaps()` 检查镜头文本中所有可确认人物并排除正确绑定者，不把整集人物注入每个镜头；同镜头多个漏绑人物不再被去重吞掉。
+- 4C.1 P1：名称按长度降序匹配，“林月”不再被识别为“林”；多人物同句或方向句无法确认主体时标记 `ambiguous`，不擅自认定动作执行者。
+- 4C.1 P1：`踉跄 / 趔趄 / 闷哼 / 痛呼 / 吃痛 / 吐血` 恢复为受击反应；普通主动后退仍为 `backward`，击退类为 `knockback`。
+- 4C.1 P1：武器 `string | null | undefined` 区分持有 / 明确空手 / 未记录；明确空手且无收剑动作才报武器消失，未记录只报信息不足。
+- 审核持久化：`commitReviewState()` 在 Web Lock + 单个 IndexedDB 事务内校验版本、正式叙事 hash、项目 / 分集数量和其他分集版本，写后回读；失败或冲突返回 `persisted:false`，UI 不用内存回读冒充成功。
+- 4D 审核：支持单镜、选中、整集；输入当前正式分镜、相关剧本场景、真实相邻镜头、4C 连续性报告和确定性 issues；findings 区分 Error / Warning / Suggestion，证据必须能在输入中核对，找不到时降级为推断。
+- 4D 提案：AI 只生成提案，不直接覆盖；每条说明修改位置、修改前 / 后、原因、影响；支持接受、拒绝、局部接受；应用前校验版本、剧本依赖、人工编辑、锁定和 before 值，成功后写 backup + formal 快照并重跑连续性。
+- 审核记录：保留 AI run、findings、提案、决策、应用结果和版本；旧版本 run 与同版本较早 run 进入历史记录，不冒充当前审核；拒绝、冲突、失败都保留。
+- 真实浏览器：隔离项目 `proj-stage4c-snap-1795573351974` 第 1 集当前 v14；IDB 保留 3 条 Bridge 不可用失败 run（shot / selection / episode），正式 v14、reviewVersion v14 未变；锁定 / 解锁均落库；reload 不再出现整仓删除错误，3 个项目保留。
+- 尚未验证：真实模型成功返回、真实提案应用按钮 / 确认层 / 备份快照 / 版本递增、真实冲突与持久化失败 UI、页面卸载、原始 live 项目 A、跨标签页并发、真实 IndexedDB 故障注入。Mock 与 action 测试不能等同真实浏览器验收。
+- 边界：同一轮多个 pending 提案都绑定同一版本，应用第一个后正式版本 +1，后续旧版本提案明确判冲突，不自动 rebase；这符合禁止静默覆盖，但不是同批多提案一键连续应用。报告与 Diff 见 `docs/ai-handover/DRAMA_STUDIO_STAGE4D.md` / `.diff`。
+
+## Lihuo AI 短剧工作室 阶段 4C.1（连续性引擎精度与持久化修正）
+
+阶段 4C.1 已在现有 Stage 4C 上完成增量修复，没有重写引擎、没有调用真实模型、没有提交或推送、没有进入 4D。`stage4c1-core-check` 通过（人物 11 组、动作 32 例 + 8 断言、方向 15 例 + 9 引擎例、状态 18 例、异步 12 组、快照 9 组）；4C 26 组、4A 9 组、4B 8 组、3.2.2 55 例、`typecheck`、`build` 均通过；快照二次确认和异步检查真实浏览器落库已通过，FINAL1 IndexedDB 真实故障注入仍未执行。
+
+- 人物身份：全剧注册表只做 ID / 姓名核对，当前镜头只使用自身 `characterBindings`，不把全剧其他人物自动加入；同名错误 ID 产生 Error，同 ID 不同姓名产生 Warning，同一镜头同名两个 ID 产生 Error，原始绑定证据保留，不能被归一化吞掉。绑定缺失、旧数据缺人物 ID、相似名称和无绑定但文本提到人物只输出信息不足。
+- 动作阶段：`parseActionPhase()` 顺序为先受击反应、再动作结果、再攻击接触、再准备 / 过程 / 恢复；“被击中 / 受到冲击 / 被震退”归 reaction，不能归 contact；“对手被击飞”归 result；“挥拳击中对手”归 contact；未知动作保持未识别，不伪造主体关系。
+- 方向接入：`parseDirection()` 已真正进入 `deriveMovement()`，优先级为明确 `continuity.space.movementDirection` > `characterBlocking` > `action`，文本方向不覆盖结构化字段；支持左右、向 / 离镜头、前后、上下、顺 / 逆时针。同一连续动作无转身 / 转向 / 环绕 / 转场 / 动作匹配 / 非连续时间依据时，左右反转报 Warning；信息不足不报。
+- 状态比较：新增 / 接入武器持有、姿态 / 情绪、道具损坏 / 掉落 / 形态、环境能见度；发型 / 配饰复用服装外观规则。所有新增规则均有正反例（18 个断言 / 9 对），合理换装、治疗、拾起、换手、动作匹配、时间跳跃和环境变化不误报。
+- 异步审核持久化：`StudioContinuityCheckReport` 带 `checkId / storyboardVersion / episodeId / scope`；`BuildAllStoryboardReviewIssues / planStoryboardReviewRefresh / refreshStoryboardReviewAction` 复用同一报告，提交前校验版本 / 分集 / 范围，不重复完整计算；同一 `checkId` 不重复追加 `continuityRuns`。面板已补取消、卸载、异常、重复点击、提交前版本核对和失败提示。
+- 快照丢弃：backup / conflict 快照点击「丢弃快照」只打开确认层，展示快照类型、快照 ID、创建时间、关联正式版本、当前正式版本和影响；取消不执行，确认才调用现有 `commitStoryboardSnapshotDiscard`；formal 快照没有丢弃入口，项目 / 分集 / 快照 / 正式版本保护不被绕过。
+- 真实浏览器已通过：隔离项目 `proj-stage4c-snap-1795573351974` 的 backup `sbs-legacy-ofj7j3` 点击丢弃先出现确认层（`stage4c1-snapshot-confirm.png`），取消后快照仍在；再次打开并确认后快照从 4 条变 3 条（`stage4c1-snapshot-after-discard.png`），formal `sbs-rmiw5a` 与正式 v14 / 8 镜 / 4 组保留；补充 backup `sbs-legacy-tgwo17` 的确认层与取消后 3 条列表截图（`stage4c1-snapshot-confirm-cancel.png` / `stage4c1-snapshot-cancel-result.png`）；formal 详情无「丢弃快照」按钮（`stage4c1-snapshot-formal-no-discard.png`）。第四步审核页点击「运行检查」后出现「连续性检查完成：0 Error / 2 Warning / 16 信息不足」，`stage4c1-continuity-run.png`；IDB 新增 `continuity-run-continuity-check-q6xu4a`，`lastCheckedAt=2026-11-25T03:48:24.335Z`，正式 v14 未变；再次点击同一检查后 `continuityRuns` 仍为 2 条（旧 4C 记录 + 新记录），仅 `lastCheckedAt` 更新到 `03:49:20.792Z`。
+- 浏览器修复记录：首次真实点击「运行检查」时页面显示“已取消”、无历史写入；定位为 React StrictMode effect 重放后 `mountedRef` 停留在 `false`，检查完成后被误判为页面卸载。已改为 effect setup 复位 `mountedRef.current = true`，刷新页面后重新运行并通过。初始失败截图 `stage4c1-continuity-drawer.png` 保留为修复前证据。
+- **未执行：FINAL1 IndexedDB 真实故障注入**。CDP `Storage.overrideQuotaForOrigin` 可让 `getUsageAndQuota` 返回 `quota:0 / overrideActive:true`，但真实 IndexedDB 写入仍成功；探针库已清理，不能写成真实事务失败。
+- 边界：原始 live 项目 A 未重跑；未调用真实模型；未提交、未推送；未进入 4D；正式外部后端、Doubao Bridge、全局 `AiConfig`、无限画布核心均未修改。报告与 Diff 见 `docs/ai-handover/DRAMA_STUDIO_STAGE4C_1.md` / `.diff`。
+
+## Lihuo AI 短剧工作室 阶段 4C（连续性检查引擎 + 第四步检查面板）
+
+阶段 4C 已完成连续性引擎（4C.1 已将规则从 16 条扩展至 19 条）、审核集成、检查范围与分批取消、第四步 Drawer、26 组确定性测试、`typecheck`、`build` 和 3.2.2 55 例 / 4A / 4B 回归。检查只写审核问题与检查记录，不修改正式分镜；本轮真实浏览器运行整集检查为 v14 / 8 镜 / 7 对、0 Error / 2 Warning / 22 信息不足，正式 v14 未变。FINAL1 遗留的三项真实浏览器操作已补齐两项：快照丢弃按钮和双标签页删除项目；IndexedDB 真实故障注入仍未执行。4C.1 已补二次确认、异步报告复用与精度修复，当前验收以 4C.1 为准。
+
+- 连续性检查：第四步页头打开「连续性检查」，选择整集 / 单场景 / 单镜头组 / 单镜头上下文；运行中应看到分批进度和取消；完成后显示 Error / Warning / Suggestion / 信息不足计数、受影响镜头、问题证据、规则说明、修正建议和前后镜头上下文。
+- 空间与轴线：同组人物左右 / 景深跳变、视线与正反打错误、无依据越轴应报 Error；明确转身、环绕、建立镜头、明确跨轴应被例外压制；旧数据缺结构化字段应只出信息不足。
+- 人物 / 道具 / 场景 / 动作：换装、伤势、道具换手 / 持有者 / 消失、昼夜 / 天气 / 环境恢复、动作结果缺原因应给出对应等级与证据；合理换装、治疗、交接 / 掉落 / 拾起、时间跳跃、环境变化、动作匹配 / 跳切 / 慢动作不应误报。
+- 审核集成：连续性问题进入现有审核问题列表，绑定当前正式版本；正式分镜变化后未复现的旧连续性问题标记 stale 且不计 open；定向重查只影响目标范围，不相关问题保留；`continuityRuns` 保留最近 20 条摘要。锁定不等于审核通过，检查不能自动修改正式分镜。
+- 真实浏览器快照丢弃：隔离项目 `proj-stage4c-snap-1795573351974` 中 backup `sbs-1p4h4bv` 与 conflict `sbs-1nq7lgh` 已真实点击丢弃，列表 6 → 5 → 4；刷新后 formal `sbs-rmiw5a` 与 3 条 legacy backup 保留，正式 v14、8 镜、hash `b4e9b9e6` 不变。4C 当时 UI 没有二次确认弹窗、点击直接执行；4C.1 已补确认层，取消不删除、确认才执行，见顶部 4C.1 节；formal 弹窗没有丢弃入口。
+- 真实浏览器双标签页删除：隔离项目 `proj-stage4c-del-1795573351974` 的两标签初始 `updatedAt=2026-11-25T02:22:31.987Z`；Tab A 重命名后 `updatedAt=2026-11-25T02:30:35.726Z`；Tab B 保持旧标题并真实点击删除，得到「项目已被其他操作更新，请刷新后重试」；项目未被删除，最终仍 3 项目 / 3 集 / 第 1 集 v14 / 项目 hash `3248a1a7`；刷新两标签后都显示新标题。
+- **未执行：FINAL1 IndexedDB 真实故障注入**。已尝试 CDP `Storage.overrideQuotaForOrigin`（`quotaSize:0`），`getUsageAndQuota` 返回 `overrideActive:true / quota:0`，但真实 5 MB IndexedDB 写入仍成功；该后端配额覆盖不触发真实 `QuotaExceededError`，不能把 API 状态或控制台异常写成故障注入。恢复覆盖后 `overrideActive:false`，探针库已清理。此事项仍需用户环境或支持真实存储故障的工具完成。
+- 边界：原始 live 项目 A 不可用；E 只是导出副本；D 是确定性注入；F1–F5 与 F6 分属两个浏览器会话；未调用真实模型；未提交、未推送；未进入 4D。验收报告与 Diff 见 `docs/ai-handover/DRAMA_STUDIO_STAGE4C.md` / `.diff`。
+
+## Lihuo AI 短剧工作室 阶段 3.2.2 FINAL.1（B–F 专项 + A 回归 + 持久化保护补丁）
+
+阶段 3.2.2 FINAL.1 已完成代码、55 个确定性用例、真实 IndexedDB 单次协议写入、F1–F6 双标签页并发、旧项目导出副本回归、`typecheck`、`build`、4A / 4B 回归；本轮没有调用真实模型、没有提交或推送、没有进入 4C。FINAL.1 只修 `studio_store` fail-closed、backup 快照签名、项目 / 分集删除守卫，并配套把快照丢弃改为专用事务；保留 FINAL 的全部实现。以下仍需用户在自己的工作区最终确认，不能把确定性用例或单浏览器会话记录简化成“全部真实浏览器连续通过”。
+
+- 正式写入原子性：整集 / 单场 / 单镜生成、单镜手工编辑、快照应用、草稿应用、整份锁定 / 解锁必须全部经过 `commitFormalStoryboardWrite()`；写入前必须有正式内容备份，写入后正式版本恰好 +1，范围外内容 Hash、其他分集版本 / 数量、formal / backup / conflict 快照、journal 全部回读一致。失败时正式分镜与写入前完全一致，不能留下“版本成功但备份失败”或“部分成功”的中间态。
+- 同版本冲突：第二个标签页基于旧版本写入时必须得到 `conflict`，当前正式版本不递增、不被覆盖，失败方内容进入独立 `conflict` 快照并带 `basedOnVersion`、当前版本、冲突原因与唯一 `snapshotId`；同一 `operationId` 重试返回已有结果，不能重复创建快照。
+- 常规整仓守卫：旧标签页的 Zustand 整仓写入不得把正式版本写回旧值；正式版本相同时，不得删除 / 覆盖刚提交的 formal、conflict、backup 快照或 journal。逐镜锁定、整组已复核这类不递增版本的合法元数据必须能正常保存，不能被守卫误拦。
+- FINAL.1 fail-closed：`indexedDB` 不可用时，写 `studio_store` 必须直接抛出并派发 `lihuo:studio-store-write-blocked`，不得降级写 localforage / localStorage；确定性用例已覆盖，4C 本轮尝试 CDP 配额覆盖但未触发真实 IndexedDB 失败，真实浏览器故障注入仍未执行。
+- FINAL.1 删除守卫：常规整仓写入直接删除有正式分镜的项目 / 分集必须被拒绝；显式删除必须走 `commitStudioStructuralDeletion()` 独立事务，事务内校验项目 / 分集 `updatedAt`，删除后回读目标消失、数量正确、其他分集正式版本不变。已覆盖成功、陈旧 `updatedAt` 拒绝、整仓删除拒绝；4C 本轮已完成真实双标签页删除点击，Tab B 被版本守卫拒绝并显示冲突提示。
+- FINAL.1 快照丢弃：conflict / backup 快照丢弃改走 `commitStoryboardSnapshotDiscard()` 专用事务，校验 `updatedAt`，回读正式版本与 formal 快照 ID 不变；formal 快照仍拒绝。已覆盖 backup 删除成功与 formal 拒绝；4C 本轮已完成真实浏览器按钮点击，backup `sbs-1p4h4bv` 和 conflict `sbs-1nq7lgh` 被丢弃，formal 与正式 v14 不变；4C 当时 UI 无二次确认，4C.1 已补确认层并通过真实浏览器取消 / 确认验收。
+- C Mock 覆盖：`applyStoryboardSnapshot`、`setStoryboardLocked`、`commitFormalStoryboardWrite` 的真实生产入口必须能注入 `StudioStateStore.transact` 并被观察；读取失败、事务抛错、快照不存在、持久化数据不完整、版本冲突分支必须有确定结果，不能只测内部纯函数。
+- D 备份失败注入：备份创建抛错、IndexedDB 事务失败、序列化失败、写入中断、写后回读失败、备份 ID 冲突、备份内容 Hash 篡改、缺少备份记录时，正式版本与正式内容 Hash 必须保持不变；正常路径必须版本 +1 且正式 Hash 改变。D 目前是确定性注入，不是浏览器网络 / 存储故障注入。
+- E 旧项目：本轮只对原始项目 A 的 `阶段2A验收·雾港夜航(4).json` 导出副本做浏览器回归（1,298,493 bytes、`schemaVersion=2`、`projectId=proj-UORILWcK`、3 集、第 1 集 `ep-GHduqaBp` / v13 / 3 个历史快照 v12 / v8 / v4、无 `storyboardReview`、草稿字段 null）；项目入口、分镜显示、历史快照查看、复制为新草稿、旧草稿应用前版本确认、刷新后保持均通过。当前 IndexedDB 没有原始项目 A 的 live 数据，不能写成“原始 live 项目 A 回归通过”。
+- F1–F5：此前真实双标签页会话已完成同集整集覆盖、整集 vs 单镜、不同场景、旧快照 vs 正常写入、旧草稿 vs 正常写入；A 均成功 v14，B 均 conflict 并保留失败方内容到独立快照。该会话的浏览器 profile 在执行 F6 前已不可用，操作 ID / 快照 ID 见最终报告，不能与 F6 写成同一会话连续执行。
+- F6：重连后新浏览器会话已完成“A 写入时 B 刷新”和“刷新后 B 基于旧版本写入冲突”。B 的 `reloadAt=1795567905171` 落在 A 事务 `1795567905086–1795567905206` 之间；刷新后 raw 可完整 JSON parse，A 为 v14、formal `sbs-rmiw5a` based14、backup `sbs-1p4h4bv` based13；B 旧版本写入 `op-f6-B-stale-1795567956247` conflict，快照 `sbs-1nq7lgh` based13，正式仍 v14。F6 截图因入场动画呈背景空页，未作为视觉证据。
+- 4B 整份锁定：隔离项目 `proj-stage322-locked` 中整份文档 `locked` 时，逐镜「操作」菜单 5 项全部 `disabled=true`，全选后批量锁定 / 解锁 `disabled=true`，批量通过 / 需修改 / 驳回仍可用；证据 `stage3_2_2-locked-batch-disabled.png`。
+- 尚未执行：原始 live 项目 A / B 的实时 IndexedDB 回归；D 的真实浏览器存储故障注入；F1–F6 在同一浏览器 profile 内连续重跑；FINAL.1 的浏览器 IndexedDB 故障注入；真实模型调用。双标签页删除点击与快照丢弃按钮点击已在 4C 本轮补齐；4C 连续性检查除该 IndexedDB 故障注入外已完成并真实运行。上述边界必须在验收时保留，不能写成已全部实测。
+
+## Lihuo AI 短剧工作室 阶段 4B（九宫格审片 / 单镜 Drawer / 批量审核与锁定）
+
+阶段 4B 已完成代码、确定性测试、`typecheck`、`build` 和隔离项目 E 的真实浏览器写入与刷新回读。Stage 3.2.2 C–F 已由专项覆盖；4B 自身仍未在用户原始 live 项目、真实可见窗口动画上验收，本轮没有调用任何真实模型，也没有进入 4C。
+
+- 九宫格 / 列表 / Drawer：第四步默认九宫格，应显示 8 镜卡片、G01–G04 唯一组号、审核状态、锁定徽标、关键内容与检查摘要；切到列表应显示 8 列紧凑行；打开单镜 Drawer 应看到三栏、stale 面板、版本差异、前后镜头、同组镜头、当前检查和审核历史。
+- 审核与锁定分离：`approved + locked` 应同时显示已通过与已锁定；审核按钮在锁定时禁用，解锁入口独立；解锁后审核状态保持，锁定数减少但 approved / pending / stale 不变。不得再把 `locked` 当审核状态或计入 `reviewed`。
+- 整份锁定：整份文档 `status === "locked"` 时，逐镜「操作」菜单的审核 / 锁定 / 解锁项必须全部禁用并提示“需先解锁整份”；批量锁定 / 解锁按钮必须禁用；批量审核仍可执行。隔离项目 `proj-stage322-locked` 已验证 5 项逐镜操作全部 `disabled=true`、批量通过 / 需修改 / 驳回仍可用，证据 `stage3_2_2-locked-batch-disabled.png`。
+- stale 复核：stale 镜头执行“重新审核当前正式分镜”后应进入 pending、绑定当前正式版本、追加 `re_review` 记录并保留旧历史；不得自动 approved，刷新后不得丢失。上游再次变化后应重新 stale。
+- 批量部分成功：选中合法镜头与锁定 / stale / 版本冲突镜头执行批量通过，应只写合法项并分别列出成功、跳过、失败；正式分镜内容和 `storyboardVersion` 不得变化，操作报告应持续显示。
+- 批量锁定 / 解锁：批量锁定只改 `locked`，不改变审核结论；批量解锁同样只改 `locked`；锁定 / 解锁后的报告应显示实际成功数和“正式分镜 vN 未改变”。
+- 筛选 / 排序 / 选择：搜索、场景、镜头组、审核状态、锁定状态筛选应返回真实计数；镜号与时长排序应改变行 / 卡片顺序；列表选择切到九宫格后选择保持；审核写入后筛选和视图不得重置。
+- StepWorkspace 重挂载：审核、备注、复核或批量写入后 Drawer 不得自动关闭，批量报告不得消失，筛选 / 选择不得重置；若回归出现该现象，优先检查 `DramaStudioPage` 是否又把 `StepWorkspace` 改回组件体内 JSX 渲染。
+- readiness：全部 `approved` 且存在锁定镜头时应显示可进入视频生成；存在 pending / stale / needs_revision / rejected 时应继续 `not_ready`。锁定不能把未通过镜头变成已通过。
+- 真实浏览器证据：`stage4b-overview.png`（最终总览）、`stage4b-history.png`（审核历史）、`stage4b-locked-drawer.png`（approved + locked）、`stage4b-report.png`（批量报告）。项目 E 最终为记录 18 条、approved 8、locked 1、stale 0、`ready_for_video`。
+- 尚未验证：用户真实可见窗口的入场 / Drawer 动画、点击穿透与字号观感；`检查等级` 筛选逐项点击；内容签名 stale 通过修改正式分镜触发；版本冲突批量操作的浏览器路径。跨标签页并发、旧项目 / 历史快照 / 旧草稿回归已由 Stage 3.2.2 专项执行，真实边界见上一节，不能在 4B 验收中重复写成未执行或已全部真实通过。
+
+## Lihuo AI 短剧工作室 阶段 4A（分镜审核基础，已验收；当前实现由 4B 取代）
+
+阶段 4A 已完成代码、确定性测试、`typecheck`、`build` 和隔离项目 E 的浏览器点击，并已通过用户验收。以下保留 4A 的历史验收记录；当前第四步已由 4B 扩展九宫格、Drawer、批量审核与锁定，不能再按 4A 边界要求当前页面不出现这些能力。
+
+- 分镜总览：打开第四步应看到全剧分集、每集正式分镜版本、镜头 / 场景 / 镜头组 / 时长、审核统计和 readiness；未生成正式分镜的集应显示“未生成正式分镜 / 未就绪”，不能伪造数字。切换分集后右侧应切到对应集。
+- 基础镜头列表：应显示镜号、场景、镜头组、景别、机位、运镜、时长、人物、台词、动作、审核状态与确定性检查；场景 / 镜头组 / 审核状态 / Error / Warning / Suggestion 筛选与搜索可按真实数据过滤，快速定位未审核只筛 pending。
+- 审核操作：单镜选择“通过 / 需修改 / 驳回 / 重置待审”后，统计与状态标签应更新；锁定、stale、missing、unchanged 镜头应跳过，不能导致同批其他合法镜头全部失败。当前 4A 只提供单镜审核 UI，批量审核计划存在于纯函数与测试中，尚无批量按钮。
+- 审核记录：记录应包含镜头、操作类型、操作者、时间、原状态、新状态、备注和对应分镜版本；Modal 当前显示原状态 → 新状态、备注、操作者 / 动作、版本与时间。4B 已实现审核备注与锁定 / 解锁；历史版本查看 / 恢复仍属于后续阶段，不应在 4A 验收中要求已存在。
+- 正式分镜保护：审核写入前后不得改变正式 `storyboard` 内容或 `storyboardVersion`；刷新后审核状态、审核记录和绑定版本应保留。当前实现有 `expectedVersion` 与写入后回读校验，但没有跨标签页互斥；不能把单页验收写成跨标签页并发通过。
+- 确定性检查：Error / Warning / Suggestion 必须来自当前正式分镜与剧本，不得写死演示数字；至少复核无镜头、重复镜号 / 镜头 ID / 镜头组 ID、未知场景 / 人物 / 道具 / 镜头组、镜头组双向引用不一致、非法时长、空关键字段、对白超时长、上游 stale、总分镜时长偏差。连续性轴线和动作完整性只有部分检查，完整连续性引擎属于 4C。
+- 4A 历史边界（已被 4B 取代）：4A 完成时第四步不得出现九宫格、单镜审片、批量审核、AI 审查、局部重生成、预览图生成、版本恢复或视频生成入口；不得新增第六步、时间轴剪辑器、整集拼接或声音 Tab。4B 已新增九宫格 / 列表 / Drawer / 批量审核与锁定，但 AI 审查、预览图、视频生成、版本恢复仍不在 4B 范围。
+- Stage 3.2.2 并行前置验收：A 草稿结构校验已修复；B 正式分镜写入并发保护、C Mock 模型覆盖确认、D 备份失败注入、E 旧项目 / 历史快照 / 旧草稿兼容、F 跨标签页并发仍未完成。B/F 不能用 4A 的审核 `expectedVersion` 代替正式分镜写入锁；C/D 未执行，不能写“已通过”；E 当前浏览器 IndexedDB 只有隔离项目 E，旧 V2 项目和项目 A 不在当前数据中，旧 V2 浏览器回退未实测。
+- 尚未验证：真实模型调用（4A 不调用模型，AI 审查属于 4D）；完整筛选逐项点击；旧 V2 项目回退 UI；跨标签页并发；备份 / 回读失败注入；长剧大量镜头性能与虚拟滚动；锁定 / 解锁 UI；版本历史与恢复；预览图；真实 `ready_for_video` 项目（4A 只有确定性夹具覆盖）。
+- 当前浏览器证据：`docs/ai-handover/stage4a-overview.png`（总览与基础列表）与 `docs/ai-handover/stage4a-audit-modal.png`（审核记录）；E 的 IDB 读数为 `storyboardVersion=13`、`reviewVersion=13`、1 条 approved、1 条 audit、4 条 open Warning、`readiness=not_ready`。
+
+## Lihuo AI 短剧工作室 阶段 3.2.1（对白保护 / 独立草稿 / 剧本手工写入）
+
+阶段 3.2.1 已完成代码修复、确定性测试、`typecheck`、`build` 和隔离项目 E 的真实浏览器点击；项目 A 只读，未执行提交或推送。浏览器验收没有点击「确认覆盖并调用模型」，因此真实模型输出路径仍需单独验证，不能把本轮 UI 保护与取消验收写成真实模型验收。
+
+- 对白人工保护：人工修改某场对白后点「只重生成对白」，必须先出现「覆盖人工对白」确认 Modal，显示保护原因、只替换目标场对白、先备份再写入；取消后剧本版本、台词文本、剧本快照数量和分镜 stale 不变。确认后的真实模型调用本轮未执行。
+- 模块级保护：旧项目只有 `manualEditedSceneIds / manualEditedAt` 时，hydration 必须为命中场景补 `scene / dialogue / action / other`，旧标记不能丢失；只改动作的场景不应误阻止该场「只重生成对白」，但整场重生成仍应要求确认。刷新后标记仍在。
+- 独立分镜草稿：打开历史分镜快照点「复制到新草稿」，当前正式分镜内容与 `storyboardVersion` 必须完全不变；新草稿有独立 `draftId`，重复点同一快照应复用已有 active 草稿而非重复创建。修改 / 保存 / 删除草稿都不得改变正式分镜；刷新后草稿保留。
+- 草稿应用：草稿来源版本与当前正式版本不一致时必须先提示冲突，不得静默覆盖；确认后先备份当前正式版本，再生成 `current + 1` 正式版本并记录 `appliedDraftId`。取消冲突确认后正式版本不变。
+- 剧本手工写入：单场修改应只递增整集 `scriptVersion` 与目标场景版本，只把目标场景及其镜头标记 stale，其他场景镜头保持有效；保存前必须有「手工修改单场前快照」且只出现一条，备份失败不得写入。无实际内容变化时不得无意义递增版本。
+- 所有正式剧本入口：`saveScriptSceneEdit / saveScriptMeta / updateScriptManual` 必须共享同一备份、版本递增、stale 与回读校验；不能保留绕过版本管理的旁路。
+- 尚未验证：确认覆盖对白后的真实模型调用与输出校验；备份持久化失败 / 写入回读失败的 UI 路径；`saveScriptMeta()` 的文档级人工标记语义；旧 V2 项目、原始 live 项目 A/B、跨标签页并发、无限画布回归。上述仅为代码与确定性测试覆盖，需用户在自己的工作区复核。
+
+## Lihuo AI 短剧工作室 阶段 3.2（剧本覆盖保护 / 快照身份 / 分镜 stale）
+
+阶段 3.2 已完成确定性测试、`typecheck`、`build` 和隔离项目 D 的浏览器验收；破坏性覆盖只在 D 上执行，项目 A 只读。浏览器记录不能替代原始 live 项目 A/B 回归。
+
+- 全剧跳过：点击「全剧排队」时，已有正式剧本、人工编辑剧本和锁定剧本必须默认跳过；顶部提示和剧本 inspector 的「队列跳过记录」应显示集号与原因，底层 `production.skips[]` 有对应记录，并且不创建这些集的 job。
+- 显式覆盖：点「重新生成本集」必须先出现覆盖确认 Modal，显示目标集、当前版本、场数、人工编辑、锁定、覆盖范围、关联镜头与备份说明；取消后剧本版本、历史快照和 job 均不变化。确认后必须先把当前正式剧本写入快照并回读成功，再调用模型；备份失败时不得覆盖。
+- 快照身份：分镜页历史列表应区分正式快照、冲突快照和自动备份，显示独立 `snapshotId`、正式 / 基于版本、来源任务与时间；冲突快照不能标成新的正式版本，刷新后 ID 和版本关系不变。
+- 应用 / 恢复：应用冲突快照前若当前正式版本已变化应拒绝；确认应用后先备份当前版本，再把快照写为 `current + 1` 的新正式版本，旧版本仍可查看。锁定分镜或锁定镜头应阻止整集应用。
+- 局部 stale：只修改一个场景时，只有该场景及其镜头显示「待检查」，其他场景镜头不受影响；旧分镜仍可查看，不自动重生成。剧本依赖区应显示依据版本和影响范围。
+- 尚未验证：跨标签页并发写入、原始 live 项目 A/B 全量回归、旧 V2 / 无限画布回归、真实模型失败 / JSON 截断、整集与单镜 / 单场真实并发生成；D 中一次覆盖模型调用异常产生了 v3 测试内容，不能当作正常模型验收。
+
+## Lihuo AI 短剧工作室 阶段 3.1（队列可靠性 / 模型快照 / 分镜并发）
+
+阶段 3.1 已完成确定性测试、`typecheck`、`build` 和一轮真实浏览器回归。浏览器回归使用项目 A `阶段2A验收·雾港夜航` 的导出快照与隔离项目 C（项目 A 副本），不是原始 live 项目；项目 A 原导出快照中的 `ep-GHduqaBp` 剧本 `v1` / 分镜 `v13` / 8 条待处理在测试中保持，但用户仍需在自己的原始工作区复核。
+
+- 队列状态：刷新后排队 / 提交中 / 已取消 / 未知 / 已成功应分别恢复为可继续、需核对、已取消、结果未知、已完成；`interrupted` / `unknown` 不得自动重发。项目 A 快照中 3 个历史 Bridge 失败任务应显示「已中断·需核对」、`remoteState unknown`、无 `taskId`，核对弹窗不自动执行任何决策。
+- 停止一致性：运行中任务点停止后，项目队列应为 `interrupted + unknown + needsReview`，任务中心显示「结果未知」，而不是「已取消」；排队任务可为 `cancelled + not_submitted`。之后点继续不应重发未知任务，必须先在核对弹窗选择「确认未提交 / 可重试」「采用已有结果」或「标记失败」。
+- 模型冻结：项目当前模型切换后，旧队列任务应继续使用入队时冻结的渠道 / 模型 / 参数 / 账号，任务中心和 trace 显示真实请求模型；冻结模型不可用应明确失败，不能静默改用新模型。直接点「生成本集 / 单场 / 单镜」仍按当前项目模型，不在这轮冻结范围内。
+- 分镜并发与锁定：同一分集整集 / 单场 / 单镜生成不能并发写入；锁定镜头必须拦截整集、整场和单镜重生成；模型生成与人工编辑冲突时保留当前草稿，把模型结果写入历史快照并追加 `storyboard_write_conflict` 检查。Stage 3.2 已把冲突快照与正式版本号分离，旧版同号问题不再作为当前行为。
+- 尚未在真实浏览器执行：整集生成期间触发单镜 / 单场、单场生成期间同场单镜、两个不同场景同时提交；这些当前仅由确定性互斥与版本测试覆盖。旧 V2 项目、无限画布、真实高风险提案拒绝和 `generated` 复活确认本轮未重跑。不得把确定性测试当作真实并发生成通过。
+
+
+## Lihuo AI 短剧工作室 阶段 3（分集剧本 / 分镜）
+
+以下项目已在项目 A `阶段2A验收·雾港夜航`（`proj-UORILWcK`）完成一轮真实浏览器验收，仍需用户在自己的工作区最终确认。阶段 3 只到「分集剧本 + 结构化分镜草稿」，不进入阶段 4 审核、不进入阶段 5 视频生成，不生成真实图片 / 视频。
+
+- 打开项目 A 第三步：应看到「分集剧本 / 分镜设计」两个 Tab，五步导航仍为 01–05；`StudioProject` / `StudioEpisode` 仍是唯一项目根，没有新增第六步。
+- handoff：头部应显示 `handoff-14rfeou / 蓝图 v1 / 分集版本 v4 / 分析 v3`、`error 0 / warning 7 / suggestion 1 / 待处理 8 / 锁定集 3`；第 1 集剧本必须能追溯到 `ep-001`，分镜必须显示 `script-smx4mw / script v1 / plan ep-001 / blueprint v1 / handoff-14rfeou`。
+- 按集准入：第 1 集应可生成正式草稿；第 2 集因分集规划 `pending_review` 只能走草稿，不能显示为正式已审核；未确认高风险改编 / 未确认 AI 复活必须阻断正式准入，但可在 UI 中明确标为草稿。
+- 分集剧本：第 1 集应为 `雾钟授钥`，4 场、`58.3s / 目标 60s`、`script v1`、检查 `0/0/0`；场内有地点、时间、人物、道具、戏剧目的、冲突、动作、对白潜台词、转场和连续性备注，不是把全剧规划直接贴成剧本。
+- 2B 待处理：页面只读显示 8 条待处理，7 条 `location_change_without_move` 和 1 条 `chg-005` 仍保持 open；生成第 1 集剧本或分镜转场后不得自动变成已解决，助手也不得代点接受 / 忽略 / 重生成。
+- 分镜：第 1 集应显示 `storyboard v13`、4 个镜头组、8 个镜头、总时长约 58s、检查 `0/0/0`；镜号必须全片连续 `#1–#8`，镜头详情显示人物 / 道具 / 场景稳定绑定。`imagePrompt` / `videoPrompt` 只保存文本，不能生成媒体。
+- 单镜：点击镜 1 的「单镜重生成」应真实调用项目级文本模型并成功，旧分镜保存 `v12单镜头重生成前快照`；新镜头仍绑定 `沈鸢 / 林舟`、`铜钥匙`、`scene-lpdm4f`，不能换成新的 characterId / sceneId / propId。
+- 锁定保护：锁定单镜后「单镜重生成」应提示「该镜头已锁定，不能重生成；先解锁」，整集重生分镜应提示锁定镜头且不提交模型；锁定剧本后重新生成本集不应发起新任务。解锁后状态恢复。
+- 刷新持久化：刷新后仍保留当前集、剧本、`v13` 分镜、历史版本、锁定状态、检查结果和模型配置；运行中任务应收口为 `interrupted`，不能自动重新生成。
+- 项目隔离：项目 B `阶段2A隔离验收·粘贴样本`（`proj-iNU-UIPW`）第三步应显示「2B handoff 不完整」，不能绕过 2B 自行生成剧本，也不能看到项目 A 的剧本 / 分镜；项目账号仍为项目 A 的「豆包1」，不回退全局号池。
+- 尚未完成：真实多集剧本排队、暂停 / 继续 / 停止、指定场景分镜真实生成、镜头组级真实重生成、真实高风险提案拒绝 / `generated` 复活确认点击、旧 V2 项目浏览器回归、无限画布回归仍待后续验证。不要把这些列为已通过真实模型 / 真实浏览器验收。
+
+## Lihuo AI 短剧工作室 阶段 2B（改编定位 / 蓝图 / 全剧分集 / 自检）
+
+以下项目已在项目 A `阶段2A验收·雾港夜航`（`proj-UORILWcK`）完成一轮真实浏览器验收，仍需用户在自己的工作区最终确认。2B 只到完整分集规划，不生成正式剧本、分镜、图片或视频。
+
+- 打开项目 A 的第一步，点击「短剧改编 · 2B」：应进入 2B 工作区，显示 `3 集 × 60s / 当前分集 3 集 / 审核进度 4/5 / 当前版本 v4 / 锁定 + 1 集`；可返回原著档案，五步导航仍是 01–05，没有第六步。
+- 改编定位：修改题材、受众、平台、目标集数、单集时长、改编强度、风格、基调、结局、特别要求 / 禁止事项后保存；头部集数与时长应立刻变化，后续生成应消费这些配置，而不是只保存不生效。
+- 改编方案：4 条改编应分别显示 `preserve / compress / merge / reorder / remove / add / rewrite` 操作、`explicit / inferred / generated` 来源、章节 / 事件 / 证据；AI 新增内容不得显示成原著事实。高风险改编（主角身份、核心死亡、重要关系、关键事件删除、世界观、核心伏笔、结局、主要动机）必须逐条确认后才能通过或锁定方案。
+- 全剧蓝图：应显示 3 阶段 `迷雾入局（1-1）` / `记忆觉醒（2-2）` / `归航兑现（3-3）`、3 个关键事件、4 人物、4 关系、3 地点、时间线、高潮、结局、伏笔安排；关键事件能对应 2A 原著事件，或明确标记为 AI 新增。蓝图锁定后重新生成应被拒绝，解锁后才可重新生成。
+- 全剧分集：目标 3 集应一次生成 `雾钟授钥` / `钟醒归航` / `夜航归港`，每集 60s，均有独立戏剧目标、核心冲突、高潮、开场 / 集尾钩子和连续性依赖；不能出现复制摘要、重复关键事件或集数缺失。第 3 集应保持锁定，局部重生成第 2 集不能覆盖它。
+- 人物弧光：4 人（林舟 / 沈鸢 / 老周 / 顾北）每人 3 集时间线；逐集显示地点、知道 / 不知道、关系、身体 / 能力 / 身份、是否在场、生死状态。人物第一次出场、退场、死亡、回归、身份揭露应有依据；不能出现死亡后无依据回归或提前知道尚未发生的秘密。
+- 伏笔管理：3 条伏笔应显示 `fore-001 第七声钟`（原著，埋 1 推 2 收 2）、`fore-002 航海日志`（原著，埋 1 推 2 预 / 实收 3）、`fore-003 铜钥匙发烫`（AI 新增，埋 1 推 2 预 / 实收 3）；只有分集里真出现回收动作才能标 `resolved`，未回收不得自动标已回收。
+- 剧情校验：当前应为 `0 error / 7 warning / 1 suggestion / 待处理 8`；第 1 集不再误报缺少连续性依赖；7 条 warning 均应能定位到集数、人物和地点，例如林舟第 1 集「旧钟楼，后被带往货仓」到第 2 集「船帮货仓→旧钟楼」没有说明移动过程；不能只用一句“生成成功”掩盖问题。用户应能按级别 / 集数 / 人物筛选，逐条接受、忽略、标记已解决，或按建议局部重生成；系统不得自动改写全部问题。
+- 验收修复（2B 收尾）：第 1 集没有 `continuityDependencies` 时不应报 `episode_without_continuity`，第 2 集缺依赖仍应报；人物死亡后只有出现发生在死亡集之后、当前出现集之前的 `return` 事件并带复活原因与来源依据时才可通过，提前 / 未来 / 空白原因 / 无来源仍应报；高风险提案未逐条确认时，即使绕过 UI 直接调用核心层 `applyProposalToWorkspace()` 也必须被拒绝，已确认或已锁定的高风险项可接受。
+- 验收修复（2B 二次加固）：提案把 `highRisk` 改成 `false`、清空 `riskTags` 或伪造 `reviewStatus = approved` 时，核心层仍应以当前工作区待审状态拦截；只改 `strategy.changes` 的同一路径也必须拦截。`generated` 复活在人物弧光中显示“AI 复活待确认”，未点击“确认 AI 复活”时应报 `character_returns_without_basis`；确认后写入 `confirmedAt` 才可通过，刷新后确认状态应保留，模型输出不能自行写入确认。项目 A 的 8 条待处理必须原样保留，助手不得代点接受 / 忽略 / 标记已解决 / 重生成。
+- 局部重生成：第 2 集选择「核心冲突 / 高潮」模块，填写修改原因后重生成；提案应显示第 2 集核心冲突与高潮的前后值，基础版本 v3，不能误报“移除集数 1、3”。接受后版本应为 v4，第 2 集待审核，旧版本 v1 出现在 Drawer「历史版本（1）」；第 3 集仍锁定，审核进度 4/5。若模型输出截断，应明确失败且不写入半成品，不自动重发。
+- 刷新恢复：刷新后仍保留 3 集 / 4/5 / v4 / 锁定 1 集、分集、弧光、伏笔、提案、历史版本和生成记录；运行中的生成应标为已中断，不能自动复活或重复计费。
+- 项目隔离：项目 B `阶段2A隔离验收·粘贴样本`（`proj-iNU-UIPW`）应仍是「草稿」，只有 2A 导入和「开始原著分析」，没有 2B 入口，也不能看到项目 A 的 2B 数据。
+- 回归：五步导航、旧 V2 项目 `阶段1验收·雾港回声`、无限画布 `/canvas` 均正常；2B 没有修改 Bridge、外部后端、`server/` 业务路由、画布核心、全局 `AiConfig` 或全局账号行为。
+- 成本：2B 只使用项目级文本模型；生成记录应显示模型、参数、调用次数、输入字符、输入版本和输出提案。目标 3 集 full 预算约 6 次，模型一次覆盖全部目标时可提前结束批次；失败 / 取消 / `unknown` 不应自动重发。真实长剧和 120 集上限尚未压测。
+
+## 豆包参数 / 结果回传 / 公网部署安全（2026-11-21）
+
+- 画布选中内置豆包图片模型后，图片设置面板只显示「比例 / 数量」，不再显示画质、分辨率、像素尺寸、透明底；选「自动」提交后任务详情里的 requestedParams 是 `自动`，不是 `auto`。
+- 选 21:9 或 9:21 后提交豆包图片任务：任务详情 requestedParams 应收敛为 16:9 / 9:16，实际参数与网页端比例一致；不会静默沿用网页上一次比例。
+- 豆包视频任务：比例与 4–15s 时长在任务详情里能对上；超出范围的时长会被桥接收敛。
+- 同一张图片卡连续点两次生成（或在生成中改提示词重新生成）：旧任务会被取消，晚到的旧图不会覆盖新卡片；桥接任务列表里旧任务显示「用户取消」。
+- 单张图片重试期间，如果同一节点又发起了新一批生成：重试的旧结果不能写回已被替换的图片槽位。
+- 视频卡片生成中刷新页面：恢复轮询仍写回原卡片；若在恢复期间重新生成，旧任务结果不会覆盖新 taskId 的卡片。
+- 画布检查器按节点查豆包任务：即使其他节点刚产生多条新任务，本节点的记录仍能抓到。
+- 账号池只有 Dola 号时，选择豆包模型再生成：应明确报「Dola 账号不能用于豆包模型」，而不是自动换用另一个豆包号。
+- 手动选中一个豆包账号后，如果该账号图片 / 视频额度不足：任务应明确报错并提示手动换号，不能自动消耗另一个账号的额度。
+- 部署安全：`node scripts/security-check.mjs` 通过；`docker build` 的构建上下文不包含 `.doubao-accounts`、`.doubao-venv`、`.backup`、`vendor`、`server/data`；doubao-bridge 用 `DOUBAO_BRIDGE_HOST=0.0.0.0` 启动会被拒绝。
+- 浏览器里打开公网页面时，第三方站点无法直接 POST `http://127.0.0.1:9091/api/jobs`（Origin / Host 校验应返回 403）。
+- 配置导出 JSON 里 `webdav.password` 为空；刷新页面后 WebDAV 密码需要重新输入；旧 localStorage 中的 WebDAV 密码在启动时被擦除。
+
+## Lihuo AI 短剧工作室 阶段 1（五步导航 / 项目基础 / 模型隔离）
+
+以下项目已在隔离浏览器和纯函数测试中通过，仍需用户在自己的工作区做最终确认：
+
+- `/drama` 项目库显示「新建短剧项目」；创建时没有初始集数，创建后直接进入 `01 AI 小说分析`，URL 带 `project` 与 `step=analysis`。
+- 左侧导航为项目库 + 五步；点击 01–05 都能切换，第三步显示「剧本 / 分镜」内部页签，第五步显示「视频 / 声音」内部页签；声音不是第六步。
+- 刷新页面后项目仍存在；新建第二个项目并来回切换，标题、简介、剧本/资产/镜头和模型设置不串项目。
+- 打开「项目设置」修改本项目图片模型；另一个项目与随后新建的项目仍使用全局默认模型。项目 profile 不显示、不保存 API Key。
+- 旧项目（无五步字段）打开后显示「旧版迁移」，默认进入剧本分镜；旧剧本正文、人物资产、场景和镜头仍在；旧视频引用与远端任务由 `normalizeStudioProject()` 纯函数用例覆盖，测试样本没有真实视频文件。
+- 旧 `?workspace=director` 规范为 `step=script&view=storyboard`，`?workspace=sound` 规范为 `step=video&view=sound`，`?workspace=projects` 回到项目库。
+- 无分集项目进入第三/第五步时仍显示内部页签和真实空态；「补建一集」能创建分集并进入有分集工作区。
+- 项目重命名只改名称；删除确认框写清项目数据，删除后不残留项目卡。
+- `/canvas` 画布库仍可正常加载；阶段 1 没有改无限画布核心。
+- 自动化已通过：`npm run typecheck`、`npm run build`、`web/scripts/drama-stage1-check.ts`、`web/scripts/studio-core-check.ts`。完整记录与截图见 `docs/ai-handover/DRAMA_STUDIO_STAGE1.md`。
+
+不在本阶段验收范围：小说 DOCX/PDF 解析、真实文本/图片/视频生成、云端视频参考图、Bridge 修改、整集合成、时间轴剪辑。
+
+## Lihuo AI 短剧工作室 阶段 2A（原著导入 / 结构化分析 / 人工修正）
+
+以下项目已在隔离浏览器、真实 Bridge 文本模型与纯函数测试中通过，仍需用户在自己的工作区做最终确认：
+
+- 导入四种入口：TXT、DOCX、PDF、粘贴正文都能生成同一份原文与章节；GB18030 TXT 能按中文正确解码；空文件、损坏 PDF / DOCX、超过 20 MB 的文件必须明确报错，且不覆盖已有原文。
+- 章节与分块：章节标题可识别，正文里的“第一章”不会被误判；无标题正文降级成单章并提示；超长章节按句子或自然边界拆成不超过 8,000 字的分块，并保留最多 160 字上下文重叠，分块 ID 稳定。
+- 真实分析：用项目级 `对话（豆包）` + `豆包1` 跑完 6 章样本，3 次调用（章节提取 / 全局汇总 / 跨章校验）全部成功；页面显示“分析完成”，任务版本与调用次数可追溯。
+- 结果与证据：当前样本得到 4 人物、4 关系、8 世界观、3 地点、6 事件、2 伏笔、70 条显式证据、6/6 章覆盖、1 处人工修正；证据卡展示章节、原文摘录、类型与置信度，跨章审校单独列出矛盾。
+- 地点归一化：地点证据同时来自顶层与昼夜 / 天气变体；旧钟楼首次出场由同地点最早事件校正到第 2 章，旧航道海面仍按真实证据保留第 6 章。
+- 人工修正：在人物档案把林舟身份改为“雾港引航员、夜航原引航员（人工校对）”；刷新页面、重新分析（v3）后修正仍在，原始 AI 值可通过“恢复 AI 原值”找回。
+- 任务恢复：分析进行中强制挂起网络后刷新，页面进入“已暂停”，任务标为“已中断”且不自动重提；点击“继续 / 重试失败分块”后重新完成，成功结果写为 v3。
+- 验收修复（证据）：空摘录、原文不匹配、错误章节 ID、跨章节摘录都不会进入有效证据；仅空格 / 换行不同的摘录可匹配，`sourceLocation.charStart` / `charEnd` 对应原文真实字符区间，模型返回的页码不会覆盖解析器页范围；无有效证据的人物保留为待审核条目，关系直接丢弃，统计值也不再计入无效证据。
+- 验收修复（账号隔离）：项目选择内置豆包 / Dola 文本模型时，项目账号为空、账号不存在、未登录、登录态异常、provider 与模型不一致、对话额度被平台拒绝都会在服务入口阻止并明确提示；全局号池即使有账号也不会被继承或自动换成其他账号，额度状态显示“未知”。
+- 验收修复（PDF / 分块）：PDF 空白页从正文过滤后，章节 `pageStart` / `pageEnd` 按有文本页重新计算，不再整体前移；重叠分块产生的同一原文证据按真实字符区间去重，同章同标题事件保持单条。
+- 项目隔离：项目 A（6 章真实分析）与项目 B（3 章粘贴样本）分别显示各自原文、模型、任务与档案；B 未继承 A 的分析结果。
+- 自动化已通过：`npm run typecheck`、`npm run build`、`cd web && npx tsx scripts/stage2a-core-check.ts`、`cd web && npx tsx scripts/stage2a-fix-check.ts`；修复检查覆盖正确 / 错误 / 空摘录、错误章节、跨章节摘录、空白差异定位、无效证据档案统计、自然边界分块与重叠去重、PDF 空白页页码，以及项目账号缺失 / 有效 / 未登录 / provider 不一致 / 全局账号存在但项目为空 / 项目与全局账号不同。
+- 真实模型调用共 11 次，仍在用户限定的 12 次以内；本阶段到此停止，没有自动进入 2B，也没有生成分集剧本、角色图、场景图、分镜或视频。完整记录与截图见 `docs/ai-handover/DRAMA_STUDIO_STAGE2A.md`，本轮修复见 `docs/ai-handover/DRAMA_STUDIO_STAGE2A_FIX.md`。
+
+已知边界：全局 digest 仍有 12,000 / 18,000 字压缩上限；真实模型可能返回非法 JSON，当前只报错不自动重试；多标签页同时打开时，rehydrate 可能把另一个标签页的本地活跃任务标为 `interrupted`；刷新只能中断浏览器等待，无法证明上游服务端已停止计费；扫描件或图片型 PDF 仍可能没有可提取文本，需要 OCR 才能进入后续阶段。
+
+## Short drama V2 (project library + six workspaces)
+
+- `/drama` must open the project library on a fresh profile, not the legacy ten-step wizard. Create a project with multiple episodes, switch episodes, and confirm the URL keeps `project` / `episode` / `workspace`. Reload: projects, episodes, scripts, assets and shot edits must persist.
+- Legacy data: with an existing `drama_store` sequence, opening `/drama` must show one migrated project with the same shots/assets and a 「旧版迁移」 marker. The old data must remain readable in its original store; a failed migration must not erase or overwrite it.
+- Script center: enter a premise, generate outline and script, edit both, save versions and restore one; import a `.txt`/`.md` script; confirm the script before leaving for assets. Export script/outline downloads a readable file.
+- Assets center: create character/scene/costume/prop assets, generate/upload reference images, switch official versions, bind a character voice and a voice sample. Referenced-shot counts must include shots that mention the character or scene by name. Deleting an asset still referenced by a shot must be blocked; switching a character's official reference must mark the affected shots but must not auto-regenerate them.
+- Director center: AI split an episode into scenes/shots; edit scene, description, characters, action, expression, position, orientation, environment, size, camera, lens, movement, composition, lighting, effects, line, speaker, narration, ambience, sfx and seconds. Every shot must stay within 4–15s; duration budget, same-size and opposite-light warnings must update immediately. Add/delete/reorder/lock/duplicate shots and renumber.
+- Picture center: generate a first frame per shot with auto-built prompt and reference assets; override prompt/model/ratio; the first result becomes official, later results are candidates, and switching official must update downstream video availability. Upload a first frame and download the official image.
+- Video center: a shot without an official first frame must be blocked before submission, not sent with an invalid request. For a Doubao model, the project-level default account must be inherited by shots without an override; an unavailable/unlogged account must block, never silently switch. Override model/ratio/quality/duration/account per shot; batch generate missing shots; cancel and resume remote tasks after reload; single-shot failure retry only that shot; download the official video.
+- Sound center: bind character voices across episodes; generate dialogue and narration per shot and in batch; switch audio versions; import SFX and BGM; download audio. The UI must explicitly state that SFX/BGM generation is not supported by the current TTS chain.
+- Task center: image/video/audio/text tasks from all workspaces appear together with model/account/params/remote id/error/output; cancel a running wait, retry a finished task, and change concurrency 1–6.
+- Workflow: from a project or a shot, open the existing canvas; repeated opens must not duplicate nodes; shot edits and first-frame candidates must round-trip. Canvas project data must stay separate from the Studio project record.
+- Export: project JSON downloads; official images/videos/audio download individually. There is intentionally no editing workspace and no full-episode composition in V2 yet.
+- Automated checks already run: `npx tsc --noEmit`, `npm run build`, `npx tsx scripts/studio-core-check.ts`. Real browser interaction, real account quota, and real legacy IndexedDB migration still need manual verification.
+
 The current release needs manual verification in these areas:
+
+- Immersive studio global visuals: on `/`, `/image`, `/video`, `/drama`, `/canvas`, `/prompts`, `/assets`, `/doubao` and `/config`, the original fantasy background must remain continuous without a page-sized glass frame, opaque main-area mask, top-bar divider or sidebar divider. The home character must blend into the background with no rectangular seam above the head or along the sides, and the face must remain clear. The top search is removed while notifications, help, settings, locale/theme switching, version and avatar remain. In cloud mode the guest login notice is a compact top pill rather than a full-width banner, and remains reachable on mobile. Every desktop and mobile navigation label is 16px; default items use rounded gradient glass, and hover/current states share the same highlight. Config tabs and prompt filter chips must use the same rounded gradient glass with no full-width horizontal baseline, and muted copy over the bare background must stay readable. Check light/dark themes and `prefers-reduced-motion`; canvas project routes and admin routes must retain their existing independent layouts and all navigation/actions must still work.
 
 - Site error cards fail fast: when the site replies with a generic failure card (Dola: 「出了点问题，请稍后重试。」), the task must fail within seconds with that wording — not sit until the 3-minute "request not accepted" fallback. Those cards carry no body text and no player, so a regression here shows up as a long wait plus a generic message.
 
@@ -15,9 +308,19 @@ The current release needs manual verification in these areas:
 
 - Short drama generation settings (no network request, no quota): open `/drama` and find 「生成设置」 in the left panel. The 分析模型 dropdown must be grouped by the channels configured in 「配置 → 渠道」 (including built-in 豆包 / Dola); adding or editing a channel there must show up here without a page reload. 「自动（跟随画布默认）」 must fall back to the canvas default text model, and a chosen model must be the one used by 生成剧本 / 拆解成分镜. All seven dropdowns (分析模型 / 风格 / 比例 / 集数 / 目标时长 / 单镜时长 / 选角) must offer 「+ 自定义…」; typing a value and pressing Enter must keep that value visible in the dropdown after switching episodes and reloading. Choosing 集数 10 must update the 「全剧 N 集」 summary; a custom 目标时长 of 75 must immediately change the header number, the 预算 line to `/ 75s` and the 检查器 wording to 「在目标 75s 以内」; a custom 单镜时长 of 20 must be clamped to 15s with a warning. Reload to confirm settings persist through IndexedDB, and check both light and dark themes.
 
+- Short drama prompt pipeline (no quota for the pure-logic parts): in 「确认设定」 the project-level 摄影默认 (焦段 / 光圈 / 主光 / 辅光 / 构图) and the 色彩 / 材质 / 负面提示词 fields must be editable and persist after reload. Open a shot in the inspector: 台词 / 人物动作 / 面部表情 / 画面描述 / 声音需求 must be separate inputs, editing 画面描述 must never create or change the dialogue, and the 构图 / 焦段 / 光圈 / 主光 / 辅光 rows must default to 「跟随项目（…）」 with the current effective value shown. Expand 「实际提交的提示词」: the image prompt must contain the project style, era, palette, camera movement, lens, aperture and negative keywords; the video prompt must differ from it and describe motion, duration and continuity. Run 拆解剧本 with no text model: it must land on the rule-based path, show the 「规则降级」 notice, create scene groups from the script headers (not one shot per line), keep dialogue and action apart, leave `line` empty for silent shots, and bind characters / scenes to shots (the 资产生成 step must show the new cards). On 分镜设计, copy a shot: it must get a new id, keep description and asset links, and drop image / audio / video results; delete a shot: numbering must renumber and the inspector must fall back to project overview. On 成片导出 with a shot missing video: export must ask for explicit confirmation, list the missing shot numbers, stop on a media load failure or 15s timeout, and must not write the export time when it fails.
+
 - Short drama workflow shell (no quota): `/drama` must show a vertical workflow nav on the left, grouped into 故事策划 / 视觉开发 / AI 内容生产 / 成片制作 with 10 numbered steps, and no top horizontal step rail. The nav must fit every step without scrolling at 1600×900 and mark the current step, completed steps and failed steps differently; the collapse button must shrink it to numbers only. The centre area must switch to a dedicated workspace per step (input, script, settings, breakdown, assets, storyboard, image, voice, video, compose) instead of one shared blank panel. The right inspector must follow the current selection: project overview when nothing is selected, shot fields after clicking a shot card, asset fields after clicking an asset card; the shot view must edit 场景 / 景别 / 机位 / 运镜 / 构图 / 光位 / 时长 / 台词 / 提示词 and show how many versions exist for image / audio / video. The bottom task bar must show real image / audio / video counts (not simulated progress), stay collapsed by default, expand without covering the work area, and jump to the right step when a task row is clicked.
 
 - Short drama script generation via the built-in Doubao chat (consumes Doubao quota): pick a built-in Doubao model in 「分析模型」, type a premise and click 生成剧本. The bridge should open a fresh Doubao conversation, write the script, and return the body into the left panel and the sequence. No 「确认，开始生成」 may be injected while it is writing (a script containing 「请确认 / 是否继续」 used to trigger that and cut the answer off). A 4-scene script should finish within the 8-minute bridge wait. On failure the reason (not logged in / timeout / no answer text) must stay visible under the script panel instead of a bare 「生成失败」.
+
+- Short drama script change propagation (no quota for the logic part): edit the script in 「生成剧本」 (or generate / continue / upload), then leave the step immediately — the change must persist (previously the autosave wrote the old text back, so downstream steps kept using the old script). Open any step from 「剧本拆解」 onward afterwards: a top notice says the downstream is still the old version and jumps back to 「剧本拆解」, whose primary button becomes 「同步剧本变更」. After syncing, shots whose 场景 + 台词 did not change keep their image / audio / video and their 镜号 / 素材, shots that were rewritten keep the old image and video but show 「内容已改」 in 逐镜出图 / 声音制作 / 视频生成 (the old audio is dropped when the line changed), new shots are empty, deleted shots disappear and 镜号 is renumbered from 01. 全部出图 / 全部配音 / 全部生成 must then include the shots marked 内容已改; once regenerated the mark, the nav completion state and the task-bar counts return to normal, and 成片导出 loses its exported time. Editing only whitespace in the script must not trigger any of this.
+
+- Short drama settings auto-fill (text quota only for the AI enrichment): with a script from step 2, opening 「确认设定」 must fill 世界观 / 故事背景 / 画面视觉规范 from the premise, genre, background and outline without any click, and 人物 must list the names found in the script's 人物表 / 对白 (each with a 音色 dropdown and a delete button); 场景 must be listed from the 场景 headers. With a text model configured the cards then get descriptions and 人物关系 / 时代 / 色彩 / 材质 / 负面提示词 are filled in (the header button shows 「AI 补全中」 and can be stopped); without a model the free rule-based draft stays and a note explains what is missing. Editing a field by hand must never be overwritten by a later fill, 「重新生成设定」 must rewrite the fields explicitly, deleting a character must remove it from the shot bindings, and after changing the script the page must warn 「设定是上一版」 with a one-click regenerate. Generated character / scene cards must survive 拆解剧本 without duplicates and keep their ids (bound voices included).
+
+- Short drama asset references in 逐镜出图 (image quota on generate only): generate reference images for a character, a scene and a prop, then write a shot whose 画面描述 mentions the prop (e.g. 「她低头看手机」) without binding it by hand. The shot card must show 「参考 3 张：人物、场景、道具」 and the提交 must carry all three images (person first, then scene, then prop) instead of text only; assets without an image must not be listed, and the same image appearing twice must be sent once. Shots split before this change must behave the same way after a reload (the prop is matched from the description), and 视频生成 / the canvas drama-shot node must use the same reference set.
+
+- Short drama first-frame upload (video quota on generate only): in 视频生成 each shot card has a 「上传首帧」 button and small thumbnails of that shot's images. Upload a jpg / png: the card preview and 「本次请求预览」 must switch to it, the first reference submitted must be that upload, and the shot must no longer be blocked as 「没有首帧」 even if 逐镜出图 was never run. Clicking a thumbnail switches 首帧 back to that version, generating a video afterwards keeps working, and the upload is still there after a reload.
 
 - Short drama per-step workspaces (asset / image / audio / video generation consume quota only when you click a button): Step 4 「资产生成」 groups assets by 人物 / 场景 / 服装 / 道具 / 特效 / 其他, and each card can be renamed, re-generated, and shows its version count; the 图片模型 dropdown is grouped by 「配置 → 渠道」 and 比例 / 画质 apply to the next generation. Step 6 「分镜设计」 shows one card per shot with 镜号 / 时长 / 场景 / 台词, supports 上移 / 下移 / 复制 / 删除 / AI 补全描述, and the budget bar turns red when the total exceeds the target. Step 7 「逐镜出图」 keeps up to 8 versions per shot; clicking a version thumbnail switches the official image. With reference assets attached it must go through 图生图, otherwise 文生图. Step 8 「声音制作」 lets each character bind a preset voice (kept for every later line), upload a voice sample as reference audio, and generate / re-generate per line with playback. Step 9 「视频生成」 reads the image model parameters from the selected model, generates per shot with the shot prompt and first frame, shows elapsed seconds, allows cancel, and keeps the previous video if a new attempt fails. Step 10 must compose in shot order, play the whole episode, allow audio offset per shot, flag missing video / audio, and export a real video file through canvas + MediaRecorder.
 

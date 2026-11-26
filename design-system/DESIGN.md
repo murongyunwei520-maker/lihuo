@@ -223,14 +223,14 @@
 
 ## 附录 A · 现状偏差清单（代码与规范不一致处）
 
-本清单来自代码实际扫描，按批次收敛。**第 1、2 条已收敛**，保留在此便于追溯；其余仍待处理。
+本清单来自代码实际扫描，按批次收敛。**第 1、2、3、4 条已收敛**，保留在此便于追溯；其余仍待处理。
 
 | # | 位置 | 现状 | 规范 | 状态 / 处理 |
 |---|---|---|---|---|
 | 1 | `canvas-node.tsx` | 曾用 `selectionBlue = "#2f80ff"` 表达节点选中、组拖入、星标 | 选中统一用雾霭紫 | **已收敛**：选中与星标读 `theme.canvas.selectionStroke`，可引用目标读 `theme.canvas.relationStroke` |
 | 2 | `canvas-resource-mention-textarea.tsx` | 引用 chip 曾用 `#2f80ff` | 引用 chip 用冰蓝浅底 + 深字 | **已收敛**：改用 `relationSoft` / `relationText` / `relationStroke` |
-| 3 | `canvas-project-card.tsx:36` | 卡片底 `#f1eee8`（暖米色） | 亮色卡片面 `#ffffff` / 次级面 `#efecf6` | 待处理：暖米色偏离雾霭紫体系 |
-| 4 | `globals.css` `prompt-filter-tag` | 选中态 `#111111` 近黑 | 选中态用雾霭紫 | 待处理：旧主题残留 |
+| 3 | `canvas-project-card.tsx:36` | 曾用卡片底 `#f1eee8`（暖米色） | 用户页组件使用冰蓝雾紫玻璃 Token | **已收敛**：改用 `studio-project-card` 与工作室玻璃 Token |
+| 4 | `globals.css` `prompt-filter-tag` | 选中态曾用 `#111111` 近黑 | 用户页筛选 chip 用冰蓝雾紫玻璃 | **已收敛**：用户工作室作用域改用导航玻璃与选中渐变 Token |
 | 5 | `globals.css` `ai-title-aurora` | `#111827` / `#78716c` 中性灰蓝 | 应为雾霭紫色阶 | 待处理：首页标题动画 |
 | 6 | `canvas-node-mask-edit-dialog.tsx:22` | 蒙版叠加色 `#2563eb` | 冰川蓝 `relationStroke` | 待处理：与画布选区语义冲突 |
 | 7 | 画布浮动工具条 | 亮色下固定白底 `#ffffff`、字 `#242529` | 应随画布主题 | 待验证：暗色画布下会突兀 |

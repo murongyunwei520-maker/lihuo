@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 import { ImageSettingsTheme } from "@/components/image-settings-panel";
 import { DynamicParamsPanel } from "@/components/DynamicParamsPanel";
-import { builtinProviderName, builtinProviderOf } from "@/constants/doubao-builtin";
+import { DOUBAO_VIDEO_RATIOS, DOUBAO_VIDEO_SECONDS_MAX, DOUBAO_VIDEO_SECONDS_MIN, builtinProviderName, builtinProviderOf, normalizeBuiltinRatio } from "@/constants/doubao-builtin";
 import { listAccounts, type DoubaoAccount } from "@/services/api/doubao-bridge";
 import { useDoubaoAccountStore } from "@/stores/use-doubao-account-store";
 import { type CanvasTheme } from "@/lib/canvas-theme";
@@ -58,13 +58,16 @@ export function VideoSettingsPanel({ config, onConfigChange, theme, showTitle = 
     const ratioField = schema.find((field) => field.configKey === "size");
     const secondsField = schema.find((field) => field.configKey === "videoSeconds");
     const extraFields = schema.filter((field) => field.configKey && !PANEL_CONTROL_KEYS.includes(field.configKey));
-    const ratioChoices = buildRatioChoices(ratioField);
-    const secondsMin = secondsField?.min ?? VIDEO_SECONDS_MIN;
-    const secondsMax = secondsField?.max ?? VIDEO_SECONDS_MAX;
+    const ratioChoices = filterBuiltinVideoRatios(buildRatioChoices(ratioField), doubaoModel);
+    // 豆包 / Dola 网页端只接受 4–15s；Schema 还没读到时也不能退回画布的 30s 上限。
+    const secondsMin = doubaoModel ? DOUBAO_VIDEO_SECONDS_MIN : secondsField?.min ?? VIDEO_SECONDS_MIN;
+    const secondsMax = doubaoModel ? DOUBAO_VIDEO_SECONDS_MAX : secondsField?.max ?? VIDEO_SECONDS_MAX;
     const seconds = clampSeconds(config.videoSeconds || "6", secondsMin, secondsMax);
     const videoMode = normalizeVideoModeValue(config.videoMode);
     const resolution = parseVideoResolution(config.vquality);
-    const selectedRatio = inferVideoRatio(config.size || "auto");
+    const rawRatio = inferVideoRatio(config.size || "auto");
+    // 豆包没有分辨率/像素尺寸/生成模式控件；比例先收敛到网页端真实选项再显示（auto 保留给选项本身）。
+    const selectedRatio = doubaoModel && rawRatio !== "auto" ? normalizeBuiltinRatio(rawRatio, "video") : rawRatio;
     const dimensions = readVideoDimensions(config.size || "auto", resolution, selectedRatio);
     const applySize = (nextResolution: string, ratio: string) => {
         onConfigChange("vquality", nextResolution);
@@ -102,23 +105,27 @@ export function VideoSettingsPanel({ config, onConfigChange, theme, showTitle = 
                         />
                     </SettingGroup>
                 ) : null}
-                <SettingGroup title={t("settingsPanels.video.quality")} color={theme.node.muted}>
-                    <div className="grid grid-cols-4 gap-2.5">
-                        {resolutionOptions.map((item) => (
-                            <OptionPill key={item.value} selected={resolution === item.value} theme={theme} onClick={() => selectResolution(item.value)}>
-                                {item.label}
-                            </OptionPill>
-                        ))}
-                        <ResolutionInput value={resolution} theme={theme} onChange={selectResolution} />
-                    </div>
-                </SettingGroup>
-                <SettingGroup title={t("settingsPanels.video.size")} color={theme.node.muted}>
-                    <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2.5">
-                        <DimensionInput prefix="W" value={dimensions.width} disabled={selectedRatio === "auto"} theme={theme} onChange={(value) => updateDimension("width", value, dimensions, onConfigChange)} />
-                        <span className="text-lg opacity-45">↔</span>
-                        <DimensionInput prefix="H" value={dimensions.height} disabled={selectedRatio === "auto"} theme={theme} onChange={(value) => updateDimension("height", value, dimensions, onConfigChange)} />
-                    </div>
-                </SettingGroup>
+                {!doubaoModel ? (
+                    <SettingGroup title={t("settingsPanels.video.quality")} color={theme.node.muted}>
+                        <div className="grid grid-cols-4 gap-2.5">
+                            {resolutionOptions.map((item) => (
+                                <OptionPill key={item.value} selected={resolution === item.value} theme={theme} onClick={() => selectResolution(item.value)}>
+                                    {item.label}
+                                </OptionPill>
+                            ))}
+                            <ResolutionInput value={resolution} theme={theme} onChange={selectResolution} />
+                        </div>
+                    </SettingGroup>
+                ) : null}
+                {!doubaoModel ? (
+                    <SettingGroup title={t("settingsPanels.video.size")} color={theme.node.muted}>
+                        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2.5">
+                            <DimensionInput prefix="W" value={dimensions.width} disabled={selectedRatio === "auto"} theme={theme} onChange={(value) => updateDimension("width", value, dimensions, onConfigChange)} />
+                            <span className="text-lg opacity-45">↔</span>
+                            <DimensionInput prefix="H" value={dimensions.height} disabled={selectedRatio === "auto"} theme={theme} onChange={(value) => updateDimension("height", value, dimensions, onConfigChange)} />
+                        </div>
+                    </SettingGroup>
+                ) : null}
                 <SettingGroup title={t("settingsPanels.video.ratio")} color={theme.node.muted}>
                     <div className="grid grid-cols-4 gap-2.5">
                         {ratioChoices.map((item) => (
@@ -143,15 +150,17 @@ export function VideoSettingsPanel({ config, onConfigChange, theme, showTitle = 
                         <span className="shrink-0 text-sm" style={{ color: theme.node.muted }}>s</span>
                     </div>
                 </SettingGroup>
-                <SettingGroup title={t("settingsPanels.video.mode")} color={theme.node.muted}>
-                    <div className="grid grid-cols-2 gap-2.5">
-                        {videoModeOptions.map((item) => (
-                            <OptionPill key={item.value} selected={videoMode === item.value} theme={theme} onClick={() => onConfigChange("videoMode", item.value)}>
-                                {t(`settingsPanels.video.modes.${item.labelKey}`)}
-                            </OptionPill>
-                        ))}
-                    </div>
-                </SettingGroup>
+                {!doubaoModel ? (
+                    <SettingGroup title={t("settingsPanels.video.mode")} color={theme.node.muted}>
+                        <div className="grid grid-cols-2 gap-2.5">
+                            {videoModeOptions.map((item) => (
+                                <OptionPill key={item.value} selected={videoMode === item.value} theme={theme} onClick={() => onConfigChange("videoMode", item.value)}>
+                                    {t(`settingsPanels.video.modes.${item.labelKey}`)}
+                                </OptionPill>
+                            ))}
+                        </div>
+                    </SettingGroup>
+                ) : null}
                 {extraFields.length ? (
                     <SettingGroup title={t("settingsPanels.video.more")} color={theme.node.muted}>
                         <DynamicParamsPanel
@@ -216,6 +225,13 @@ function clampSeconds(value: string | number, min: number, max: number) {
 }
 
 /** 比例选项以 Schema 声明为准，宽高只用于绘制小预览图 */
+function filterBuiltinVideoRatios(choices: Array<{ value: string; width: number; height: number }>, builtin: boolean) {
+    if (!builtin) return choices;
+    // 只显示网页端真实存在的比例；「自动」即使 Schema 没给也要保留。
+    const filtered = choices.filter((item) => (DOUBAO_VIDEO_RATIOS as readonly string[]).includes(item.value));
+    return filtered.some((item) => item.value === "auto") ? filtered : [{ value: "auto", width: 0, height: 0 }, ...filtered];
+}
+
 function buildRatioChoices(field: ParameterSchema | undefined) {
     const values: string[] = field?.options?.length ? field.options.map((option) => option.value) : videoRatioOptions.map((option) => option.value as string);
     return values.map((value) => {

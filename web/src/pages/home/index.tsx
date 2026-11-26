@@ -2,7 +2,7 @@ import { useRef } from "react";
 import { ArrowRight, Bot, Clapperboard, ImagePlus, Maximize2, Video } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-import { StudioCharacter, StudioForeground } from "@/components/studio/studio-backdrop";
+import { StudioForeground } from "@/components/studio/studio-backdrop";
 import { StudioButton, StudioFeatureCard } from "@/components/studio/studio-controls";
 import { APP_BRAND } from "@/constant/app";
 import { useAgentStore } from "@/stores/use-agent-store";
@@ -14,7 +14,7 @@ const FEATURES = [
     { title: "AI Agent", description: "对话驱动画布与生成任务", icon: Bot },
     { title: "生图工坊", description: "文生图、参考图与批量对比", icon: ImagePlus, path: "/image" },
     { title: "视频工坊", description: "首尾帧与全能参考出片", icon: Video, path: "/video" },
-    { title: "短剧工坊", description: "剧本、分镜、配音与成片", icon: Clapperboard, path: "/drama" },
+    { title: "短剧工坊", description: "剧本、资产、分镜、画面、视频与声音", icon: Clapperboard, path: "/drama" },
 ];
 
 export default function IndexPage() {
@@ -24,7 +24,6 @@ export default function IndexPage() {
 
     return (
         <main className="home-page">
-            <StudioCharacter />
             <section className="home-hero" aria-label="lihuo 创作首页">
                 <span className="home-hero__brand lihuo-signature">{APP_BRAND.nameEn}</span>
                 <h1>点燃你的创造力</h1>

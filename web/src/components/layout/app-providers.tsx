@@ -13,6 +13,8 @@ import { ClientRootInit } from "@/components/layout/client-root-init";
 import type { AppLocale } from "@/i18n";
 import { getAntThemeConfig } from "@/lib/app-theme";
 import { useThemeStore } from "@/stores/use-theme-store";
+import { useAuthStore } from "@/stores/use-auth-store";
+import { useCanvasStore } from "@/stores/canvas/use-canvas-store";
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -34,6 +36,18 @@ export function AppProviders({ children }: { children: ReactNode }) {
         document.documentElement.classList.toggle("dark", dark);
         document.documentElement.style.colorScheme = theme;
     }, [dark, theme]);
+
+    // 启动即确认登录态：已登录会顺带把云端模型同步进配置
+    useEffect(() => {
+        void useAuthStore.getState().refresh();
+    }, []);
+
+    // 登录态确定后同步云端画布列表；退出登录时回到本地模式
+    const authStatus = useAuthStore((state) => state.status);
+    useEffect(() => {
+        if (authStatus === "unknown") return;
+        void useCanvasStore.getState().syncCloudProjects();
+    }, [authStatus]);
 
     useEffect(() => {
         document.documentElement.lang = locale;

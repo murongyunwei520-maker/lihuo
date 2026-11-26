@@ -334,6 +334,8 @@ export default {
         doubao: "Doubao Accounts",
         prompts: "Prompt Library",
         assets: "My Assets",
+        account: "Account",
+        points: "Points",
         config: "Settings",
     },
     director: {

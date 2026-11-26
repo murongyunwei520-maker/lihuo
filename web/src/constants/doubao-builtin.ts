@@ -2,6 +2,7 @@
 // 凭证来自 doubao-bridge 账号池，不需要用户填 baseUrl/apiKey。
 // 两者走同一套桥接、同一个执行器，只是站点不同（doubao.com / dola.com），
 // 所以模型、账号、任务、产物回传的规则完全一致，差别只有「面板文案」和「站点地址」。
+import { parseAspectRatio, parsePixelSize } from "@/lib/media-size";
 import type { ModelChannel, ChannelModel } from "@/stores/use-config-store";
 
 export const DOUBAO_BUILTIN_CHANNEL_ID = "builtin-doubao";
@@ -87,4 +88,48 @@ export function isDoubaoBuiltinModel(value: string | undefined | null): boolean 
 /** 站点显示名，用于提示文案。 */
 export function builtinProviderName(provider: BuiltinProvider | null | undefined): string {
     return provider === "dola" ? "Dola" : "豆包";
+}
+
+/* ------------------------- 网页端真实可用的画面比例 ------------------------- */
+// 以账号态 image-caps.json / video-caps.json 实测为准。
+// 画布上允许更多比例（21:9 / 9:21），但提交给豆包前必须收敛到下面这些真实选项，
+// 否则执行器点不到对应按钮，会静默沿用网页上一次的比例。
+export const DOUBAO_IMAGE_RATIOS = ["自动", "9:16", "2:3", "3:4", "1:1", "4:3", "3:2", "16:9"] as const;
+export const DOUBAO_VIDEO_RATIOS = ["自动", "3:4", "4:3", "9:16", "16:9", "1:1", "21:9"] as const;
+// 豆包 / Dola 视频面板真实时长范围（4–15s）；画布默认上限更宽，提交前必须收敛。
+export const DOUBAO_VIDEO_SECONDS_MIN = 4;
+export const DOUBAO_VIDEO_SECONDS_MAX = 15;
+
+const RATIO_ASPECT: Record<string, number> = {
+    "1:1": 1,
+    "2:3": 2 / 3,
+    "3:2": 3 / 2,
+    "3:4": 3 / 4,
+    "4:3": 4 / 3,
+    "9:16": 9 / 16,
+    "16:9": 16 / 9,
+    "9:21": 9 / 21,
+    "21:9": 21 / 9,
+};
+
+/** 把任意比例（含像素尺寸、auto/Auto/自动）收敛成网页端真实存在的选项。 */
+export function normalizeBuiltinRatio(value: string | undefined | null, kind: "image" | "video" = "image"): string {
+    const raw = String(value || "").trim();
+    if (!raw || /^(auto|自动)$/i.test(raw)) return "自动";
+    const options: readonly string[] = kind === "image" ? DOUBAO_IMAGE_RATIOS : DOUBAO_VIDEO_RATIOS;
+    if (options.includes(raw)) return raw;
+    const pixels = parsePixelSize(raw) || parseAspectRatio(raw);
+    if (!pixels) return "自动";
+    const target = pixels.width / pixels.height;
+    let best = "自动";
+    let bestDiff = Number.POSITIVE_INFINITY;
+    for (const option of options) {
+        if (option === "自动") continue;
+        const diff = Math.abs((RATIO_ASPECT[option] || 1) - target);
+        if (diff < bestDiff) {
+            best = option;
+            bestDiff = diff;
+        }
+    }
+    return best;
 }

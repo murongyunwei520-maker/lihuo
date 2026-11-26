@@ -3,6 +3,7 @@ import localforage from "localforage";
 import { nanoid } from "nanoid";
 
 import { withLocalProxy } from "@/stores/use-config-store";
+import { cloudMediaActive, cloudMediaConfigured, getCloudBlob, resolveCloudUrl, uploadBlob } from "@/services/cloud-media";
 
 export type UploadedFile = { url: string; storageKey: string; bytes: number; mimeType: string; width?: number; height?: number; durationMs?: number };
 
@@ -11,6 +12,11 @@ const objectUrls = new Map<string, string>();
 
 export async function uploadMediaFile(input: string | Blob, prefix = "file"): Promise<UploadedFile> {
     const blob = typeof input === "string" ? await (await fetch(withLocalProxy(input))).blob() : input;
+    if (cloudMediaActive()) {
+        const uploaded = await uploadBlob(blob);
+        const meta = blob.type.startsWith("video/") ? await readVideoMeta(uploaded.url) : blob.type.startsWith("audio/") ? await readAudioMeta(uploaded.url) : {};
+        return { url: uploaded.url, storageKey: uploaded.key, bytes: blob.size, mimeType: blob.type || "application/octet-stream", ...meta };
+    }
     const storageKey = `${prefix}:${nanoid()}`;
     await store.setItem(storageKey, blob);
     const url = URL.createObjectURL(blob);
@@ -23,6 +29,13 @@ export async function resolveMediaUrl(storageKey?: string, fallback = "") {
     if (!storageKey) return fallback;
     const cached = objectUrls.get(storageKey);
     if (cached) return cached;
+    if (cloudMediaConfigured()) {
+        const remote = await resolveCloudUrl(storageKey);
+        if (remote) {
+            objectUrls.set(storageKey, remote);
+            return remote;
+        }
+    }
     const blob = await store.getItem<Blob>(storageKey);
     if (!blob) return fallback;
     const url = URL.createObjectURL(blob);
@@ -31,6 +44,10 @@ export async function resolveMediaUrl(storageKey?: string, fallback = "") {
 }
 
 export async function getMediaBlob(storageKey: string) {
+    if (cloudMediaConfigured()) {
+        const remote = await getCloudBlob(storageKey);
+        if (remote) return remote;
+    }
     return store.getItem<Blob>(storageKey);
 }
 

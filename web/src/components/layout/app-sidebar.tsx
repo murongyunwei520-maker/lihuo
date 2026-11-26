@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Bot, Clapperboard, FileText, Film, Home, ImagePlus, Images, Maximize2, PanelLeftClose, PanelLeftOpen, Settings2, UsersRound, Video, type LucideIcon } from "lucide-react";
+import { Bot, Clapperboard, Coins, FileText, Film, Home, ImagePlus, Images, Maximize2, PanelLeftClose, PanelLeftOpen, Settings2, UserRound, UsersRound, Video, type LucideIcon } from "lucide-react";
 import { Tooltip } from "antd";
 import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -35,6 +35,8 @@ export function useSidebarItems(): SidebarItem[] {
         { key: "doubao", icon: UsersRound, to: "/doubao", active: pathname === "/doubao" },
         { key: "prompts", icon: FileText, to: "/prompts", active: pathname === "/prompts" },
         { key: "assets", icon: Images, to: "/assets", active: pathname === "/assets" },
+        { key: "points", icon: Coins, to: "/points", active: pathname === "/points" },
+                { key: "account", icon: UserRound, to: "/account", active: pathname === "/account" },
         { key: "config", icon: Settings2, to: "/config", active: pathname === "/config" },
     ];
 }
@@ -92,13 +94,12 @@ export function AppSidebar() {
                     const Icon = item.icon;
                     const label = t(`navigation.${item.key}`);
                     const className = cn(
-                        "studio-nav-item group relative flex h-10 w-full items-center gap-3 rounded-xl text-[13px] transition-all duration-200",
+                        "studio-nav-item group relative flex h-11 w-full items-center gap-3 rounded-xl text-base transition-all duration-200",
                         collapsed ? "justify-center px-0" : "px-3",
                         item.active && "is-active",
                     );
                     const inner = (
                         <>
-                            {item.active ? <span className="studio-nav-item__indicator" /> : null}
                             <Icon className="size-[18px] shrink-0 transition-transform duration-150 group-hover:scale-110" />
                             {!collapsed ? <span className="truncate">{label}</span> : null}
                         </>

@@ -5,13 +5,14 @@ import { ArrowRight, Image as ImageIcon, LoaderCircle, Sparkles } from "lucide-r
 import { StepShell } from "../components/step-shell";
 import { useMediaUrls } from "../use-media-urls";
 import { buildGenerationConfig } from "@/lib/canvas/canvas-generation-helpers";
-import { shotPrompt, shotReferences } from "@/lib/drama/prompt";
+import { assetsOfShot, shotImagePrompt, shotReferences } from "@/lib/drama/prompt";
 import { ASSET_QUALITY_OPTIONS, SETTING_OPTIONS } from "@/lib/drama/settings";
 import { frameGradient } from "@/lib/drama/schema";
 import { requestEdit, requestGeneration } from "@/services/api/image";
 import { uploadMediaFile, resolveMediaUrl } from "@/services/file-storage";
 import { allChannels, decodeChannelModel, modelOptionName, selectableModelsByCapability } from "@/stores/use-config-store";
 import { useDramaStore } from "@/stores/use-drama-store";
+import { useDramaTasks } from "@/stores/use-drama-tasks";
 import { cn } from "@/lib/utils";
 import type { DramaMediaVersion, DramaShot } from "@/types/drama";
 import type { ReferenceImage } from "@/types/image";
@@ -21,6 +22,9 @@ import type { StepProps } from "./step-props";
 export function ImageStep({ sequence, settings, config, patch, patchSetting, go, selectShot, selectedShotId }: StepProps) {
     const { message } = App.useApp();
     const [busy, setBusy] = useState<string | null>(null);
+    const startTask = useDramaTasks((state) => state.start);
+    const finishTask = useDramaTasks((state) => state.finish);
+    const failTask = useDramaTasks((state) => state.fail);
 
     const keys = useMemo(
         () => sequence.shots.flatMap((shot) => [shot.imageRef ?? "", ...(shot.imageVersions ?? []).map((version) => version.storageKey)]),
@@ -43,7 +47,9 @@ export function ImageStep({ sequence, settings, config, patch, patchSetting, go,
 
     const generate = async (shot: DramaShot, quiet = false) => {
         if (!quiet) setBusy(shot.id);
-        patchShot(shot.id, { status: "running" });
+        patchShot(shot.id, { status: "running", generation: { ...shot.generation, image: { status: "running", updatedAt: new Date().toISOString() } } });
+        let taskId = "";
+        let signal: AbortSignal | undefined;
         try {
             const base = buildGenerationConfig(config, undefined, "image");
             const generationConfig = {
@@ -52,49 +58,79 @@ export function ImageStep({ sequence, settings, config, patch, patchSetting, go,
                 ...(settings.ratio !== "自动" ? { size: settings.ratio } : {}),
                 ...(settings.assetQuality !== "自动" ? { quality: settings.assetQuality } : {}),
             };
-            const prompt = shotPrompt(sequence, shot);
+            const prompt = shot.imagePrompt?.trim() || shotImagePrompt(sequence, shot);
+            const task = startTask({ sequenceId: sequence.id, shotId: shot.id, kind: "image", label: `镜 ${shot.no} · 画面`, model: generationConfig.model, prompt });
+            taskId = task.id;
+            signal = task.signal;
             const refs = shotReferences(sequence, shot);
             const references = await Promise.all(
                 refs.map(async (ref, index): Promise<ReferenceImage> => ({ id: `ref-${index}`, name: `ref-${index}.png`, type: "image/png", dataUrl: await resolveMediaUrl(ref, ref) })),
             );
-            const items = references.length ? await requestEdit(generationConfig, prompt, references) : await requestGeneration(generationConfig, prompt);
+            const items = references.length
+                ? await requestEdit(generationConfig, prompt, references, { signal: task.signal })
+                : await requestGeneration(generationConfig, prompt, { signal: task.signal });
             const dataUrl = items[0]?.dataUrl;
             if (!dataUrl) throw new Error("模型没有返回图片");
             const blob = await (await fetch(dataUrl)).blob();
             const file = await uploadMediaFile(blob, "drama-shot");
-            const version: DramaMediaVersion = { storageKey: file.storageKey, model: generationConfig.model, prompt, createdAt: new Date().toISOString() };
+            const version: DramaMediaVersion = {
+                storageKey: file.storageKey,
+                model: generationConfig.model,
+                prompt,
+                parameters: { ratio: settings.ratio, quality: settings.assetQuality, references: String(references.length) },
+                createdAt: new Date().toISOString(),
+            };
             const latest = latestShots().find((item) => item.id === shot.id) ?? shot;
-            patchShot(shot.id, { status: "done", imageRef: file.storageKey, progress: undefined, imageVersions: [version, ...(latest.imageVersions ?? [])].slice(0, 8) });
+            patchShot(shot.id, {
+                status: "done",
+                imageRef: file.storageKey,
+                progress: undefined,
+                imageVersions: [version, ...(latest.imageVersions ?? [])].slice(0, 8),
+                generation: { ...latest.generation, image: { status: "done", stale: false, updatedAt: new Date().toISOString() } },
+            });
+            finishTask(task.id, file.storageKey);
             if (!quiet) message.success(`镜 ${shot.no} 已出图`);
             return true;
         } catch (error) {
-            patchShot(shot.id, { status: "failed" });
-            if (!quiet) message.error(error instanceof Error ? error.message : "出图失败");
+            const reason = error instanceof Error ? error.message : "出图失败";
+            if (taskId && !signal?.aborted) failTask(taskId, reason);
+            const latest = latestShots().find((item) => item.id === shot.id) ?? shot;
+            // 失败只改状态与错误，不动 imageRef / imageVersions，已有正式图保留。
+            patchShot(shot.id, { status: "failed", generation: { ...latest.generation, image: { status: "failed", error: reason, updatedAt: new Date().toISOString() } } });
+            if (!quiet) message.error(reason);
             return false;
+        } finally {
+            // 单张成功、失败、抛异常都要释放 busy，否则按钮会一直转圈。
+            if (!quiet) setBusy(null);
         }
     };
 
     const runAll = async () => {
-        const pending = latestShots().filter((shot) => !shot.imageRef);
+        // 剧本改过、画面还是旧内容的镜头一起重做，否则「全部出图」会跳过它们。
+        const pending = latestShots().filter((shot) => !shot.imageRef || shot.generation?.image?.stale);
         if (!pending.length) {
             message.info("所有镜头都有画面了");
             return;
         }
         setBusy("all");
         let failed = 0;
-        for (const shot of pending) {
-            if (!(await generate(shot, true))) failed += 1;
+        try {
+            for (const shot of pending) {
+                if (!(await generate(shot, true))) failed += 1;
+            }
+        } finally {
+            setBusy(null);
         }
-        setBusy(null);
         message[failed ? "warning" : "success"](failed ? `批量出图完成，${failed} 镜失败` : `批量出图完成 · ${pending.length} 镜`);
     };
 
     const done = sequence.shots.filter((shot) => shot.imageRef).length;
+    const stale = sequence.shots.filter((shot) => shot.imageRef && shot.generation?.image?.stale).length;
 
     return (
         <StepShell
             title="逐镜出图"
-            subtitle={`${done}/${sequence.shots.length} 镜已有画面。每镜保留最近 8 个版本，点缩略图切换正式版。`}
+            subtitle={`${done}/${sequence.shots.length} 镜已有画面${stale ? ` · ${stale} 镜剧本已改待重做` : ""}。每镜按「人物 → 场景 → 道具」把资产图一起提交；最多留 8 版，点缩略图切换正式版。`}
             actions={
                 <>
                     <Select className="min-w-48" value={settings.imageModel || ""} onChange={(value) => patchSetting("imageModel", value)} options={[{ label: "模型：自动（跟随画布默认）", value: "" }, ...modelOptions]} popupMatchSelectWidth={false} />
@@ -121,11 +157,13 @@ export function ImageStep({ sequence, settings, config, patch, patchSetting, go,
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-3">
                     {sequence.shots.map((shot) => {
                         const running = busy === shot.id;
+                        const refs = assetsOfShot(sequence, shot).filter((asset) => asset.refs.some(Boolean));
                         return (
                             <article key={shot.id} className={cn("drama-shot-card", selectedShotId === shot.id && "is-active")} onClick={() => selectShot(shot.id)}>
                                 <div className="relative aspect-[9/16] overflow-hidden rounded-md" style={{ background: frameGradient(shot.scene || shot.no) }}>
                                     {shot.imageRef && urls[shot.imageRef] ? <img src={urls[shot.imageRef]} alt={`镜 ${shot.no}`} className="size-full object-cover" /> : <span className="absolute inset-0 grid place-items-center text-[13px] text-white/70">未生成</span>}
                                     <span className="absolute left-2 top-1.5 rounded bg-black/45 px-1.5 py-0.5 text-[12px] text-white">镜 {shot.no}</span>
+                                    {shot.generation?.image?.stale && shot.imageRef ? <span className="absolute right-2 top-1.5 rounded bg-amber-500/90 px-1.5 py-0.5 text-[12px] text-white">内容已改</span> : null}
                                     {running ? (
                                         <div className="absolute inset-0 grid place-items-center bg-black/45">
                                             <LoaderCircle className="size-6 animate-spin text-white" />
@@ -151,6 +189,10 @@ export function ImageStep({ sequence, settings, config, patch, patchSetting, go,
                                         ))}
                                     </div>
                                 ) : null}
+
+                                <div className="mt-1 truncate text-[12px] text-stone-400" title={refs.map((asset) => asset.name).join("、")}>
+                                    {refs.length ? `参考 ${refs.length} 张：${refs.map((asset) => asset.name).join("、")}` : shot.imageRef ? "本次未带参考资产" : "无参考资产（纯文生图）"}
+                                </div>
 
                                 <div className="mt-1 flex items-center gap-1">
                                     <span className="text-[12px] text-stone-400">{shot.seconds}s · {shot.size}</span>

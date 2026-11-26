@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { ChevronRight, ChevronLeft, Info, ScrollText } from "lucide-react";
 
 import { getJob, findJobForNode, type DoubaoJob } from "@/services/api/doubao-bridge";
+import type { DoubaoRequestedParams } from "@/services/api/doubao-request-params";
+import { useCanvasLayoutStore } from "@/stores/use-canvas-layout-store";
 import type { CanvasNodeData } from "@/types/canvas";
 
 type Props = {
@@ -11,7 +13,8 @@ type Props = {
 
 // 右侧检查器：选中节点属性 + 该节点任务的运行日志。
 export function CanvasInspectorPanel({ nodes, selectedNodeIds }: Props) {
-    const [collapsed, setCollapsed] = useState(false);
+    const collapsed = !useCanvasLayoutStore((state) => state.inspectorOpen);
+    const setInspectorOpen = useCanvasLayoutStore((state) => state.setInspectorOpen);
     const [job, setJob] = useState<DoubaoJob | null>(null);
     const selected = useMemo(() => {
         const id = [...selectedNodeIds][0];
@@ -23,7 +26,7 @@ export function CanvasInspectorPanel({ nodes, selectedNodeIds }: Props) {
 
     useEffect(() => {
         setJob(null);
-        if (!selectedId) return;
+        if (!selectedId || collapsed) return;
         let alive = true;
         // 有本地 jobId 就查它；没有就按 nodeId 反查桥接任务（图片任务也带 nodeId）
         const load = async () => {
@@ -40,12 +43,12 @@ export function CanvasInspectorPanel({ nodes, selectedNodeIds }: Props) {
             alive = false;
             clearInterval(timer);
         };
-    }, [jobId, selectedId]);
+    }, [collapsed, jobId, selectedId]);
 
     if (collapsed) {
         return (
             <aside className="flex w-11 shrink-0 flex-col items-center border-l border-black/5 py-3 dark:border-white/10">
-                <button type="button" onClick={() => setCollapsed(false)} className="grid size-8 cursor-pointer place-items-center rounded-lg text-slate-400 hover:bg-black/5 dark:hover:bg-white/10" title="展开检查器">
+                <button type="button" onClick={() => setInspectorOpen(true)} className="grid size-8 cursor-pointer place-items-center rounded-lg text-slate-400 hover:bg-black/5 dark:hover:bg-white/10" title="展开检查器">
                     <ChevronLeft className="size-4" />
                 </button>
                 <Info className="mt-3 size-4 text-slate-400" />
@@ -72,7 +75,7 @@ export function CanvasInspectorPanel({ nodes, selectedNodeIds }: Props) {
             <div className="flex h-9 items-center gap-1.5 px-2.5">
                 <Info className="size-3.5 text-[#6b57a8] dark:text-[#c4b8ef]" />
                 <span className="text-[12px] font-medium">属性 / 日志</span>
-                <button type="button" onClick={() => setCollapsed(true)} className="ml-auto cursor-pointer rounded p-1 text-slate-400 hover:bg-black/5 dark:hover:bg-white/10" title="收起">
+                <button type="button" onClick={() => setInspectorOpen(false)} className="ml-auto cursor-pointer rounded p-1 text-slate-400 hover:bg-black/5 dark:hover:bg-white/10" title="收起">
                     <ChevronRight className="size-3" />
                 </button>
             </div>
@@ -100,6 +103,9 @@ export function CanvasInspectorPanel({ nodes, selectedNodeIds }: Props) {
                                     <div className="text-slate-400 dark:text-white/35">
                                         {job.id} · {job.status}
                                     </div>
+                                    {formatRequestedParams(job.requestedParams) ? <div className="break-all text-slate-500 dark:text-white/55">请求参数：{formatRequestedParams(job.requestedParams)}</div> : null}
+                                    {formatActualParams(job.actualParams) ? <div className="break-all text-emerald-600/80 dark:text-emerald-400/80">页面读回：{formatActualParams(job.actualParams)}</div> : null}
+                                    {job.unsupportedParams?.length ? <div className="break-all text-amber-600 dark:text-amber-400">未提交（网页端无此控件）：{formatUnsupportedParams(job.unsupportedParams)}</div> : null}
                                     {(job.stderr?.length ? job.stderr : [job.progress || "—"]).slice(-8).map((line, index) => (
                                         <div key={index} className="break-all text-slate-500 dark:text-white/50">
                                             {line}
@@ -116,6 +122,28 @@ export function CanvasInspectorPanel({ nodes, selectedNodeIds }: Props) {
             </div>
         </aside>
     );
+}
+
+/** 摘要只列真正与生成有关的字段，避免把整段请求 JSON 塞进日志。 */
+function formatRequestedParams(params: Partial<DoubaoRequestedParams> | null | undefined) {
+    if (!params) return "";
+    const keys = ["model", "ratio", "duration", "count", "resolution", "size", "mode", "attachmentCount"] as const;
+    return keys
+        .filter((key) => params[key] !== undefined && params[key] !== null && params[key] !== "")
+        .map((key) => `${key}=${String(params[key])}`)
+        .join(" · ");
+}
+
+function formatActualParams(params: DoubaoJob["actualParams"]) {
+    if (!params) return "";
+    return (["model", "ratio", "duration", "resolution"] as const)
+        .filter((key) => params[key] !== undefined && params[key] !== null && params[key] !== "")
+        .map((key) => `${key}=${String(params[key])}${key === "duration" ? "s" : ""}`)
+        .join(" · ");
+}
+
+function formatUnsupportedParams(items: NonNullable<DoubaoJob["unsupportedParams"]>) {
+    return items.map((item) => `${item.key}${item.value !== undefined ? `=${String(item.value)}` : ""}（${item.reason}）`).join("；");
 }
 
 /** 有模型/账号等信息就展示，没有就不显示（不编造）。 */

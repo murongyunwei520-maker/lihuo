@@ -3,13 +3,14 @@ import axios from "axios";
 import i18n from "@/i18n";
 import { buildApiUrl, resolveModelRequestConfig, resolveModelScript, withLocalProxy, type AiConfig, type ModelChannel } from "@/stores/use-config-store";
 import { normalizePluginImages, runModelPlugin } from "./model-plugin";
+import { cloudAsk, cloudGenerateImages, isCloudMode } from "./cloud-generation";
 import { nanoid } from "nanoid";
 import { dataUrlToFile } from "@/lib/image-utils";
 import { buildImageReferencePromptText } from "@/lib/image-reference-prompt";
 import { imageToDataUrl } from "@/services/image-storage";
 import { imageSizePresets, inferMediaRatio, inferMediaScale } from "@/lib/media-size";
 import type { ReferenceImage } from "@/types/image";
-import { isDoubaoBuiltinModel } from "@/constants/doubao-builtin";
+import { isDoubaoBuiltinModel, normalizeBuiltinRatio } from "@/constants/doubao-builtin";
 import { askDoubao, generateImageViaDoubao } from "./doubao-bridge-adapter";
 
 const apiText = (key: string, options?: Record<string, unknown>) => i18n.t(`apiErrors.${key}`, options);
@@ -97,7 +98,25 @@ type GeminiPayload = {
     promptFeedback?: { blockReason?: string };
 };
 type GeminiStreamState = { buffer: string; text: string; toolCalls: ResponseToolCall[]; error?: string };
-type RequestOptions = { signal?: AbortSignal; nodeId?: string };
+type RequestOptions = { signal?: AbortSignal; nodeId?: string; temperature?: number; maxTokens?: number; idempotencyKey?: string };
+
+function responseSamplingOptions(options?: RequestOptions) {
+    const temperature = Number(options?.temperature);
+    const maxTokens = Number(options?.maxTokens);
+    return {
+        ...(options?.temperature !== undefined && Number.isFinite(temperature) ? { temperature: Math.max(0, Math.min(2, temperature)) } : {}),
+        ...(options?.maxTokens !== undefined && Number.isFinite(maxTokens) && maxTokens > 0 ? { max_output_tokens: Math.round(maxTokens) } : {}),
+    };
+}
+
+function geminiSamplingOptions(options?: RequestOptions) {
+    const sampling = responseSamplingOptions(options);
+    const generationConfig = {
+        ...(sampling.temperature !== undefined ? { temperature: sampling.temperature } : {}),
+        ...(sampling.max_output_tokens !== undefined ? { maxOutputTokens: sampling.max_output_tokens } : {}),
+    };
+    return Object.keys(generationConfig).length ? { generationConfig } : {};
+}
 
 const IMAGE_QUALITY_VALUES = ["low", "medium", "high", "xhigh", "max"];
 const DEFAULT_IMAGE_SHORT_SIDE = 1024;
@@ -476,7 +495,7 @@ async function requestStreamingResponse(config: AiConfig, body: Record<string, u
     const response = await fetch(aiApiUrl(config, "/responses"), {
         method: "POST",
         headers: { ...aiHeaders(config, "application/json"), Accept: "text/event-stream" },
-        body: JSON.stringify({ ...body, stream: true }),
+        body: JSON.stringify({ ...body, ...responseSamplingOptions(options), stream: true }),
         signal: options?.signal,
     });
     if (!response.ok) throw new Error(await readFetchError(response, apiText("requestFailed")));
@@ -695,11 +714,14 @@ function parseGeminiImagePayload(payload: GeminiPayload) {
 }
 
 export async function requestGeneration(config: AiConfig, prompt: string, options?: RequestOptions) {
+    // 云端模式：统一走离火后端，浏览器不接触任何上游 Key
+    if (isCloudMode(config)) return cloudGenerateImages(config, prompt, [], options);
     const selected = config.model || config.imageModel;
     if (isDoubaoBuiltinModel(selected)) {
         // 从 config 读账号 ID；画布节点传 nodeId，任务才能绑定回卡片
         const accountId = (config as Record<string, unknown>).doubaoAccountId as string || undefined;
-        const ratio = inferMediaRatio(config.size || "auto");
+        // 豆包网页端没有「分辨率 / 画质 / 透明底」控件，只用真实存在的比例；20:9、9:21 会按最近比例收敛。
+        const ratio = normalizeBuiltinRatio(inferMediaRatio(config.size || "auto"), "image");
         const count = Math.max(1, Math.min(8, Math.floor(Math.abs(Number(config.count)) || 1)));
         return generateImageViaDoubao({
             modelValue: selected,
@@ -707,7 +729,7 @@ export async function requestGeneration(config: AiConfig, prompt: string, option
             signal: options?.signal,
             accountId,
             nodeId: options?.nodeId,
-            params: { ratio, quality: config.quality, count },
+            params: { ratio, size: config.size || "auto", resolution: inferMediaScale(config.size), count, mode: "text-to-image" },
         });
     }
     const requestConfig = resolveModelRequestConfig(config, config.model || config.imageModel);
@@ -770,6 +792,7 @@ export async function requestGeneration(config: AiConfig, prompt: string, option
 }
 
 export async function requestEdit(config: AiConfig, prompt: string, references: ReferenceImage[], options?: RequestOptions) {
+    if (isCloudMode(config)) return cloudGenerateImages(config, prompt, references, options);
     const selectedEditModel = config.model || config.imageModel;
     // 豆包内置模型：走 bridge，参考图会真实上传给豆包（图生图 / 参考图 / 图片编辑）
     if (isDoubaoBuiltinModel(selectedEditModel)) {
@@ -782,7 +805,13 @@ export async function requestEdit(config: AiConfig, prompt: string, references: 
             signal: options?.signal,
             accountId,
             nodeId: options?.nodeId,
-            params: { ratio: inferMediaRatio(config.size || "auto"), quality: config.quality, count: 1 },
+            params: {
+                ratio: normalizeBuiltinRatio(inferMediaRatio(config.size || "auto"), "image"),
+                size: config.size || "auto",
+                resolution: inferMediaScale(config.size),
+                count: 1,
+                mode: "image-to-image",
+            },
         });
     }
     const requestConfig = resolveModelRequestConfig(config, config.model || config.imageModel);
@@ -861,6 +890,8 @@ function messagesToPrompt(messages: AiTextMessage[]) {
 }
 
 export async function requestImageQuestion(config: AiConfig, messages: AiTextMessage[], onDelta: (text: string) => void, options?: RequestOptions) {
+    // 云端模式：走服务端 /api/chat/stream，前端不持有任何上游 Key
+    if (isCloudMode(config)) return cloudAsk(config, messages, onDelta, options);
     const selected = config.model || config.textModel;
     if (isDoubaoBuiltinModel(selected)) {
         // 豆包网页端「对话」：没有流式接口，拿完整回答后一次性回填
@@ -891,7 +922,7 @@ export async function requestImageQuestion(config: AiConfig, messages: AiTextMes
     }
     try {
         if (requestConfig.apiFormat === "gemini") {
-            const answer = (await requestGeminiStreamingResponse(requestConfig, toGeminiBody(requestConfig, messages), onDelta, options)).content || apiText("noContent");
+            const answer = (await requestGeminiStreamingResponse(requestConfig, toGeminiBody(requestConfig, messages, geminiSamplingOptions(options)), onDelta, options)).content || apiText("noContent");
             if (answer === apiText("noContent")) onDelta(answer);
             return answer;
         }

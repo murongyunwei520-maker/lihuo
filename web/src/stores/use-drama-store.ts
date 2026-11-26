@@ -7,7 +7,7 @@ import { localForageStorage } from "@/lib/localforage-storage";
 import type { DramaSequence } from "@/types/drama";
 
 export type SequencePatch = Partial<
-    Pick<DramaSequence, "title" | "targetSeconds" | "shots" | "assets" | "script" | "settings" | "projectId" | "bible" | "voices" | "exportedAt">
+    Pick<DramaSequence, "title" | "targetSeconds" | "shots" | "assets" | "script" | "settings" | "projectId" | "bible" | "bibleHash" | "voices" | "exportedAt" | "split">
 >;
 
 type DramaStore = {

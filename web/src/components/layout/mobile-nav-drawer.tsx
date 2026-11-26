@@ -20,10 +20,8 @@ export function MobileNavDrawer({ open, onClose }: MobileNavDrawerProps) {
                 {items.map((item) => {
                     const Icon = item.icon;
                     const className = cn(
-                        "flex w-full items-center gap-3 rounded-lg px-3 py-3 text-base transition",
-                        item.active
-                            ? "bg-[linear-gradient(100deg,rgba(139,124,200,0.2),rgba(127,212,232,0.14))] font-medium text-[#4b3f72] dark:text-[#d4cbf2]"
-                            : "text-stone-600 hover:bg-[rgba(139,124,200,0.08)] hover:text-[#4b3f72] dark:text-stone-300 dark:hover:bg-white/[0.06] dark:hover:text-[#d4cbf2]",
+                        "studio-nav-item flex h-11 w-full items-center gap-3 rounded-xl px-3 text-base transition-all duration-200",
+                        item.active && "is-active",
                     );
                     const inner = (
                         <>

@@ -8,6 +8,8 @@ import http from "node:http";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
+import { normalizeAppliedParams, resolveRequestedParams } from "./lib/request-params.mjs";
+
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, "..");
 const CLI = process.env.DBB_CLI || path.join(REPO, "vendor", "doubao-brain", "dbb", "cli.mjs");
@@ -97,6 +99,8 @@ function recoverJob(jobId) {
             mode: spec.mode || "",
             modelName: spec.model || null,
             requestedParams: spec.requestedParams || null,
+            appliedParams: spec.appliedParams || null,
+            unsupportedParams: spec.unsupportedParams || null,
             actualParams: null,
             status: files.length ? "succeeded" : "failed",
             createdAt: spec.createdAt || new Date().toISOString(),
@@ -142,8 +146,80 @@ const PROVIDERS = {
 };
 const DEFAULT_PROVIDER = "doubao";
 const providerOf = (account) => PROVIDERS[account?.provider] || PROVIDERS[DEFAULT_PROVIDER];
+
+/* ----------------------- 网页端真实参数收敛 ----------------------- */
+// 画布上可以选 21:9 / 9:21 / 像素尺寸，但豆包网页面板只提供下面这些比例。
+// 不收敛就会点不到按钮、静默沿用页面上的旧比例——用户看到的就是「比例没传给豆包」。
+const IMAGE_RATIOS = ["9:16", "2:3", "3:4", "1:1", "4:3", "3:2", "16:9"];
+const VIDEO_RATIOS = ["3:4", "4:3", "9:16", "16:9", "1:1", "21:9"];
+const RATIO_ASPECT = {
+    "1:1": 1,
+    "2:3": 2 / 3,
+    "3:2": 3 / 2,
+    "3:4": 3 / 4,
+    "4:3": 4 / 3,
+    "9:16": 9 / 16,
+    "16:9": 16 / 9,
+    "9:21": 9 / 21,
+    "21:9": 21 / 9,
+};
+function normalizeRatio(value, kind, provider) {
+    const raw = String(value || "").trim();
+    const autoLabel = provider === "dola" ? "Auto" : "自动";
+    if (!raw || /^(auto|自动)$/i.test(raw)) return autoLabel;
+    const options = kind === "video" ? VIDEO_RATIOS : IMAGE_RATIOS;
+    if (options.includes(raw)) return raw;
+    const pixels = raw.match(/^(\d+)x(\d+)$/i);
+    const aspect = pixels ? Number(pixels[1]) / Number(pixels[2]) : (() => {
+        const hit = raw.match(/^(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)$/);
+        return hit ? Number(hit[1]) / Number(hit[2]) : null;
+    })();
+    if (!aspect) return autoLabel;
+    let best = autoLabel;
+    let diff = Number.POSITIVE_INFINITY;
+    for (const option of options) {
+        const current = Math.abs((RATIO_ASPECT[option] || 1) - aspect);
+        if (current < diff) {
+            best = option;
+            diff = current;
+        }
+    }
+    return best;
+}
+function normalizeDuration(value) {
+    const seconds = Math.round(Number(value));
+    return Number.isFinite(seconds) && seconds > 0 ? Math.max(4, Math.min(15, seconds)) : null;
+}
 const PORT = Number(process.env.DOUBAO_BRIDGE_PORT || 9091);
 const HOST = process.env.DOUBAO_BRIDGE_HOST || "127.0.0.1";
+const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "::1", "0:0:0:0:0:0:0:1"]);
+// 桥接持有豆包登录态，只能在loopback上跑。想远程用请走 SSH 隧道，不要把端口暴露到公网/局域网。
+if (!LOOPBACK_HOSTS.has(String(HOST).toLowerCase())) {
+    console.error(`[doubao-bridge] 拒绝监听 ${HOST}:桥接持有账号登录态，只允许 127.0.0.1 / localhost / ::1。`);
+    process.exit(1);
+}
+// 浏览器来源白名单：本地开发/预览默认端口；额外来源用 DOUBAO_BRIDGE_ALLOWED_ORIGINS 显式追加。
+const ALLOWED_ORIGINS = new Set(
+    (process.env.DOUBAO_BRIDGE_ALLOWED_ORIGINS || "http://127.0.0.1:3000,http://localhost:3000,http://127.0.0.1:5173,http://localhost:5173,http://127.0.0.1:4173,http://localhost:4173")
+        .split(",")
+        .map((value) => value.trim())
+        .filter(Boolean),
+);
+function isLoopbackAddress(value) {
+    const ip = String(value || "").replace(/^::ffff:/i, "");
+    return ip === "127.0.0.1" || ip === "::1" || ip === "0:0:0:0:0:0:0:1";
+}
+function hostHeaderAllowed(req) {
+    const raw = String(req.headers.host || "").toLowerCase();
+    const name = raw.startsWith("[") ? raw.slice(1, raw.indexOf("]")) : raw.split(":")[0];
+    return LOOPBACK_HOSTS.has(name);
+}
+// 文件 / 二维码接口不要回 *：只把请求页面的 Origin 放行给已校验过的白名单。
+// <img>/<video> 这类无 Origin 的加载不需要 CORS 头，仍然能正常显示。
+function fileCorsHeaders(req) {
+    const origin = typeof req.headers.origin === "string" ? req.headers.origin : "";
+    return origin && ALLOWED_ORIGINS.has(origin) ? { "access-control-allow-origin": origin, vary: "Origin" } : {};
+}
 
 const VIDEO_CAPABILITY = "视频生成";
 const ASK_TIMEOUT_MS = 900000;
@@ -170,6 +246,29 @@ const windowProcesses = new Map(); // accountId -> child
 const viewerProcesses = new Map(); // accountId -> { child, port }
 const runnerProcesses = new Map(); // accountId -> child（生成器进程；结束后浏览器仍开着，需要能收掉）
 const VIEWER_SCRIPT = path.join(HERE, "open-account.mjs");
+
+/** 干掉一个 Runner 及其子进程（Windows 用 taskkill /T，Unix 先按进程组再退回单进程）。 */
+function killProcessTree(pid) {
+    const id = Number(pid);
+    if (!Number.isFinite(id) || id <= 0) return;
+    if (process.platform === "win32") {
+        try {
+            spawn("taskkill", ["/PID", String(id), "/T", "/F"], { windowsHide: true, stdio: "ignore" }).on("error", () => undefined);
+        } catch {
+            /* ignore */
+        }
+        return;
+    }
+    try {
+        process.kill(-id, "SIGKILL");
+    } catch {
+        try {
+            process.kill(id, "SIGKILL");
+        } catch {
+            /* ignore */
+        }
+    }
+}
 
 /** 杀掉占用该账号 profile 的所有 Edge 进程（上一个任务遗留的窗口会锁住 profile）。 */
 async function killProfileBrowsers(accountId) {
@@ -443,9 +542,7 @@ function send(res, status, body) {
     const payload = typeof body === "string" ? body : JSON.stringify(body);
     res.writeHead(status, {
         "content-type": typeof body === "string" ? "text/plain; charset=utf-8" : "application/json; charset=utf-8",
-        "access-control-allow-origin": "*",
-        "access-control-allow-methods": "GET,POST,DELETE,OPTIONS",
-        "access-control-allow-headers": "content-type",
+        "x-content-type-options": "nosniff",
         "cache-control": "no-store",
     });
     res.end(payload);
@@ -579,13 +676,12 @@ function pickAccountByMode(mode, preferredAccountId, capability = "", provider =
             return { ok: false, reason: "ACCOUNT_NOT_LOGGED_IN", message: `账号 ${account.name} 未登录` };
         }
         if (quotaBlockedFor(account.id, capability)) {
-            // 从当前号之后开始绕一圈找：号池顺序优先，找不到再回到自己（让它如实报额度不足）
-            const ordered = [...all.slice(index + 1), ...all.slice(0, index)];
-            const fallback = ordered.find((item) => isLoggedIn(item) && !quotaBlockedFor(item.id, capability));
-            if (fallback) {
-                return { ok: true, account: fallback, reason: "QUOTA_FALLBACK", message: `「${account.name}」${capability}额度不足，已按号池顺序改用「${fallback.name}」` };
-            }
-            return { ok: true, account, reason: "MANUAL_SELECTED", message: `所有账号${capability}额度都不足，仍用「${account.name}」尝试` };
+            // 手动选号是用户的明确决定：额度不足就如实报错，绝不静默换号（换号会消耗另一个账号的额度）。
+            return {
+                ok: false,
+                reason: "ACCOUNT_QUOTA_BLOCKED",
+                message: `「${account.name}」${capability}额度不足，请手动换号；桥接不会自动切换账号`,
+            };
         }
         return { ok: true, account, reason: "MANUAL_SELECTED" };
     }
@@ -1034,12 +1130,12 @@ function newJobId() {
     return `job-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 }
 
-function listJobs(limit = 50) {
-    return jobOrder
-        .slice(-limit)
-        .reverse()
-        .map((id) => {
+function listJobs(limit = 50, nodeId = null) {
+    // 先按 nodeId 过滤再截断 limit：否则同节点稍早的任务会被其他节点的新任务挤出结果集。
+    const ids = nodeId ? jobOrder.filter((id) => jobs.get(id)?.nodeId === nodeId).slice(-limit).reverse() : jobOrder.slice(-limit).reverse();
+    return ids.map((id) => {
             const job = jobs.get(id);
+            if (!job) return null;
             return {
                 id: job.id,
                 nodeId: job.nodeId || null,
@@ -1057,12 +1153,15 @@ function listJobs(limit = 50) {
                 progress: job.progress,
                 modelName: job.modelName || null,
                 requestedParams: job.requestedParams || null,
+                appliedParams: job.appliedParams || null,
+                unsupportedParams: job.unsupportedParams || null,
                 actualParams: job.actualParams || null,
                 files: job.files,
                 error: job.error,
                 text: job.text,
             };
-        });
+        })
+        .filter(Boolean);
 }
 
 async function runJob(job) {
@@ -1079,6 +1178,12 @@ async function runJob(job) {
     try {
         job.status = "running";
         job.startedAt = new Date().toISOString();
+        if (job.cancelRequested) {
+            job.status = "failed";
+            job.error = { reason: "CANCELED", message: "用户取消" };
+            job.finishedAt = new Date().toISOString();
+            return;
+        }
         const siteName = providerOf(account).name;
         job.progress = `正在准备${siteName}窗口…`;
 
@@ -1092,6 +1197,20 @@ async function runJob(job) {
         fs.mkdirSync(specDir, { recursive: true });
         const specFile = path.join(specDir, `${job.id}.json`);
         const site = providerOf(account);
+        const appliedParams = job.appliedParams || resolveRequestedParams(job.requestedParams, job.expectedArtifactKind).appliedParams;
+        const ratio = normalizeRatio(appliedParams.ratio, job.expectedArtifactKind === "video" ? "video" : "image", site.id);
+        const duration = job.expectedArtifactKind === "video" ? normalizeDuration(appliedParams.duration) : null;
+        const count = appliedParams.count ?? null;
+        // 记录最终真正交给执行器的参数；网页读回结果在任务结束时写入 actualParams，二者可对照。
+        job.appliedParams = {
+            ...appliedParams,
+            ...(job.modelName ? { model: job.modelName } : {}),
+            ...(ratio ? { ratio } : {}),
+            ...(duration ? { duration } : {}),
+            ...(count !== null ? { count } : {}),
+            mode: job.mode,
+            attachmentCount: job.attachments.length,
+        };
         fs.writeFileSync(
             specFile,
             JSON.stringify({
@@ -1103,13 +1222,17 @@ async function runJob(job) {
                 siteCapability: site.capabilities[job.expectedArtifactKind === "text" ? "text" : job.expectedArtifactKind] || job.capability,
                 prompt: job.prompt,
                 model: job.modelName,
-                ratio: job.requestedParams?.ratio ?? null,
-                duration: job.requestedParams?.duration ?? null,
+                // 提交前收敛到网页端真实存在的选项；Dola 的「自动」文案是 Auto。
+                ratio,
+                duration,
                 // 画布要几张：产物多了也只回传这么多
-                count: job.requestedParams?.count ?? null,
+                count,
                 attachments: job.attachments,
                 mode: job.mode,
                 expectedArtifactKind: job.expectedArtifactKind || null,
+                requestedParams: job.requestedParams,
+                appliedParams: job.appliedParams,
+                unsupportedParams: job.unsupportedParams,
             }),
         );
 
@@ -1137,6 +1260,8 @@ async function runJob(job) {
         const finish = (payload, killChild = false) => {
             if (settled) return;
             settled = true;
+            // 用户取消优先：即使 Runner 随后正常吐了 result，也不能把任务改回 succeeded。
+            if (job.cancelRequested) payload = { ok: false, error: { reason: "CANCELED", message: "用户取消" } };
             if (timer) clearTimeout(timer);
             // 只在超时/异常时 kill 子进程，正常完成让它自己退出
             if (killChild) {
@@ -1271,6 +1396,20 @@ function enqueue(job, releaseSlot) {
 /* ---------------------------------- HTTP 路由 -------------------------------- */
 
 const server = http.createServer(async (req, res) => {
+    // 防 DNS rebinding：Host 必须是本机回环地址，否则浏览器里的恶意站点可以借域名解析到 127.0.0.1 操控账号。
+    if (!hostHeaderAllowed(req)) return send(res, 403, { ok: false, error: "forbidden host" });
+    const origin = typeof req.headers.origin === "string" ? req.headers.origin : "";
+    const unsafe = !["GET", "HEAD", "OPTIONS"].includes(String(req.method || "GET").toUpperCase());
+    // 写操作用 Origin 白名单；curl 这类无 Origin 的本地请求按来源 IP 兜底。
+    if (origin) {
+        if (!ALLOWED_ORIGINS.has(origin)) return send(res, 403, { ok: false, error: "origin not allowed" });
+        res.setHeader("access-control-allow-origin", origin);
+        res.setHeader("vary", "Origin");
+        res.setHeader("access-control-allow-methods", "GET,POST,DELETE,OPTIONS");
+        res.setHeader("access-control-allow-headers", "content-type");
+    } else if (unsafe && !isLoopbackAddress(req.socket.remoteAddress)) {
+        return send(res, 403, { ok: false, error: "forbidden" });
+    }
     if (req.method === "OPTIONS") return send(res, 204, "");
     const url = new URL(req.url || "/", `http://${req.headers.host || "127.0.0.1"}`);
     const parts = url.pathname.split("/").filter(Boolean);
@@ -1285,7 +1424,6 @@ const server = http.createServer(async (req, res) => {
                 service: "doubao-bridge",
                 cli: CLI,
                 cliExists: fs.existsSync(CLI),
-                accountsRoot: ACCOUNTS_ROOT,
                 accounts: readAccounts().length,
                 running: [...runningByAccount.values()].reduce((sum, value) => sum + value, 0),
             });
@@ -1444,7 +1582,7 @@ const server = http.createServer(async (req, res) => {
                 const file = path.join(p.state, "login-qr", "qr.png");
                 if (!fs.existsSync(file)) return send(res, 404, "no qr yet");
                 const stat = fs.statSync(file);
-                res.writeHead(200, { "content-type": "image/png", "content-length": stat.size, "cache-control": "no-store", "access-control-allow-origin": "*" });
+                res.writeHead(200, { "content-type": "image/png", "content-length": stat.size, "cache-control": "no-store", ...fileCorsHeaders(req) });
                 fs.createReadStream(file).pipe(res);
                 return;
             }
@@ -1566,7 +1704,7 @@ const server = http.createServer(async (req, res) => {
             const account = findAccount(accountId);
             if (!account) return send(res, 404, { ok: false, error: "账号不存在" });
             const name = path.basename(url.searchParams.get("name") || `upload-${Date.now()}`);
-            const buffer = await readBody(req);
+            const buffer = await readBody(req, 128 * 1024 * 1024);
             const p = ensureAccountDirs(account.id);
             const target = path.join(p.uploads, `${Date.now()}-${name}`);
             fs.writeFileSync(target, buffer);
@@ -1579,7 +1717,7 @@ const server = http.createServer(async (req, res) => {
             const prompt = String(body.prompt || "").trim();
             if (!prompt) return send(res, 400, { ok: false, error: "提示词不能为空" });
 
-            // 账号调度：手动选的号额度不足时按号池顺序顺延；auto 模式按顺序轮询未额度不足的号。
+            // 账号调度：manual 模式必须使用用户明确选定的账号；auto 模式才按顺序轮询。
             // provider 由模型决定（豆包模型 / Dola 模型），保证不会拿豆包账号去跑 Dola 模型。
             const mode = String(body.accountSelectionMode || "manual");
             const capability = String(body.capability || VIDEO_CAPABILITY);
@@ -1593,12 +1731,27 @@ const server = http.createServer(async (req, res) => {
             }
             const account = accountResult.account;
             // 注意：不检查 busy/并发——并发槽位在下面统一占用
-            const attachments = (Array.isArray(body.attachments) ? body.attachments : []).map(String).filter((file) => fs.existsSync(file));
+            const rawAttachments = (Array.isArray(body.attachments) ? body.attachments : []).map(String).filter(Boolean);
+            const attachments = rawAttachments.filter((file) => fs.existsSync(file));
+            // 参考素材缺失不能静默丢掉：否则前端以为按参考图/视频提交，实际退化成纯文本生成。
+            if (attachments.length !== rawAttachments.length) {
+                return send(res, 400, { ok: false, error: { reason: "ATTACHMENT_MISSING", message: "参考素材文件不存在，请重新上传后再生成" } });
+            }
             // P0: 新任务必须显式传 expectedArtifactKind，不允许用中文 capability 推断
             const expectedArtifactKind = String(body.expectedArtifactKind || "");
             if (!["image", "video", "text"].includes(expectedArtifactKind)) {
                 return send(res, 400, { ok: false, error: { reason: "INVALID_ARTIFACT_KIND", message: "必须指定 expectedArtifactKind (image/video/text)" } });
             }
+            const modelName = body.modelName ? String(body.modelName) : null;
+            const requestedParams = body.requestedParams && typeof body.requestedParams === "object" ? body.requestedParams : null;
+            const split = resolveRequestedParams(requestedParams, expectedArtifactKind);
+            const normalized = normalizeAppliedParams(split.appliedParams, expectedArtifactKind);
+            const appliedParams = {
+                ...normalized.appliedParams,
+                ...(modelName ? { model: modelName } : {}),
+                ...(attachments.length ? { attachmentCount: attachments.length } : {}),
+            };
+            const unsupportedParams = [...split.unsupportedParams, ...normalized.unsupportedParams];
             const job = {
                 id: newJobId(),
                 // 发起这次生成的画布节点：结果必须回到这个节点
@@ -1620,8 +1773,11 @@ const server = http.createServer(async (req, res) => {
                 mode: String(body.mode || "text-to-video"),
                 expectedArtifactKind, // 明确期望产物类型：image / video
                 // 用户在节点里选的模型与参数：原样记录，是否被豆包采用由 actualParams（解析原文）说话
-                modelName: body.modelName ? String(body.modelName) : null,
-                requestedParams: body.requestedParams && typeof body.requestedParams === "object" ? body.requestedParams : null,
+                modelName,
+                requestedParams,
+                // 实际提交给执行器的参数（已按网页端能力收敛）与未提交参数
+                appliedParams,
+                unsupportedParams,
                 actualParams: null,
                 attachments,
                 status: "queued",
@@ -1652,8 +1808,22 @@ const server = http.createServer(async (req, res) => {
         // GET /api/jobs
         if (api[0] === "jobs" && api.length === 1 && req.method === "GET") {
             const nodeId = url.searchParams.get("nodeId");
-            const list = listJobs(Number(url.searchParams.get("limit") || 50));
-            return send(res, 200, { ok: true, jobs: nodeId ? list.filter((job) => job.nodeId === nodeId) : list });
+            const limit = Math.max(1, Math.min(1000, Number(url.searchParams.get("limit") || 50) || 50));
+            const list = listJobs(limit, nodeId);
+            return send(res, 200, { ok: true, jobs: list });
+        }
+
+        // POST /api/jobs/:id/cancel —— 真正停掉后台 Runner（前端取消/重新生成时调用）
+        if (api[0] === "jobs" && api.length === 3 && api[2] === "cancel" && req.method === "POST") {
+            const job = jobs.get(api[1]);
+            if (!job) return send(res, 404, { ok: false, error: "任务不存在" });
+            if (job.status === "succeeded" || job.status === "failed") return send(res, 200, { ok: true, canceled: false, status: job.status });
+            job.cancelRequested = true;
+            job.status = "failed";
+            job.error = { reason: "CANCELED", message: "用户取消" };
+            job.finishedAt = new Date().toISOString();
+            killProcessTree(job.runnerPid);
+            return send(res, 200, { ok: true, canceled: true, status: job.status });
         }
 
         // GET /api/jobs/:id
@@ -1675,6 +1845,8 @@ const server = http.createServer(async (req, res) => {
                         mode: job.mode,
                         modelName: job.modelName ?? null,
                         requestedParams: job.requestedParams ?? null,
+                        appliedParams: job.appliedParams ?? null,
+                        unsupportedParams: job.unsupportedParams ?? null,
                         actualParams: job.actualParams ?? null,
                         status: job.status,
                         createdAt: job.createdAt,
@@ -1709,7 +1881,7 @@ const server = http.createServer(async (req, res) => {
             }
             if (!file || !fs.existsSync(file.path)) {
                 // 别让浏览器把 404 缓存住：文件补上之后画布刷新还能正常播
-                res.writeHead(404, { "cache-control": "no-store", "access-control-allow-origin": "*" });
+                res.writeHead(404, { "cache-control": "no-store", ...fileCorsHeaders(req) });
                 return res.end("file not found");
             }
             const stat = fs.statSync(file.path);
@@ -1721,7 +1893,7 @@ const server = http.createServer(async (req, res) => {
                 let end = range[1] && range[2] ? Number(range[2]) : stat.size - 1;
                 end = Math.min(end, stat.size - 1);
                 if (!Number.isFinite(start) || start > end || start >= stat.size) {
-                    res.writeHead(416, { "content-range": `bytes */${stat.size}`, "access-control-allow-origin": "*" });
+                    res.writeHead(416, { "content-range": `bytes */${stat.size}`, ...fileCorsHeaders(req) });
                     return res.end();
                 }
                 res.writeHead(206, {
@@ -1730,7 +1902,7 @@ const server = http.createServer(async (req, res) => {
                     "content-range": `bytes ${start}-${end}/${stat.size}`,
                     "accept-ranges": "bytes",
                     "content-disposition": disposition,
-                    "access-control-allow-origin": "*",
+                    ...fileCorsHeaders(req),
                     "access-control-expose-headers": "content-range,content-length",
                 });
                 fs.createReadStream(file.path, { start, end }).pipe(res);
@@ -1741,7 +1913,7 @@ const server = http.createServer(async (req, res) => {
                 "content-length": stat.size,
                 "accept-ranges": "bytes",
                 "content-disposition": disposition,
-                "access-control-allow-origin": "*",
+                ...fileCorsHeaders(req),
             });
             fs.createReadStream(file.path).pipe(res);
             return;

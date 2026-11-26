@@ -41,10 +41,9 @@ function bootstrapAdmin(): void {
     writeFileSync(
       path,
       `username=${config.adminUsername}\npassword=${password}\n\n首次登录后请立即修改密码并删除本文件。\n`,
-      "utf8",
+      { encoding: "utf8", mode: 0o600 },
     );
-    console.log(`[bootstrap] 随机密码已写入 ${path}`);
-    console.log(`[bootstrap] 密码：${password}  ← 仅本次显示，请立即保存`);
+    console.log(`[bootstrap] 初始管理员密码已写入 ${path}（请立即保存并删除该文件，不要提交到仓库或打进镜像）`);
   }
 }
 

@@ -9,20 +9,24 @@ import { imageToDataUrl } from "@/services/image-storage";
 import { readVideoRequestParams } from "@/stores/model-schema";
 import { boolConfig, buildApiUrl, isLoopbackBaseUrl, modelOptionName, resolveModelRequestConfig, resolveModelScript, withLocalProxy, type AiConfig } from "@/stores/use-config-store";
 import { runModelPlugin } from "./model-plugin";
+import { cancelTask } from "./lihuo-server";
+import { cloudCreateVideoTask, cloudPollVideoTask, isCloudMode } from "./cloud-generation";
 import type { ReferenceImage } from "@/types/image";
 import type { ReferenceAudio, ReferenceVideo } from "@/types/media";
-import { builtinProviderName, builtinProviderOf, isDoubaoBuiltinModel } from "@/constants/doubao-builtin";
-import { getJob, DOUBAO_BRIDGE_URL } from "./doubao-bridge";
+import { builtinProviderOf, isDoubaoBuiltinModel } from "@/constants/doubao-builtin";
+import { getJob, cancelJob, createVideoJob, uploadAttachment, DOUBAO_BRIDGE_URL } from "./doubao-bridge";
+import { resolveDoubaoAccountId } from "./doubao-bridge-adapter";
+import { buildDoubaoVideoRequestedParams, doubaoVideoMode } from "./doubao-request-params";
 
 type VideoResponse = { id: string; status?: string; error?: { message?: string }; url?: string; result_url?: string; video_url?: string; content?: { video_url?: string; url?: string } | null };
 type ApiVideoResponse = VideoResponse | { code?: number | string; data?: VideoResponse | null; msg?: string; message?: string; error?: { message?: string } };
 type ApiEnvelope<T> = T | { code?: number | string; data?: T | null; msg?: string; message?: string; error?: { message?: string } };
-type RequestOptions = { signal?: AbortSignal };
-type VideoMediaOptions = RequestOptions & { videos?: ReferenceVideo[]; audios?: ReferenceAudio[]; nodeId?: string };
+type RequestOptions = { signal?: AbortSignal; idempotencyKey?: string };
+type VideoMediaOptions = RequestOptions & { videos?: ReferenceVideo[]; audios?: ReferenceAudio[]; nodeId?: string; idempotencyKey?: string };
 const apiText = (key: string, options?: Record<string, unknown>) => i18n.t(`apiErrors.${key}`, options);
 
 export type VideoGenerationResult = { blob?: Blob; url?: string; mimeType?: string };
-export type VideoGenerationTask = { id: string; provider: "openai" | "gemini" | "plugin" | "doubao"; model: string };
+export type VideoGenerationTask = { id: string; provider: "openai" | "gemini" | "plugin" | "doubao" | "cloud"; model: string };
 type GeminiInlineData = { bytesBase64Encoded: string; mimeType: string };
 type GeminiVideoOperation = {
     name?: string;
@@ -52,16 +56,32 @@ export async function requestVideoGeneration(config: AiConfig, prompt: string, r
 }
 
 export async function waitForVideoGenerationTask(config: AiConfig, task: VideoGenerationTask, options?: RequestOptions): Promise<VideoGenerationResult> {
-    for (let attempt = 0; attempt < 200; attempt += 1) {
-        if (options?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
-        const state = await pollVideoGenerationTask(config, task, options);
-        if (state.status === "completed") return state.result;
-        if (state.status === "failed") throw videoTaskFailed(state.error);
-        if (attempt === 199) throw new Error(apiText("videoTimeout", { provider: "" }));
-        // 豆包任务在本地桥接里，轮询快一点能早 1-2 秒拿到产物
-        await delay(1500, options?.signal);
+    // 豆包任务在桥接里：前端取消时同步取消后台 Runner，避免旧任务继续跑并晚到覆盖新卡片。
+    const signal = options?.signal;
+    const cancel = task.provider === "doubao" && signal
+        ? () => {
+              void cancelJob(task.id).catch(() => undefined);
+          }
+        : null;
+    if (cancel) {
+        if (signal!.aborted) cancel();
+        else signal!.addEventListener("abort", cancel, { once: true });
     }
-    throw new Error(apiText("videoTimeout", { provider: "" }));
+    try {
+        for (let attempt = 0; attempt < 200; attempt += 1) {
+            if (options?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
+            const state = await pollVideoGenerationTask(config, task, options);
+            if (options?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
+            if (state.status === "completed") return state.result;
+            if (state.status === "failed") throw videoTaskFailed(state.error);
+            if (attempt === 199) throw new Error(apiText("videoTimeout", { provider: "" }));
+            // 豆包任务在本地桥接里，轮询快一点能早 1-2 秒拿到产物
+            await delay(1500, options?.signal);
+        }
+        throw new Error(apiText("videoTimeout", { provider: "" }));
+    } finally {
+        if (cancel) signal!.removeEventListener("abort", cancel);
+    }
 }
 
 export function isVideoTaskFailed(error: unknown) {
@@ -75,57 +95,61 @@ function videoTaskFailed(message: string) {
 }
 
 export async function createVideoGenerationTask(config: AiConfig, prompt: string, references: ReferenceImage[] = [], options?: VideoMediaOptions): Promise<VideoGenerationTask> {
+    if (isCloudMode(config)) return cloudCreateVideoTask(config, prompt, references, options);
     // P1: 视频任务优先用 videoModel，不是全局 model（全局 model 可能是图片模型）
     const selectedModel = (config.videoModel || config.model).trim();
     if (isDoubaoBuiltinModel(selectedModel)) {
         // 豆包 / Dola bridge 路由：创建 job，后续 poll 走 getJob
-        // 站点由模型决定（builtin-doubao → 豆包，builtin-dola → Dola），账号必须在同一站点里选
+        // 站点由模型决定（builtin-doubao → 豆包，builtin-dola → Dola），账号必须使用用户选定的同站点账号。
         const builtinProvider = builtinProviderOf(selectedModel);
-        const siteLabel = builtinProviderName(builtinProvider);
-        const { listAccounts, createVideoJob, uploadAttachment } = await import("./doubao-bridge");
-        const accounts = (await listAccounts()).filter((a) => (a.provider ?? "doubao") === builtinProvider);
-        const loggedIn = accounts.filter((a) => a.state.loggedIn);
-        if (!loggedIn.length) throw new Error(`${siteLabel}未登录：请先在账号池扫码登录`);
+        // 统一用适配器的账号解析：显式选择 > 配置选择 > 号池当前账号；绝不擅自换成第一个登录账号。
+        const accountId = await resolveDoubaoAccountId(String((config as Record<string, unknown>).doubaoAccountId || ""), builtinProvider);
+        if (options?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
 
-        // 账号调度模式：显式配置 / 号池当前账号优先，都没有才交给桥接的 auto
-        const { useDoubaoAccountStore } = await import("@/stores/use-doubao-account-store");
-        const configuredAccountId = String((config as Record<string, unknown>).doubaoAccountId || "").trim();
-        const requestedAccountId = configuredAccountId || useDoubaoAccountStore.getState().currentAccountId || "";
-        // 选的号不属于该站点时不要硬塞给桥接（会被拒），退回 auto 让桥接在该站点里挑
-        const preferredAccountId = accounts.some((a) => a.id === requestedAccountId) ? requestedAccountId : "";
-        const accountSelectionMode = preferredAccountId ? "manual" : "auto";
+        // 画布上连线到视频卡片的图片 / 视频 / 音频都要真实上传给站点，不能只传图片。
+        const images = await Promise.all(references.map((reference) => imageToDataUrl(reference)));
+        const videoFiles = await Promise.all((options?.videos || []).map((video) => referenceMediaToFile(video, "ref.mp4", "invalidReferenceVideo", options)));
+        const audioFiles = await Promise.all((options?.audios || []).map((audio) => referenceMediaToFile(audio, "ref.mp3", "invalidReferenceAudio", options)));
+        const attachments: string[] = [];
+        for (const [index, image] of images.entries()) {
+            const blob = await (await fetch(image, { signal: options?.signal })).blob();
+            attachments.push(await uploadAttachment(accountId, blob, `ref-${index}.png`));
+            if (options?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
+        }
+        for (const [index, file] of videoFiles.entries()) {
+            attachments.push(await uploadAttachment(accountId, file, file.name || `ref-${index}.mp4`));
+            if (options?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
+        }
+        for (const [index, file] of audioFiles.entries()) {
+            attachments.push(await uploadAttachment(accountId, file, file.name || `ref-${index}.mp3`));
+            if (options?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
+        }
+        if (options?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
 
-        // 先上传素材到账号目录（用第一个账号先传，后端调度会重新分配）
-        const accountIdForUpload = accountSelectionMode === "manual" && preferredAccountId
-            ? preferredAccountId
-            : loggedIn[0].id;
-        // 画布上连线到视频卡片的图片（references）必须真实上传给站点，和提示词一起提交
-        // 并发上传：多图任务串行传会明显拖慢「传到豆包」的耗时
-        const attachments = (
-            await Promise.all(
-                references.slice(0, 6).map(async (reference, index) => {
-                    try {
-                        const blob = await (await fetch(reference.dataUrl)).blob();
-                        return await uploadAttachment(accountIdForUpload, blob, reference.name || `ref-${index}.png`);
-                    } catch {
-                        return ""; // 读不到字节的跳过，不阻塞任务
-                    }
-                }),
-            )
-        ).filter(Boolean);
-        // 比例/时长按当前模型 Schema 收敛后提交；「自动」比例保留原文案交给网页端
+        // 比例/时长按当前模型 Schema 收敛后提交；「自动」比例保留原文案交给网页端。
         const { ratio, duration } = readVideoRequestParams(config);
+        const mode = doubaoVideoMode(images.length, videoFiles.length + audioFiles.length);
+        const requestedParams = buildDoubaoVideoRequestedParams({
+            model: modelOptionName(selectedModel),
+            mode,
+            ratio,
+            duration,
+            size: config.size || "auto",
+            resolution: normalizeVideoResolution(config.vquality),
+            count: 1,
+            attachmentCount: attachments.length,
+        });
         const job = await createVideoJob({
-            accountId: preferredAccountId,
+            accountId,
             provider: builtinProvider || undefined,
-            accountSelectionMode,
+            accountSelectionMode: "manual",
             prompt,
             capability: "视频生成",
             // 桥接强制要求：不传会被 400 拒绝（INVALID_ARTIFACT_KIND）
             expectedArtifactKind: "video",
-            mode: attachments.length ? "image-to-video" : "text-to-video",
+            mode,
             modelName: modelOptionName(selectedModel),
-            requestedParams: { model: modelOptionName(selectedModel), ratio, duration },
+            requestedParams,
             attachments,
             nodeId: options?.nodeId,
         });
@@ -139,7 +163,18 @@ export async function createVideoGenerationTask(config: AiConfig, prompt: string
     return createOpenAIVideoTask(requestConfig, selectedModel, prompt, references, options);
 }
 
+/**
+ * 取消云端视频任务（Phase 5 P0-3）。
+ *
+ * 只对 provider=cloud 有效：本地直连的取消语义各厂商不同，
+ * 本阶段不扩大改造范围（本地停止仍然只是 abort 轮询）。
+ */
+export async function cancelCloudVideoTask(taskId: string) {
+    return cancelTask(taskId);
+}
+
 export async function pollVideoGenerationTask(config: AiConfig, task: VideoGenerationTask, options?: RequestOptions): Promise<VideoGenerationTaskState> {
+    if (task.provider === "cloud") return cloudPollVideoTask(task, options);
     if (task.provider === "doubao") {
         const job = await getJob(task.id);
         if (options?.signal?.aborted) throw new DOMException("Aborted", "AbortError");

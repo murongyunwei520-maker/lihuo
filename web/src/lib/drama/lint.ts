@@ -45,6 +45,15 @@ export function lintSequence(sequence: DramaSequence): DramaIssue[] {
         if (/特写|近景/.test(shot.size) && !hasCharacterRef(sequence, shot)) {
             issues.push({ id: `ref-${shot.id}`, level: "warning", shotId: shot.id, title: `镜 ${shot.no} 是${shot.size}，但没挂角色参考`, detail: "同集已有该角色时，脸型容易不一致" });
         }
+        // 剧本改过之后，旧素材还挂在这一镜上：不拦住，但要明确告诉用户哪些已经对不上了。
+        const stale = [
+            shot.generation?.image?.stale && shot.imageRef ? "画面" : "",
+            shot.generation?.audio?.stale && shot.audioRef ? "配音" : "",
+            shot.generation?.video?.stale && shot.videoRef ? "视频" : "",
+        ].filter(Boolean);
+        if (stale.length) {
+            issues.push({ id: `stale-${shot.id}`, level: "warning", shotId: shot.id, title: `镜 ${shot.no} 剧本内容改过，${stale.join(" / ")}还是旧的`, detail: "重新生成后会自动清掉标记；也可以先确认内容再决定要不要重做" });
+        }
     });
 
     // 穿帮检查：同场景同景别的镜头按出现顺序比较光位。
