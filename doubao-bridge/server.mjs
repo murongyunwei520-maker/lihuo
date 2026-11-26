@@ -198,9 +198,9 @@ if (!LOOPBACK_HOSTS.has(String(HOST).toLowerCase())) {
     console.error(`[doubao-bridge] 拒绝监听 ${HOST}:桥接持有账号登录态，只允许 127.0.0.1 / localhost / ::1。`);
     process.exit(1);
 }
-// 浏览器来源白名单：本地开发/预览默认端口；额外来源用 DOUBAO_BRIDGE_ALLOWED_ORIGINS 显式追加。
+// 浏览器来源白名单：本地开发/预览默认端口；GitHub Pages 静态站可直接连本机桥接；额外来源用 DOUBAO_BRIDGE_ALLOWED_ORIGINS 显式追加。
 const ALLOWED_ORIGINS = new Set(
-    (process.env.DOUBAO_BRIDGE_ALLOWED_ORIGINS || "http://127.0.0.1:3000,http://localhost:3000,http://127.0.0.1:5173,http://localhost:5173,http://127.0.0.1:4173,http://localhost:4173")
+    (process.env.DOUBAO_BRIDGE_ALLOWED_ORIGINS || "http://127.0.0.1:3000,http://localhost:3000,http://127.0.0.1:3001,http://localhost:3001,http://127.0.0.1:5173,http://localhost:5173,http://127.0.0.1:4173,http://localhost:4173,https://murongyunwei520-maker.github.io")
         .split(",")
         .map((value) => value.trim())
         .filter(Boolean),

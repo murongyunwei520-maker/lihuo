@@ -81,4 +81,8 @@ export const router = createBrowserRouter([
     { path: "/reset-password", element: <ResetPasswordPage /> },
     { path: "/verify-email", element: <VerifyEmailPage /> },
     { path: "*", element: <NotFound /> },
-]);
+], {
+    // GitHub Pages 部署在 /<repo>/ 子路径，浏览器路由必须使用同一 basename；
+    // 本地与同域部署的 BASE_URL 为 /，去掉末尾斜杠后回退到根路径。
+    basename: import.meta.env.BASE_URL.replace(/\/$/, "") || "/",
+});
