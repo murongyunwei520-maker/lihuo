@@ -235,6 +235,8 @@ function seed(kind: "shot" | "episode" | "selection") {
     assert.equal(production.storyboardReview?.proposals?.find((item) => item.proposalId === "prop-b")?.decision.status, "conflict");
     assert.equal(production.storyboardReview?.proposals?.find((item) => item.proposalId === "prop-b")?.decision.autoConflict, true);
     assert.equal(production.storyboardReview?.proposalApplications?.find((item) => item.proposalId === "prop-b")?.status, "conflict");
+    assert.equal(production.storyboardReview?.proposalApplications?.find((item) => item.proposalId === "prop-b")?.persisted, true, "正式版本变化必须通过写入协议持久化冲突");
+    assert.equal(production.storyboardReview?.proposalApplications?.find((item) => item.proposalId === "prop-b")?.derived, false);
     assert.equal(production.storyboardReview?.proposalApplications?.find((item) => item.proposalId === "prop-b")?.acceptedChangeIds.length, 0);
     const repeat = await markAiProposalConflictAction({ projectId: "proj-1", episodeId: "ep-1", proposalId: "prop-b", store: fake.store });
     assert.equal(repeat.ok, false, "已冲突提案不能重复标记");

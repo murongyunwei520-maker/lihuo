@@ -50,6 +50,8 @@ export type Stage4ProposalApplyResult = {
     applicationId?: string;
     error?: string;
     details?: string[];
+    /** 资产 ID 有效、但当前模型没有独立变体记录；不能当作已验证事实。 */
+    unverifiedAssetDetails?: string[];
 };
 
 function setProjects(projects: StudioProject[] | undefined) {
@@ -599,6 +601,7 @@ export async function applyAiProposalAction(input: {
                     appliedChangeIds: plan.applied.map((change) => change.changeId),
                     newVersion: nextDocument.storyboardVersion,
                     applicationId,
+                    unverifiedAssetDetails: assetCheck.status === "unverified" ? assetCheck.unverifiedDetails : undefined,
                 } satisfies Stage4ProposalApplyResult,
             };
         },

@@ -107,13 +107,19 @@ function clone<T>(value: T): T {
     return JSON.parse(JSON.stringify(value)) as T;
 }
 
-// 1. 合法引用通过。
-assert.equal(validateStoryboardAssetReferences(document(), assets).ok, true);
+// 1. 合法资产 ID 通过；没有独立场景变体记录时必须返回 unverified，不能默认 valid。
+{
+    const result = validateStoryboardAssetReferences(document(), assets);
+    assert.equal(result.ok, true);
+    assert.equal(result.status, "unverified");
+    assert.equal(result.ok && result.status === "unverified" && result.unverifiedDetails.some((detail) => detail.includes("场景变体")), true);
+}
 
 // 2. 人物删除 / 归档 / 名称匹配不能救回错误 ID。
 {
     const missing = validateStoryboardAssetReferences(document(), assets.filter((asset) => asset.id !== "char-a"));
     assert.equal(missing.ok, false);
+    assert.equal(missing.status, "invalid");
     assert.equal(missing.ok === false && missing.details.some((detail) => detail.includes("未找到人物资产")), true);
     const archived = clone(assets);
     archived[0].archived = true;
@@ -159,4 +165,16 @@ assert.equal(validateStoryboardAssetReferences(document(), assets).ok, true);
     assert.equal(notMemberResult.ok === false && notMemberResult.details.some((detail) => detail.includes("未登记")), true);
 }
 
-console.log("stage4-asset-validation-check: 4 groups passed");
+// 5. invalid 优先于 unverified；unverified 不阻止普通提案校验但必须显式暴露。
+{
+    const missingScene = document();
+    missingScene.shots[0].sceneBindings = { locationId: "loc-missing", locationVariantId: "variant-night" };
+    const invalid = validateStoryboardAssetReferences(missingScene, assets);
+    assert.equal(invalid.ok, false);
+    assert.equal(invalid.status, "invalid", "无效资产 ID 必须优先报 invalid");
+    const unverified = validateStoryboardAssetReferences(document(), assets);
+    assert.equal(unverified.status, "unverified");
+    assert.equal(unverified.ok, true, "unverified 不等于 invalid；4F 必须显式阻断，普通字段提案不应被误判为无效资产");
+}
+
+console.log("stage4-asset-validation-check: 5 groups passed");

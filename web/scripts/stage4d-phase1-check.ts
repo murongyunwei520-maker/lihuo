@@ -268,8 +268,11 @@ function proposal(version = 3): StudioAiAdjustmentProposal {
     assert.equal(changes[0].evidenceType, "explicit");
     assert.equal(changes[0].confidence, "high");
     assert.deepEqual(changes[0].sourceShotIds, ["s1"]);
-    assert.equal(changes[0].sourceChapterId, "ch-1");
-    assert.equal(changes[0].sourceVersion, "v2");
+    assert.equal(changes[0].sourceChapterId, undefined, "本次请求没有发送章节 ID，不得保留模型臆造来源");
+    assert.equal(changes[0].sourceVersion, "3", "来源版本必须取实际请求快照，不信任模型自填");
+    assert.equal(changes[0].sourceStatus, "confirmed");
+    assert.equal(parsed.warnings.some((warning) => warning.includes("sourceChapterId")), true);
+    assert.equal(parsed.warnings.some((warning) => warning.includes("sourceVersion")), true);
     assert.equal(changes[1].evidenceType, "unknown");
     assert.equal(proposalChangeEvidenceError(changes[1])?.includes("unknown"), true);
     assert.equal(changes[2].evidenceType, "inference", "声称 explicit 但输入中找不到，必须降级");
@@ -293,6 +296,9 @@ function proposal(version = 3): StudioAiAdjustmentProposal {
     assert.equal(normalized.proposals?.[0].decision.autoConflict, true);
     assert.equal(normalized.proposals?.[0].decision.decidedBy, "system:version-guard");
     assert.equal(normalized.proposalApplications?.filter((item) => item.proposalId === "proposal-1" && item.status === "conflict").length, 1);
+    const derivedApplication = normalized.proposalApplications?.find((item) => item.proposalId === "proposal-1" && item.status === "conflict");
+    assert.equal(derivedApplication?.persisted, false, "读取归一化派生冲突不得自称已持久化");
+    assert.equal(derivedApplication?.derived, true, "读取归一化派生冲突必须标记 derived");
     assert.equal(normalized.proposals?.[0].changes[0].evidenceType, "unknown", "旧提案缺证据不得被补成事实");
     assert.equal(proposalChangeEvidenceError(normalized.proposals![0].changes[0])?.includes("unknown"), true);
 
@@ -328,4 +334,38 @@ function proposal(version = 3): StudioAiAdjustmentProposal {
     assert.equal(parsed.findings[0].evidenceType, "inference", "未实际发送的证据必须降级");
 }
 
-console.log("stage4d-phase1-check: prompt/evidence/unknown/auto-conflict 4 groups passed");
+// 5. 提案来源不得自动回填修改目标；越界 sourceShotIds 必须丢弃并保持 unconfirmed。
+{
+    const parsed = parseStoryboardAiReview({
+        runId: "run-source-scope",
+        text: JSON.stringify({
+            findings: [],
+            proposals: [{
+                title: "来源校验",
+                rationale: "来源范围",
+                confidence: "high",
+                changes: [
+                    { shotId: "s1", fieldPath: "action", before: "两人对峙", after: "两人同时拔刀", reason: "无来源", impact: "当前镜头", evidence: "两人对峙", evidenceType: "explicit", confidence: "high", sourceShotIds: [] },
+                    { shotId: "s1", fieldPath: "emotion", before: "警觉", after: "紧张", reason: "越界来源", impact: "当前镜头", evidence: "两人对峙", evidenceType: "explicit", confidence: "high", sourceShotIds: ["s3"] },
+                ],
+            }],
+        }),
+        document: document(),
+        script: script(),
+        scopeType: "shot",
+        scopeShotIds: ["s1"],
+        allowedFindingShotIds: ["s1"],
+        allowedProposalShotIds: ["s1"],
+        continuity: continuity(),
+    });
+    const changes = parsed.proposals[0].changes;
+    assert.equal(changes[0].shotId, "s1");
+    assert.equal(changes[0].sourceShotIds, undefined, "没有模型来源时不得把修改目标自动填成证据来源");
+    assert.equal(changes[0].sourceStatus, "unconfirmed");
+    assert.equal(changes[0].sourceVersion, undefined);
+    assert.equal(changes[1].sourceShotIds, undefined, "不在实际发送范围的来源必须丢弃");
+    assert.equal(changes[1].sourceStatus, "unconfirmed");
+    assert.equal(parsed.warnings.some((warning) => warning.includes("sourceShotIds 不在本次实际发送范围")), true);
+}
+
+console.log("stage4d-phase1-check: prompt/evidence/unknown/auto-conflict/source-scope 5 groups passed");

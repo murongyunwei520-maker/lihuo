@@ -227,6 +227,9 @@ export function AiReviewPanel({
                     return;
                 }
                 message.success(`已应用 ${result.appliedChangeIds?.length ?? ids.length} 项修改，正式分镜 v${result.newVersion}；已保存应用前备份并重跑连续性检查`);
+                if (result.unverifiedAssetDetails?.length) {
+                    message.warning(`有 ${result.unverifiedAssetDetails.length} 项资产变体无法独立验证，未按有效处理：${result.unverifiedAssetDetails[0]}`);
+                }
             },
         });
     }
